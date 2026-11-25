@@ -18,6 +18,11 @@ async function signature(secret, value) {
   return Array.from(hash, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+async function fingerprint(value) {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value)));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 function equal(left, right) {
   if (!left || !right || left.length !== right.length) return false;
   let difference = 0;
@@ -130,10 +135,21 @@ export default {
     }
 
     if (request.method === 'POST' && path === '/api/cloud/snapshot') {
-      if (!equal(request.headers.get('Authorization'), 'Bearer ' + env.NORTH_INGEST_KEY)) return json({ detail: 'Unauthorized' }, 401);
+      const token = /^Bearer ([A-Za-z0-9+/=]{32,128})$/.exec(request.headers.get('Authorization') ?? '')?.[1];
+      if (!token) return json({ detail: 'Unauthorized' }, 401);
+      const legacyKey = equal(token, env.NORTH_INGEST_KEY);
+      const paired = legacyKey ? null : await env.DB.prepare(
+        'SELECT source_id, label, revoked_at FROM cloud_pairings WHERE token_hash = ?',
+      ).bind(await fingerprint(token)).first();
+      if (!legacyKey && (!paired || paired.revoked_at)) {
+        return json({ detail: 'Unauthorized' }, 401);
+      }
       try {
         const body = await readBody(request, maxBytes);
         if (!validSnapshot(body)) return json({ detail: 'Invalid collector snapshot' }, 422);
+        if (paired && body.source?.id !== paired.source_id) return json({ detail: 'Pairing belongs to another collector.' }, 403);
+        if (legacyKey && /^collector-[0-9a-f]{20}$/.test(body.source?.id ?? '')) return json({ detail: 'A collector pairing is required.' }, 403);
+        if (paired) body.source = { id: paired.source_id, label: paired.label };
         const now = new Date().toISOString();
         if (!await saveSnapshot(env.DB, body, now)) return json({ detail: 'Invalid collector identity' }, 422);
         return json({ updated_at: now });
@@ -158,6 +174,40 @@ export default {
     }
 
     if (!await sessionValid(request, env.NORTH_SESSION_SECRET)) return json({ detail: 'Sign in required' }, 401);
+
+    if (path === '/api/cloud/pairings') {
+      if (request.method === 'GET') {
+        const { results } = await env.DB.prepare(
+          `SELECT p.source_id, p.label, p.created_at, p.revoked_at, s.updated_at
+           FROM cloud_pairings p LEFT JOIN cloud_sources s ON s.id = p.source_id
+           ORDER BY p.created_at DESC LIMIT 100`,
+        ).all();
+        return json({ pairings: results });
+      }
+      if (request.method === 'POST') {
+        if (request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+        try {
+          const body = await readBody(request, 2048);
+          const label = typeof body.label === 'string' ? body.label.trim() : '';
+          if (!label || label.length > 80) return json({ detail: 'Enter a name up to 80 characters.' }, 422);
+          const sourceId = 'collector-' + crypto.randomUUID().replaceAll('-', '').slice(0, 20);
+          const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join('');
+          await env.DB.prepare('INSERT INTO cloud_pairings (source_id, label, token_hash, created_at) VALUES (?, ?, ?, ?)')
+            .bind(sourceId, label, await fingerprint(token), new Date().toISOString()).run();
+          return json({ source_id: sourceId, label, token }, 201);
+        } catch {
+          return json({ detail: 'Could not create the collector pairing.' }, 400);
+        }
+      }
+    }
+    const revoke = /^\/api\/cloud\/pairings\/(collector-[0-9a-f]{20})\/revoke$/.exec(path);
+    if (request.method === 'POST' && revoke) {
+      if (request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+      const result = await env.DB.prepare(
+        'UPDATE cloud_pairings SET revoked_at = coalesce(revoked_at, ?) WHERE source_id = ?',
+      ).bind(new Date().toISOString(), revoke[1]).run();
+      return result.meta.changes ? json({ revoked: true }) : json({ detail: 'Collector not found.' }, 404);
+    }
     if (request.method !== 'GET') return json({ detail: 'This cloud endpoint is read-only' }, 405);
     if (path === '/api/cloud/status') {
       const { results: sources } = await env.DB.prepare(

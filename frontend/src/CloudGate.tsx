@@ -1,14 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { CollectorSetup } from './CollectorSetup';
 
 type Source = { id: string; label: string; updated_at: string };
 
-export function CloudGate({ children }: { children: (source: string | null) => ReactNode }) {
+export function CloudGate({ children }: {
+  children: (source: string | null, openCollectors: () => void, controls: ReactNode) => ReactNode;
+}) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [key, setKey] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [sources, setSources] = useState<Source[]>([]);
   const [active, setActive] = useState('');
+  const [setup, setSetup] = useState(false);
   const source = sources.find((item) => item.id === active) ?? sources[0];
 
   useEffect(() => {
@@ -63,26 +67,32 @@ export function CloudGate({ children }: { children: (source: string | null) => R
       setSignedIn(false);
       setSources([]);
       setActive('');
+      setSetup(false);
       setMessage('');
     } catch {
       setMessage('Sign-out could not be completed.');
     }
   }
 
-  if (signedIn) return <>
-    <div className="cloud-banner">
-      {source ? <label>Collector{' '}
+  if (signedIn) {
+    const controls = <div className="cloud-banner">
+      <div className="cloud-context">
+      {source ? <label><span>Collector</span>
         <select value={source.id} onChange={(event) => setActive(event.target.value)}>
           {sources.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
-      </label> : <span>Waiting for a collector snapshot</span>}
-      {source && <span>Last collector sync {new Date(source.updated_at).toLocaleString()}</span>}
-      {!source && <span>Start a paired NORTH collector to send events here.</span>}
+      </label> : <span>No collector connected</span>}
+      {source && <span>Last sync {new Date(source.updated_at).toLocaleString()}</span>}
+      </div>
       {message && <span role="alert">{message}</span>}
-      <button onClick={() => void signOut()}>Sign out</button>
-    </div>
-    {children(source?.id ?? null)}
-  </>;
+      <div className="cloud-actions">
+        <button onClick={() => setSetup(!setup)} aria-pressed={setup}>Collectors</button>
+        <button onClick={() => void signOut()}>Sign out</button>
+      </div>
+    </div>;
+    return setup ? <>{controls}<CollectorSetup back={() => setSetup(false)} /></> :
+      children(source?.id ?? null, () => setSetup(true), controls);
+  }
 
   return <main className="cloud-sign-in">
     <section className="panel">

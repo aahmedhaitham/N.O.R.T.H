@@ -31,6 +31,14 @@ CREATE TABLE IF NOT EXISTS cloud_cases (
 );
 CREATE INDEX IF NOT EXISTS cloud_cases_time ON cloud_cases (source_id, timestamp DESC, id DESC);
 
+CREATE TABLE IF NOT EXISTS cloud_pairings (
+    source_id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    revoked_at TEXT
+);
+
 INSERT OR IGNORE INTO cloud_sources (id, label, network, updated_at)
 SELECT 'legacy', 'Earlier collector', json_extract(payload, '$.network'), updated_at FROM snapshots;
 

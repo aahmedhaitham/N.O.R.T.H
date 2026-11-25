@@ -11,13 +11,14 @@ const collectorStatus = {
   disabled: 'Disabled',
 };
 
-export function Dashboard({ endpoint, cases, loaded, demo, open, openCase }: {
+export function Dashboard({ endpoint, cases, loaded, demo, open, openCase, connect }: {
   endpoint: string;
   cases: CaseSummary[];
   loaded: boolean;
   demo: boolean;
   open: (section: Section) => void;
   openCase: (id: string) => void;
+  connect?: () => void;
 }) {
   const { inventory, fetchError } = useNetworkInventory(endpoint);
   const total = inventory?.assets.reduce((count, asset) => count + asset.events, 0);
@@ -44,11 +45,16 @@ export function Dashboard({ endpoint, cases, loaded, demo, open, openCase }: {
       { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' });
 
   return <main className="dashboard">
-    <header className="panel dashboard-heading">
+    <header className="dashboard-heading">
       <h1>Security overview</h1>
-      <p>{demo ? 'Explore the sample telemetry and follow it into an investigation.' :
-        'See what NORTH has collected, which investigations it opened, and whether your collectors are running.'}</p>
+      {demo && <p>Explore sample telemetry and follow it into an investigation.</p>}
     </header>
+    {connect && <section className="panel dashboard-connect">
+      <div><h2>Connect your first collector</h2>
+        <p>Pair a Windows device to start receiving network observations and security events.</p></div>
+      <button className="primary-action" onClick={connect}>Set up collector</button>
+    </section>}
+    {!connect && <>
     {fetchError && <p role="status">The device and event counts could not refresh.</p>}
     <section className="dashboard-metrics" aria-label="Security overview counts">
       {metrics.map((metric) => <button className="panel dashboard-metric" key={metric.label}
@@ -109,5 +115,6 @@ export function Dashboard({ endpoint, cases, loaded, demo, open, openCase }: {
       <p>{inventory.device_findings.unreviewed} awaiting review{demo && ' · Synthetic demo'}</p>
       <button onClick={() => open('network')}>Open device history</button>
     </section>}
+    </>}
   </main>;
 }

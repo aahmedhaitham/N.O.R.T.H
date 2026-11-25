@@ -14,7 +14,7 @@ function d1(sqlite) {
     bind: (...next) => bind(statement, next),
     all: async () => ({ results: statement.all(...values) }),
     first: async () => statement.get(...values) ?? null,
-    run: () => statement.run(...values),
+    run: () => ({ meta: { changes: statement.run(...values).changes } }),
   });
   return {
     prepare: (sql) => bind(sqlite.prepare(sql)),
@@ -73,4 +73,29 @@ test('cloud sources keep independent event and investigation history', async (t)
   assert.equal(await (await call('/api/cases/' + id + '/report?source=alpha', { headers })).text(), 'sample report');
   assert.equal((await call('/api/cases/' + id + '/report?source=beta', { headers })).status, 404);
   assert.equal((await call('/api/cases', { headers: { Cookie: headers.Cookie + 'x' } })).status, 401);
+
+  const pairings = '/api/cloud/pairings';
+  const operator = { ...headers, Origin: root };
+  assert.equal((await call(pairings)).status, 401);
+  assert.equal((await call(pairings, post({ label: 'Laptop' }, headers))).status, 403);
+  const created = await call(pairings, post({ label: 'Laptop' }, operator));
+  assert.equal(created.status, 201);
+  const pairing = await created.json();
+  assert.match(pairing.token, /^[a-f0-9]{64}$/);
+  const scopedSnapshot = { ...data, source: { id: pairing.source_id, label: 'Laptop' } };
+  const scopedKey = { Authorization: 'Bearer ' + pairing.token };
+  assert.equal((await call('/api/cloud/snapshot', post(scopedSnapshot, collectorHeaders))).status, 403);
+  assert.equal((await call('/api/cloud/snapshot', post(data, scopedKey))).status, 403);
+  assert.equal((await call('/api/cloud/snapshot', post(scopedSnapshot, scopedKey))).status, 200);
+  const list = await (await call(pairings, { headers })).json();
+  assert.equal(list.pairings[0].source_id, pairing.source_id);
+  assert.ok(list.pairings[0].updated_at);
+  assert.equal(list.pairings[0].token, undefined);
+  assert.equal(list.pairings[0].token_hash, undefined);
+  const revoke = pairings + '/' + pairing.source_id + '/revoke';
+  assert.equal((await call(revoke, post({}, headers))).status, 403);
+  assert.equal((await call(revoke, post({}, operator))).status, 200);
+  assert.equal((await call('/api/cloud/snapshot', post(scopedSnapshot, scopedKey))).status, 401);
+  const history = await (await call('/api/events?source=' + pairing.source_id, { headers })).json();
+  assert.equal(history.events.length, 1);
 });

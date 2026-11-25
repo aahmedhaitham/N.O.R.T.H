@@ -85,8 +85,12 @@ try {
     $cloudConnection = Join-Path $runtime 'cloud-connection.json'
     if (Test-Path -LiteralPath $cloudConnection) {
         $connection = Get-Content -LiteralPath $cloudConnection -Raw | ConvertFrom-Json
-        $keys = Get-Content -LiteralPath (Join-Path $runtime 'cloud-keys.json') -Raw | ConvertFrom-Json
-        $secureKey = ConvertTo-SecureString $keys.NORTH_INGEST_KEY
+        $storedKey = $connection.ingest_key
+        if (!$storedKey) {
+            $keys = Get-Content -LiteralPath (Join-Path $runtime 'cloud-keys.json') -Raw | ConvertFrom-Json
+            $storedKey = $keys.NORTH_INGEST_KEY
+        }
+        $secureKey = ConvertTo-SecureString $storedKey
         $credential = [Management.Automation.PSCredential]::new('north', $secureKey)
         $env:NORTH_CLOUD_URL = $connection.url
         $env:NORTH_CLOUD_SOURCE = $connection.source

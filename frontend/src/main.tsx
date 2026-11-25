@@ -24,7 +24,11 @@ const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
 const cloud = import.meta.env.MODE === 'cloud';
 
-function App({ source = null }: { source?: string | null }) {
+function App({ source = null, openCollectors, controls }: {
+  source?: string | null;
+  openCollectors?: () => void;
+  controls?: import('react').ReactNode;
+}) {
   const [view, setView] = useState<'dashboard' | 'cases' | 'network' | 'events'>('dashboard');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
@@ -118,6 +122,7 @@ function App({ source = null }: { source?: string | null }) {
         </button>
       </nav>
       <div className="shell-content">
+      {controls}
       <header className="topbar">
         <span>{{ dashboard: 'Overview', network: 'ATLAS / Network', events: 'IRIS / Events', cases: 'ECHO / Investigations' }[view]}</span>
         <InstallApp />
@@ -127,7 +132,7 @@ function App({ source = null }: { source?: string | null }) {
         </span>
       </header>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
-        demo={publicDemo} open={setView} openCase={openCase} />}
+        demo={publicDemo} open={setView} openCase={openCase} connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud} />
       </div>
@@ -273,4 +278,5 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
 }
 
 createRoot(document.getElementById('root')!).render(cloud ?
-  <CloudGate>{(source) => <App key={source ?? ''} source={source} />}</CloudGate> : <App />);
+  <CloudGate>{(source, openCollectors, controls) =>
+    <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} />}</CloudGate> : <App />);

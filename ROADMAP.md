@@ -52,6 +52,9 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | Portfolio | Core demo verified by user | Capture the walkthrough for the portfolio. Docker, live lab ingestion, and a real Ollama draft are tracked above. |
 | Public hosting | Prepared | The hosted image seeds synthetic Windows and Kali cases. The public URL and hosted smoke check are pending. |
 | Private NORTH Cloud | End-to-end verified | The bundled Windows app signed in and showed the Windows PC collector. The cloud acknowledged 17 distinct records and the dashboard displayed 17 events and five investigations. |
+| Collector onboarding | Implemented and API-tested | The workspace issues and revokes per-collector keys. Deploy the schema and verify a new device pairing on the live workspace. |
+| Desktop distribution | Windows x64 preview | Run the packaged app on a separate PC. Signed installers, additional OS builds and public download remain open. |
+| Product roadmap | Open | Add router integrations and traffic measurements where supported, cloud IRIS explanations with evidence citations, and broader ECHO correlation across sources. |
 
 ## Progress log
 
