@@ -1,6 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const { tmpdir } = require('node:os');
+const path = require('node:path');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
+const { deviceHistory } = require('./device-history.cjs');
 
 test('local workspace reads Windows data without cloud configuration', async () => {
   const makeEvent = (id, kind, fields) => ({ data: { win: {
@@ -43,4 +47,26 @@ test('failed Sysmon access leaves the local network view available', async () =>
   const snapshot = await (await api(new Request('north://app/api/network'))).json();
   assert.equal(snapshot.neighbors.state, 'ready');
   assert.equal(snapshot.sysmon.state, 'unavailable');
+  const page = await (await api(new Request('north://app/api/events'))).json();
+  assert.equal(page.coverage, 'sysmon_unavailable');
+});
+
+test('local device review persists across desktop sessions', async (t) => {
+  const folder = await fs.mkdtemp(path.join(tmpdir(), 'north-history-'));
+  t.after(() => fs.rm(folder, { recursive: true, force: true }));
+  const file = path.join(folder, 'history.json');
+  const device = (last) => ({ address: '192.0.2.' + last, mac: '02:12:34:56:78:0' + last, interface: 'Wi-Fi' });
+  const first = deviceHistory(file);
+  const at = '2026-11-25T12:00:00.000Z';
+  assert.deepEqual(await first.observe([], at), { baseline_at: null, unreviewed: 0, items: [] });
+  assert.equal((await first.observe([device(1)], at)).baseline_at, at);
+  const second = deviceHistory(file);
+  const later = '2026-11-25T12:05:00.000Z';
+  const newDevice = await second.observe([device(1), device(2)], later);
+  assert.equal(newDevice.unreviewed, 1);
+  const id = newDevice.items[0].id;
+  const api = makeLocalWorkspace('tools', async () => [], second);
+  const response = await api(new Request('north://app/api/network/devices/' + id + '/review', { method: 'POST' }));
+  assert.equal(response.status, 200);
+  assert.equal((await deviceHistory(file).observe([device(2)], later)).unreviewed, 0);
 });

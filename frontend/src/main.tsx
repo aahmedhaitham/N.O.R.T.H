@@ -26,6 +26,7 @@ const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
 const desktop = location.protocol === 'north:';
 const desktopLocal = desktop && location.pathname === '/';
 const cloud = import.meta.env.MODE === 'cloud' && !desktopLocal;
+if (desktopLocal) document.title = 'NORTH | This computer';
 
 function App({ source = null, openCollectors, controls }: {
   source?: string | null;
@@ -139,9 +140,9 @@ function App({ source = null, openCollectors, controls }: {
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase} connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
-        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud || desktopLocal} />
+        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud} />
       </div>
-      {view === 'events' && <Events portfolio={portfolio} source={source} />}
+      {view === 'events' && <Events portfolio={portfolio} source={source} openNetwork={() => setView('network')} />}
       {view === 'cases' && <div className="workspace">
         <aside aria-label="Investigations">
           <h2>ECHO investigations</h2>
@@ -151,11 +152,13 @@ function App({ source = null, openCollectors, controls }: {
               <strong>{item.title}</strong><small>{item.host}</small>
             </button>
           ))}
-          {loaded && cases.length === 0 && <p>No correlated events.</p>}
         </aside>
         <main>
           {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery} /> :
-            <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations' : 'Waiting for telemetry'}</h1></section>}
+            <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations yet' : 'Waiting for telemetry'}</h1>
+              {loaded && !loadError && <p>Investigations appear when NORTH links related events. You can inspect individual events in IRIS.</p>}
+              {(loaded || loadError) && <button onClick={() => setView('events')}>Open IRIS events</button>}
+            </section>}
         </main>
       </div>}
       </div>

@@ -5,6 +5,7 @@ const { pathToFileURL } = require('node:url');
 const { workspaceOrigin } = require('./workspace.cjs');
 const { makeCloudProxy } = require('./cloud-proxy.cjs');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
+const { deviceHistory } = require('./device-history.cjs');
 
 let activeWindow;
 let setupWindow;
@@ -16,7 +17,7 @@ const cloudPartition = 'persist:north-cloud';
 const localPartition = 'persist:north-local';
 const ui = app.isPackaged ? path.join(process.resourcesPath, 'north-ui') : path.join(__dirname, 'ui');
 const scripts = app.isPackaged ? path.join(process.resourcesPath, 'north-tools') : path.join(__dirname, '..', 'tools');
-const localWorkspace = makeLocalWorkspace(scripts);
+const localWorkspace = makeLocalWorkspace(scripts, undefined, deviceHistory(path.join(app.getPath('userData'), 'device-history.json')));
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'north', privileges: {
   standard: true, secure: true, supportFetchAPI: true,

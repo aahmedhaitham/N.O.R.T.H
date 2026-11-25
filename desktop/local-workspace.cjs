@@ -77,7 +77,7 @@ function activity(events) {
   };
 }
 
-function makeLocalWorkspace(scripts, read = readScript) {
+function makeLocalWorkspace(scripts, read = readScript, history) {
   const neighbors = cachedReader(async () => ({
     records: await read(path.join(scripts, 'Export-NorthNeighbors.ps1'), ['-AsJson']),
   }), { records: [] });
@@ -88,6 +88,12 @@ function makeLocalWorkspace(scripts, read = readScript) {
 
   return async (request) => {
     const { pathname, searchParams } = new URL(request.url);
+    const reviewId = /^\/api\/network\/devices\/([a-f0-9]{24})\/review$/.exec(pathname)?.[1];
+    if (request.method === 'POST' && reviewId && history) {
+      const reviewed = await history.review(reviewId, new Date().toISOString()).catch(() => null);
+      if (reviewed === null) return Response.json({ detail: 'Could not update device history' }, { status: 500 });
+      return reviewed ? Response.json({ reviewed }) : Response.json({ detail: 'Device not found' }, { status: 404 });
+    }
     if (request.method !== 'GET') return Response.json({ detail: 'Method unavailable' }, { status: 405 });
     if (pathname === '/api/cases') return Response.json(scriptCases((await sysmon()).events));
     const reportId = /^\/api\/cases\/([a-f0-9]{24})\/report$/.exec(pathname)?.[1];
@@ -103,6 +109,8 @@ function makeLocalWorkspace(scripts, read = readScript) {
     if (pathname === '/api/network') {
       const [localNeighbors, localSysmon] = await Promise.all([neighbors(), sysmon()]);
       const { events, ...status } = localSysmon;
+      const deviceFindings = history && await history.observe(localNeighbors.records,
+        localNeighbors.updated_at ?? new Date().toISOString()).catch(() => undefined);
       const cases = scriptCases(events);
       const connections = new Map();
       for (const event of events) {
@@ -119,6 +127,7 @@ function makeLocalWorkspace(scripts, read = readScript) {
           cases: cases.map(({ id, title }) => ({ id, title })) }] : [],
         links: [...connections.values()],
         neighbors: localNeighbors,
+        device_findings: deviceFindings,
         sysmon: { ...status, recent: true, session_events: events.length },
         activity: activity(events),
       });
@@ -128,13 +137,14 @@ function makeLocalWorkspace(scripts, read = readScript) {
       const kind = searchParams.get('kind');
       const before = searchParams.get('before');
       const cursor = (event) => event.timestamp + '|' + event.id;
-      const { events } = await sysmon();
+      const { events, state } = await sysmon();
       const matches = events.filter((event) =>
         (!search || JSON.stringify(event).toLowerCase().includes(search)) &&
         (!kind || String(event.kind) === kind) && (!before || cursor(event) < before),
       ).sort((a, b) => cursor(b).localeCompare(cursor(a)));
       const page = matches.slice(0, 25);
-      return Response.json({ events: page, next: matches.length > page.length ? cursor(page.at(-1)) : null });
+      return Response.json({ events: page, next: matches.length > page.length ? cursor(page.at(-1)) : null,
+        coverage: state === 'unavailable' ? 'sysmon_unavailable' : undefined });
     }
     return Response.json({ detail: 'Not found' }, { status: 404 });
   };

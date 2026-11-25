@@ -66,6 +66,12 @@ button:disabled { opacity: .65; cursor: wait; }
 .dashboard-metric small { grid-column: 2; grid-row: 1; color: var(--accent); font-size: .66rem; letter-spacing: .025em; line-height: 1.6; }
 .dashboard-recent button { text-align: left; }
 .dashboard-charts { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
+.overview-priority { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.coverage-list { display: grid; gap: .55rem; padding: 0; margin: .75rem 0 0; list-style: none; }
+.coverage-list li { display: flex; justify-content: space-between; gap: .75rem; font-size: .85rem; }
+.coverage-list strong { color: var(--muted); }
+.coverage-list strong[data-state="ready"] { color: var(--accent); }
+.coverage-list strong[data-state="unavailable"] { color: #ffc383; }
 .activity-chart {
   display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(.2rem, 1vw, .6rem);
   align-items: stretch; height: 9rem; margin-top: 1.2rem; padding-bottom: 1px; border-bottom: 1px solid var(--line);

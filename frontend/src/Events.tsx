@@ -5,7 +5,7 @@ type Event = {
   id: string; timestamp: string; kind: number; host: string; process: string;
   target: string; destination: string; source_ip?: string; raw: unknown;
 };
-type Page = { events: Event[]; next: string | null };
+type Page = { events: Event[]; next: string | null; coverage?: 'sysmon_unavailable' };
 const pageSize = 25;
 
 function cursor(event: Event) {
@@ -27,7 +27,7 @@ function staticPage(events: Event[], filter: Filter): Page {
   };
 }
 
-export function Events({ portfolio, source }: { portfolio: boolean; source: string | null }) {
+export function Events({ portfolio, source, openNetwork }: { portfolio: boolean; source: string | null; openNetwork: () => void }) {
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState('');
   const [filter, setFilter] = useState<Filter>({ search: '', kind: '', before: null });
@@ -98,7 +98,11 @@ export function Events({ portfolio, source }: { portfolio: boolean; source: stri
     <section className="panel" aria-label="Event results">
       {error && <p role="status">The event feed is temporarily unavailable.</p>}
       {!error && !page && <p role="status">Loading events…</p>}
-      {page?.events.length === 0 && <p>No events match these filters.</p>}
+      {page?.coverage === 'sysmon_unavailable' ? <div>
+        <h2>Windows events are unavailable</h2>
+        <p>NORTH needs a readable Sysmon event log. The network view is still available.</p>
+        <button onClick={openNetwork}>Open ATLAS network inventory</button>
+      </div> : page?.events.length === 0 && <p>{filter.kind || filter.search ? 'No events match these filters.' : 'No events are available yet.'}</p>}
       <ul className="event-list">{page?.events.map((event) => (
         <li key={event.id}>
           <details>

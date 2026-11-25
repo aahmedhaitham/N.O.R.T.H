@@ -23,11 +23,12 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
 }) {
   const { inventory, fetchError } = useNetworkInventory(endpoint);
   const total = inventory?.assets.reduce((count, asset) => count + asset.events, 0);
+  const nearby = inventory?.neighbors?.state === 'ready' ? groupNeighbors(inventory.neighbors.records).length : undefined;
+  const sysmonUnavailable = inventory?.sysmon?.state === 'unavailable';
   const metrics: { label: string; count?: number; section: Section }[] = [
     { label: local ? 'Nearby devices' : 'Reporting devices',
-      count: local ? (inventory?.neighbors?.state === 'ready' ? groupNeighbors(inventory.neighbors.records).length : undefined) :
-        inventory?.assets.length, section: 'network' },
-    { label: 'Collected events', count: total, section: 'events' },
+      count: local ? nearby : inventory?.assets.length, section: 'network' },
+    { label: local ? 'Recent Windows events' : 'Collected events', count: local && sysmonUnavailable ? undefined : total, section: 'events' },
     { label: 'Investigations', count: loaded ? cases.length : undefined, section: 'cases' },
     { label: 'Observed connections', count: inventory?.links.length, section: 'network' },
   ];
@@ -38,6 +39,8 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
     { label: 'Network inventory', status: inventory?.neighbors },
     { label: 'Windows events', status: inventory?.sysmon },
   ].filter((item) => item.status && item.status.state !== 'disabled');
+  const newDevices = inventory?.device_findings?.unreviewed ?? 0;
+  const coverageIssue = collectors.some((item) => item.status?.state === 'unavailable');
   const activity = inventory?.activity;
   const buckets = activity?.buckets ?? [];
   const highest = Math.max(1, ...buckets.map((item) => item.count));
@@ -60,11 +63,32 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
     </section>}
     {!connect && <>
     {fetchError && <p role="status">The device and event counts could not refresh.</p>}
+    <div className="dashboard-charts overview-priority">
+      <section className="panel">
+        <h2>Needs attention</h2>
+        {newDevices > 0 && <p><button className="network-case" onClick={() => open('network')}>
+          Review {newDevices} newly observed {newDevices === 1 ? 'device' : 'devices'}
+        </button></p>}
+        {coverageIssue && <p><button className="network-case" onClick={() => open('network')}>
+          Check data source access
+        </button></p>}
+        {!newDevices && !coverageIssue && <p>{inventory ? 'No device reviews or data source issues reported.' : 'Checking available data sources…'}</p>}
+      </section>
+      <section className="panel">
+        <h2>{local ? 'What NORTH can see on this PC' : 'Data sources'}</h2>
+        {local && <p>Nearby devices come from the Windows neighbor cache. Event history comes from the Sysmon log when readable.</p>}
+        {demo && <p>This demo uses synthetic evidence.</p>}
+        {!local && !demo && !collectors.length && <p>{inventory ? 'No collector health details are available for this feed.' : 'Checking collector status…'}</p>}
+        <ul className="coverage-list">{collectors.map(({ label, status }) => status && <li key={label}>
+          <span>{label}</span><strong data-state={status.state}>{collectorStatus[status.state]}</strong>
+        </li>)}</ul>
+      </section>
+    </div>
     <section className="dashboard-metrics" aria-label="Security overview counts">
       {metrics.map((metric) => <button className="panel dashboard-metric" key={metric.label}
         onClick={() => open(metric.section)}>
         <span>{metric.label}</span>
-        <strong>{metric.count?.toLocaleString() ?? '…'}</strong>
+        <strong>{metric.count?.toLocaleString() ?? (inventory || fetchError ? '—' : '…')}</strong>
         <small>{{ cases: 'ECHO', network: 'ATLAS', events: 'IRIS' }[metric.section]}</small>
       </button>)}
     </section>
@@ -97,7 +121,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
     </div>
     <div className="columns">
       <section className="panel dashboard-recent">
-        <h2>Recent investigations</h2>
+        <h2>What changed</h2>
         {!latest.length && <p>{loaded ? 'There are no investigations yet.' : 'Waiting for investigations…'}</p>}
         <ul className="network-list">{latest.map((item) => <li key={item.id}>
           <button onClick={() => openCase(item.id)}>{item.title}</button>
@@ -105,20 +129,12 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
         </li>)}</ul>
       </section>
       <section className="panel">
-        <h2>{local ? 'Local data sources' : 'Collectors'}</h2>
-        {demo && <p>This demo uses synthetic evidence.</p>}
-        {!demo && !collectors.length && <p>{inventory ? 'No automatic collectors are active.' : 'Checking collector status…'}</p>}
-        <ul className="network-list">{collectors.map(({ label, status }) => status && <li key={label}>
-          <strong>{label}</strong>
-          <small>{collectorStatus[status.state]}{status.updated_at && ' · Last checked ' + new Date(status.updated_at).toLocaleTimeString()}</small>
-        </li>)}</ul>
+        <h2>Device history</h2>
+        <p>{inventory?.device_findings?.baseline_at ? 'Review devices first observed after the baseline was saved.' :
+          'Open ATLAS to inspect the devices and connections NORTH has observed.'}</p>
+        <button onClick={() => open('network')}>Open ATLAS</button>
       </section>
     </div>
-    {inventory?.device_findings?.baseline_at && <section className="panel">
-      <h2>Newly observed devices</h2>
-      <p>{inventory.device_findings.unreviewed} awaiting review{demo && ' · Synthetic demo'}</p>
-      <button onClick={() => open('network')}>Open device history</button>
-    </section>}
     </>}
   </main>;
 }
