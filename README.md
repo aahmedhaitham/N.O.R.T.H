@@ -78,6 +78,8 @@ To remember the cloud connection in the Windows launcher, run `powershell.exe -N
 
 ### Windows desktop client
 
+[NORTH privacy policy](PRIVACY.md)
+
 The Windows x64 client opens directly on **This computer**. It displays local network interfaces, nearby devices from the Windows neighbor cache, and up to 200 recent Sysmon events if the account can read that log. It can link a PowerShell process to a script file creation for an evidence timeline. Local data is read on demand and stays on the computer. A browser, Python, server address and key are unnecessary for local use.
 
 Use **Workspace → Open cloud workspace** to open a saved or build-time workspace, or **Connect to a different workspace** to enter another HTTPS address. Cloud sign-in and collector pairing apply to that private workspace. The desktop cloud session lasts until the app closes or the cloud session expires.
