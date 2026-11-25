@@ -261,6 +261,11 @@ button:disabled { opacity: .65; cursor: wait; }
 .trace-conversations li { min-width: 0; max-width: 100%; }
 .trace-conversations button[aria-pressed="true"] { border-color: var(--accent); background: var(--selection); }
 .trace-conversations small, .health-summary dt, .health-summary small { color: var(--muted); font-size: .8rem; }
+.trace-volume { margin-block: .6rem; }
+.trace-volume h3 { margin: 0 0 .35rem; font-size: .9rem; }
+.trace-volume .atlas-usage-column { display: flex; flex: 1; flex-direction: column; justify-content: end; }
+.trace-volume .atlas-usage-column span { background: var(--accent); }
+.trace-axis { display: flex; justify-content: space-between; gap: .4rem; font-size: .75rem; color: var(--muted); }
 .health-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; }
 .health-summary > div { padding: .55rem; border: 1px solid var(--line); background: var(--canvas); }
 .health-summary dd { margin: .25rem 0 0; font-weight: 600; }

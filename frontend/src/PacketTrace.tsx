@@ -48,6 +48,15 @@ export function PacketTrace() {
     const [a, b] = endpoints(packet.source, packet.destination);
     return a === pair.a && b === pair.b;
   });
+  const durations = matching.map((packet) => Date.parse(packet.time));
+  const earliest = Math.min(...durations);
+  const latest = Math.max(...durations);
+  const intervalWidth = Math.max(1, (latest - earliest + 1) / 12);
+  const volume = Array<number>(12).fill(0);
+  for (let index = 0; index < matching.length; index++) {
+    volume[Math.min(11, Math.floor((durations[index] - earliest) / intervalWidth))] += matching[index].bytes;
+  }
+  const peak = Math.max(1, ...volume);
 
   async function open(file: File) {
     const request = ++load.current;
@@ -72,12 +81,19 @@ export function PacketTrace() {
   return <details className="panel">
     <summary>Inspect a packet trace</summary>
     <p>Open an Ethernet PCAP or PCAPNG from an authorized network. NORTH displays packet headers and keeps the file in this window.</p>
+    <details>
+      <summary>Capture on this computer</summary>
+      <p>The collector bundle includes a short capture tool for computers with Dumpcap and a working capture driver. Capture only on interfaces you’re authorized to monitor.</p>
+      <pre>{'python tools/capture_north.py --list\npython tools/capture_north.py --interface 1 --seconds 15'}</pre>
+      <p>Use the interface number from the list. The capture stops automatically and saves a local PCAPNG you can open here. Packet prefixes can contain payload bytes.</p>
+    </details>
     <input type="file" accept=".pcap,.pcapng" aria-label="Open local packet capture" onChange={(event) => {
       const file = event.currentTarget.files?.[0];
       if (file) void open(file);
       event.currentTarget.value = '';
     }} />
     {message && <p role="status">{message}</p>}
+    {trace && <button type="button" onClick={() => { setTrace(null); setMessage('Capture cleared from this window.'); }}>Clear capture</button>}
     {trace && trace.packets.length > 0 && <>
       <p className="reference">{trace.packets.length.toLocaleString()} loaded packets · {formatTraffic(overview.bytes)} in original packet lengths</p>
       {overview.conversations.length > 0 && <div className="trace-conversations">
@@ -104,6 +120,19 @@ export function PacketTrace() {
         }}>Clear filters</button>}
       </div>
       <p role="status">{matching.length.toLocaleString()} of {trace.packets.length.toLocaleString()} packets match</p>
+      {matching.length > 1 && latest > earliest && <section className="trace-volume">
+        <h3>Matched traffic over time</h3>
+        <div className="atlas-usage-chart" role="list" aria-label="Packet bytes by time interval">
+          {volume.map((bytes, index) => <div className="atlas-usage-column" role="listitem" key={index}
+            aria-label={`Interval ${index + 1}: ${formatTraffic(bytes)}`} title={formatTraffic(bytes)}>
+            <span style={{ height: `${bytes / peak * 100}%` }} />
+          </div>)}
+        </div>
+        <div className="trace-axis">
+          <time>{new Date(earliest).toISOString().slice(11, 23)} UTC</time>
+          <time>{new Date(latest).toISOString().slice(11, 23)} UTC</time>
+        </div>
+      </section>}
       {matching.length > 0 &&
       <div className="router-traffic-table-wrap">
         <table className="investigation-table" aria-label="Packet headers">
