@@ -1,8 +1,34 @@
 """Summarize observed assets and network relationships from stored telemetry."""
 
+from collections import Counter
+from datetime import datetime, timezone
 from ipaddress import ip_address
 
 from north import SSH_FAILURE, build_cases
+
+
+def activity(events):
+    if not events:
+        return {"buckets": [], "types": [], "interval": None}
+    times = [int(datetime.fromisoformat(event["timestamp"]).timestamp()) for event in events]
+    latest = max(times)
+    span = latest - min(times)
+    seconds, label = (60, "minute") if span < 3600 else (3600, "hour") if span < 86400 else (86400, "day")
+    end = latest - latest % seconds
+    start = end - 11 * seconds
+    counts = Counter(timestamp - timestamp % seconds for timestamp in times if timestamp >= start)
+    types = Counter(event["kind"] for event in events)
+    return {
+        "interval": label,
+        "buckets": [
+            {"start": datetime.fromtimestamp(index, timezone.utc).isoformat(), "count": counts[index]}
+            for index in range(start, end + seconds, seconds)
+        ],
+        "types": [
+            {"kind": kind, "count": count}
+            for kind, count in sorted(types.items(), key=lambda item: (-item[1], item[0]))
+        ],
+    }
 
 
 def snapshot(events):
@@ -52,4 +78,5 @@ def snapshot(events):
     return {
         "assets": [with_cases(asset) for _, asset in sorted(assets.items())],
         "links": [with_cases(link) for _, link in sorted(links.items())],
+        "activity": activity(events),
     }

@@ -75,7 +75,7 @@ export function Events({ portfolio }: { portfolio: boolean }) {
 
   return <main className="event-explorer">
     <section className="panel">
-      <h1>Event explorer</h1>
+      <h1>IRIS <span className="workspace-title">Event explorer</span></h1>
       <p>Search collected telemetry and inspect the original records behind alerts.</p>
       <form className="event-filters" onSubmit={(event) => {
         event.preventDefault();

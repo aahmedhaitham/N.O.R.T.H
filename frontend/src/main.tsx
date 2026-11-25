@@ -101,14 +101,24 @@ function App() {
 
   return (
     <div className="shell">
+      <nav className="console-nav" aria-label="Console">
+        <a className="brand" href="/"><img alt="" src="/icons/north-192.png" />NORTH</a>
+        <button type="button" aria-current={view === 'dashboard' ? 'page' : undefined} onClick={() => setView('dashboard')}>
+          <strong>Overview</strong><small>Security dashboard</small>
+        </button>
+        <button type="button" aria-current={view === 'network' ? 'page' : undefined} onClick={() => setView('network')}>
+          <strong>ATLAS</strong><small>Devices and network</small>
+        </button>
+        <button type="button" aria-current={view === 'events' ? 'page' : undefined} onClick={() => setView('events')}>
+          <strong>IRIS</strong><small>Events and intelligence</small>
+        </button>
+        <button type="button" aria-current={view === 'cases' ? 'page' : undefined} onClick={() => setView('cases')}>
+          <strong>ECHO</strong><small>Investigations and replay</small>
+        </button>
+      </nav>
+      <div className="shell-content">
       <header className="topbar">
-        <a className="brand" href="/">NORTH</a>
-        <nav className="console-nav" aria-label="Console">
-          <button type="button" aria-pressed={view === 'dashboard'} onClick={() => setView('dashboard')}>Dashboard</button>
-          <button type="button" aria-pressed={view === 'cases'} onClick={() => setView('cases')}>Investigations</button>
-          <button type="button" aria-pressed={view === 'network'} onClick={() => setView('network')}>Network</button>
-          <button type="button" aria-pressed={view === 'events'} onClick={() => setView('events')}>Events</button>
-        </nav>
+        <span>{{ dashboard: 'Overview', network: 'ATLAS / Network', events: 'IRIS / Events', cases: 'ECHO / Investigations' }[view]}</span>
         <InstallApp />
         <span role="status" className={online ? 'status online' : 'status'}>
           {cloud ? (online ? 'Cloud connection ready' : 'Connecting to cloud') :
@@ -123,7 +133,7 @@ function App() {
       {view === 'events' && <Events portfolio={portfolio} />}
       {view === 'cases' && <div className="workspace">
         <aside aria-label="Investigations">
-          <h2>Investigations</h2>
+          <h2>ECHO investigations</h2>
           {cases.map((item) => (
             <button key={item.id} className="case" aria-pressed={item.id === incident?.id}
               onClick={() => setSelected(item.id)}>
@@ -137,6 +147,7 @@ function App() {
             <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations' : 'Waiting for telemetry'}</h1></section>}
         </main>
       </div>}
+      </div>
     </div>
   );
 }

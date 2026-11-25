@@ -33,7 +33,7 @@ npm.cmd run dev
 
 Open [the console](http://127.0.0.1:5173). Select the PowerShell case, inspect the ATLAS evidence link, replay the timeline in ECHO, and export the report. Open **Raw evidence** to see the original sanitized event.
 
-**Dashboard** is the home screen for device and event counts, recent cases, and collector health. A supported browser can install NORTH as a standalone app. Look for **Install NORTH** or your browser's install option. An installed local instance still connects to the NORTH servers on that device. Other devices need a reachable HTTPS deployment.
+**Overview** is the home screen for activity charts, event counts, recent cases, and collector health. Use **ATLAS** for devices and observed connections, **IRIS** to search the event feed, and **ECHO** to replay investigations. A supported browser can install NORTH as a standalone app. Look for **Install NORTH** or your browser's install option. An installed local instance still connects to the NORTH servers on that device. Other devices need a reachable HTTPS deployment.
 
 With Docker and Compose available, run `docker compose up --build` at the repository root and open [the Docker console](http://127.0.0.1:8080). Compose uses PostgreSQL and keeps the database on a named volume.
 

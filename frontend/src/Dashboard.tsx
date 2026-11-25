@@ -1,4 +1,5 @@
 import { useNetworkInventory } from './Network';
+import { eventNames } from './eventNames';
 
 type CaseSummary = { id: string; title: string; host: string; evidence: { timestamp: string }[] };
 type Section = 'cases' | 'network' | 'events';
@@ -33,6 +34,14 @@ export function Dashboard({ endpoint, cases, loaded, demo, open, openCase }: {
     { label: 'Network inventory', status: inventory?.neighbors },
     { label: 'Windows events', status: inventory?.sysmon },
   ].filter((item) => item.status && item.status.state !== 'disabled');
+  const activity = inventory?.activity;
+  const buckets = activity?.buckets ?? [];
+  const highest = Math.max(1, ...buckets.map((item) => item.count));
+  const eventTypes = activity?.types ?? [];
+  const eventMax = Math.max(1, ...eventTypes.map((item) => item.count));
+  const axisLabel = (value: string) => new Date(value).toLocaleString(undefined,
+    activity?.interval === 'day' ? { month: 'short', day: 'numeric', timeZone: 'UTC' } :
+      { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' });
 
   return <main className="dashboard">
     <header className="panel dashboard-heading">
@@ -46,9 +55,36 @@ export function Dashboard({ endpoint, cases, loaded, demo, open, openCase }: {
         onClick={() => open(metric.section)}>
         <span>{metric.label}</span>
         <strong>{metric.count?.toLocaleString() ?? '…'}</strong>
-        <small>Open {metric.section === 'cases' ? 'investigations' : metric.section}</small>
+        <small>{{ cases: 'ECHO', network: 'ATLAS', events: 'IRIS' }[metric.section]}</small>
       </button>)}
     </section>
+    <div className="dashboard-charts">
+      <section className="panel">
+        <h2>Telemetry activity</h2>
+        {buckets.length ? <>
+          <p>Events per {activity?.interval} · Last 12 intervals ending at the latest event</p>
+          <div className="activity-chart" aria-label="Collected events by time" role="list">
+            {buckets.map((item) => <div className="activity-slot" role="listitem" key={item.start}
+              aria-label={axisLabel(item.start) + ' UTC: ' + item.count + ' events'}
+              title={axisLabel(item.start) + ' UTC · ' + item.count + ' events'}>
+              <div className="activity-bar" style={{ height: item.count ? `${item.count / highest * 100}%` : '2px' }} />
+            </div>)}
+          </div>
+          <div className="activity-axis">
+            <span>{axisLabel(buckets[0].start)} UTC</span>
+            <span>{axisLabel(buckets[buckets.length - 1].start)} UTC</span>
+          </div>
+        </> : <p>{inventory ? 'Activity appears after NORTH receives events.' : 'Loading activity…'}</p>}
+      </section>
+      <section className="panel">
+        <h2>Events by type</h2>
+        <ul className="event-breakdown">{eventTypes.map((item) => <li key={item.kind}>
+          <div><span>{eventNames[item.kind] ?? 'Event ' + item.kind}</span><strong>{item.count.toLocaleString()}</strong></div>
+          <div className="breakdown-track" aria-hidden="true"><span style={{ width: `${item.count / eventMax * 100}%` }} /></div>
+        </li>)}</ul>
+        {!eventTypes.length && <p>{inventory ? 'No event types recorded yet.' : 'Loading event types…'}</p>}
+      </section>
+    </div>
     <div className="columns">
       <section className="panel dashboard-recent">
         <h2>Recent investigations</h2>

@@ -19,6 +19,9 @@ def test_inventory_separates_connections_and_links_investigations():
     assert outbound["events"] == 1 and inbound["events"] == 3
     assert outbound["cases"] == assets["WIN-LAB-01"]["cases"]
     assert inbound["cases"] == assets["KALI-DEMO"]["cases"]
+    assert len(inventory["activity"]["buckets"]) == 12
+    assert sum(item["count"] for item in inventory["activity"]["buckets"]) == 6
+    assert {item["kind"]: item["count"] for item in inventory["activity"]["types"]} == {1: 1, 3: 1, 11: 1, 1001: 3}
 
 
 def test_inventory_keeps_connections_with_no_correlated_incident():

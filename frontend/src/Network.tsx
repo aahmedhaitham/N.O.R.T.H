@@ -12,6 +12,8 @@ type Finding = { id: string; first_seen: string; last_seen: string; reviewed_at:
   mac: string; interface: string; addresses: string[] };
 type Snapshot = {
   assets: Host[]; links: Connection[];
+  activity?: { interval: 'minute' | 'hour' | 'day' | null; buckets: { start: string; count: number }[];
+    types: { kind: number; count: number }[] };
   neighbors?: Collector & { records: Neighbor[] };
   sysmon?: Collector & { session_events: number; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
   device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
@@ -172,7 +174,7 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
   return <main className="network">
     <header className="panel overview">
       <div>
-        <h1>Network inventory</h1>
+        <h1>ATLAS <span className="workspace-title">Network inventory</span></h1>
         <p>Review devices that sent telemetry, their observed connections, and device records from your network.</p>
       </div>
       <label className="network-search">Find a host, IP address or MAC address
