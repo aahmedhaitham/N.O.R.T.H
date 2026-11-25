@@ -25,6 +25,7 @@ type Snapshot = {
   app_connections?: { process: string; events: number; destinations: number }[];
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
+export type AtlasTarget = 'atlas-new-devices' | 'atlas-windows-events' | 'atlas-local-devices';
 
 const sysmonProblems = {
   access_denied: 'Windows denied this account access to the Sysmon event log.',
@@ -111,8 +112,9 @@ export function useNetworkInventory(endpoint: string, interval = 5000) {
   } };
 }
 
-export function Network({ endpoint, openCase, openEvents, demo, readOnly }: {
-  endpoint: string; openCase: (id: string) => void; openEvents: (search: string) => void; demo: boolean; readOnly: boolean;
+export function Network({ endpoint, openCase, openEvents, target, onTarget, demo, readOnly }: {
+  endpoint: string; openCase: (id: string) => void; openEvents: (search: string) => void;
+  target: AtlasTarget | null; onTarget: (target: null) => void; demo: boolean; readOnly: boolean;
 }) {
   const [interval, setInterval] = useState(15000);
   const { inventory, fetchError, refresh, refreshing, lastRefresh } = useNetworkInventory(endpoint, interval);
@@ -121,6 +123,19 @@ export function Network({ endpoint, openCase, openEvents, demo, readOnly }: {
   const [search, setSearch] = useState('');
   const [reviewing, setReviewing] = useState('');
   const [reviewError, setReviewError] = useState(false);
+  const hasInventory = Boolean(inventory);
+
+  useEffect(() => {
+    if (!endpoint || !target || refreshing || (!hasInventory && !fetchError)) return;
+    const frame = window.requestAnimationFrame(() => {
+      const heading = document.getElementById(target) ?? document.getElementById('atlas-heading');
+      heading?.scrollIntoView({ block: 'start' });
+      heading?.focus({ preventScroll: true });
+      if (target === 'atlas-new-devices') setSearch('');
+      onTarget(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [endpoint, target, hasInventory, fetchError, refreshing, onTarget]);
   const query = search.trim().toLowerCase();
   const fits = (...values: string[]) => values.some((value) => value.toLowerCase().includes(query));
   const localDevice = inventory?.local_device;
@@ -228,7 +243,7 @@ export function Network({ endpoint, openCase, openEvents, demo, readOnly }: {
 
   return <main className="network atlas-workspace">
     <header className="dashboard-heading">
-      <h1>ATLAS <span className="workspace-title">Network inventory</span></h1>
+      <h1 id="atlas-heading" tabIndex={-1}>ATLAS <span className="workspace-title">Network inventory</span></h1>
     </header>
     {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
     <section className="panel atlas-toolbar" aria-label="Network map controls">
@@ -264,7 +279,7 @@ export function Network({ endpoint, openCase, openEvents, demo, readOnly }: {
       {!matchingAdapters.length && <p>{query ? 'No local adapters match this search.' : 'No network adapters with addresses were found.'}</p>}
     </section>}
     {watch && (watch.baseline_at || collector?.state === 'starting') && <section className="panel">
-      <h2>Newly observed devices</h2>
+      <h2 id="atlas-new-devices" tabIndex={-1}>Newly observed devices</h2>
       <p>{watch.baseline_at ? `${watch.unreviewed} awaiting review · Baseline started ${new Date(watch.baseline_at).toLocaleString()}` :
         'Waiting for the first usable device snapshot.'}</p>
       {demo && <p>Sample finding from a synthetic network.</p>}
@@ -286,13 +301,13 @@ export function Network({ endpoint, openCase, openEvents, demo, readOnly }: {
       ))}</ul>
     </section>}
     {windowsEvents && windowsEvents.state !== 'disabled' && <section className="panel">
-      <h2>Windows event collection</h2>
+      <h2 id="atlas-windows-events" tabIndex={-1}>Windows event collection</h2>
       <p role="status">{windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
         windowsEvents.state === 'unavailable' ? sysmonProblems[windowsEvents.problem ?? 'read_failed'] :
         `${windowsEvents.session_events} ${windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
     </section>}
     {collector && collector.state !== 'disabled' && <section className="panel">
-      <h2>Local network devices</h2>
+      <h2 id="atlas-local-devices" tabIndex={-1}>Local network devices</h2>
       <p role="status">{collector.state === 'starting' ? 'Reading the local neighbor cache…' :
         collector.state === 'unavailable' ? 'The collector could not read the cache. It will retry automatically.' :
         `${liveDevices.length} device groups · Last refreshed ${new Date(collector.updated_at ?? '').toLocaleTimeString()}`}</p>

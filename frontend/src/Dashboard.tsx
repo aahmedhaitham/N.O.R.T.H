@@ -1,4 +1,4 @@
-import { groupNeighbors, useNetworkInventory } from './Network';
+import { groupNeighbors, useNetworkInventory, type AtlasTarget } from './Network';
 import { eventNames } from './eventNames';
 
 type CaseSummary = { id: string; title: string; host: string; evidence: { timestamp: string }[] };
@@ -11,7 +11,7 @@ const collectorStatus = {
   disabled: 'Disabled',
 };
 
-export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase, connect }: {
+export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase, openAtlas, connect }: {
   endpoint: string;
   cases: CaseSummary[];
   loaded: boolean;
@@ -19,6 +19,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
   local: boolean;
   open: (section: Section) => void;
   openCase: (id: string) => void;
+  openAtlas: (target: AtlasTarget) => void;
   connect?: () => void;
 }) {
   const { inventory, fetchError } = useNetworkInventory(endpoint);
@@ -104,10 +105,10 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
       </section>
       <section className="panel">
         <h2>Needs attention</h2>
-        {newDevices > 0 && <p><button className="network-case" onClick={() => open('network')}>
+        {newDevices > 0 && <p><button className="network-case" onClick={() => openAtlas('atlas-new-devices')}>
           Review {newDevices} newly observed {newDevices === 1 ? 'device' : 'devices'}
         </button></p>}
-        {coverageIssue && <p><button className="network-case" onClick={() => open('network')}>
+        {coverageIssue && <p><button className="network-case" onClick={() => openAtlas(sysmonUnavailable ? 'atlas-windows-events' : 'atlas-local-devices')}>
           Check data source access
         </button></p>}
         {!newDevices && !coverageIssue && <p>{inventory ? 'No device reviews or data source issues reported.' : 'Checking available data sources…'}</p>}
@@ -142,7 +143,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
       <section className="panel">
         <h2>Device history</h2>
         <p>Review devices first observed after the baseline was saved.</p>
-        <button onClick={() => open('network')}>Open ATLAS</button>
+        <button onClick={() => openAtlas('atlas-new-devices')}>Review device history</button>
       </section>
     )}
     </>}

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Background, Controls, ReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './style.css';
-import { Network } from './Network';
+import { Network, type AtlasTarget } from './Network';
 import { Events } from './Events';
 import { eventNames } from './eventNames';
 import { Dashboard } from './Dashboard';
@@ -115,6 +115,7 @@ function App({ source = null, openCollectors, controls, panel }: {
   const handledCitation = useRef('');
   const viewContent = useRef<HTMLDivElement>(null);
   const [eventSearch, setEventSearch] = useState('');
+  const [networkTarget, setNetworkTarget] = useState<AtlasTarget | null>(null);
   const [cases, setCases] = useState<Case[]>([]);
   const [caseSearch, setCaseSearch] = useState('');
   const [selected, updateSelected] = useState(() => {
@@ -138,6 +139,7 @@ function App({ source = null, openCollectors, controls, panel }: {
 
   function setView(next: View) {
     panel?.close();
+    setNetworkTarget(null);
     updateView(next);
     writeWorkspacePreference('view', next);
   }
@@ -263,10 +265,12 @@ function App({ source = null, openCollectors, controls, panel }: {
       {panel?.content}
       <div className="workspace-pages" hidden={Boolean(panel)}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
-        demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase} connect={cloud && !source ? openCollectors : undefined} />}
+        demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase}
+        openAtlas={(target) => { setView('network'); setNetworkTarget(target); }}
+        connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} openEvents={openEvents}
-          demo={publicDemo} readOnly={publicDemo || cloud} />
+          target={networkTarget} onTarget={setNetworkTarget} demo={publicDemo} readOnly={publicDemo || cloud} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} source={source} initialSearch={eventSearch}
         canSave={cloud} openNetwork={() => setView('network')} />}
