@@ -108,6 +108,12 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
       <h2>Add collector</h2>
       <p>Run the collector on the Windows PC you want to monitor. It needs Python 3.11 or later. Approve pairing only on PCs you manage.</p>
       <a className="button" href="/downloads/NORTH-Collector-Windows.zip" target="_blank" rel="noopener">Download Windows collector</a>
+      <details>
+        <summary>Start the collector automatically at Windows sign-in</summary>
+        <p>Pair the collector and verify a sync first. Stop its PowerShell window, then run this from the same collector folder. Windows starts it under your account, including while NORTH is closed.</p>
+        <pre>{'powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tools\\Set-NorthCollectorStartup.ps1 -Action Enable'}</pre>
+        <p>Use <code>-Action Status</code> to check startup or <code>-Action Disable</code> to turn it off.</p>
+      </details>
       <form className="event-filters" onSubmit={(event) => {
         event.preventDefault(); void mutate('/api/cloud/pairings', { label }, true);
       }}>
