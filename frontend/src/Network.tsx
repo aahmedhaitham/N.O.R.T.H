@@ -22,7 +22,9 @@ type Snapshot = {
   neighbors?: Collector & { records: Neighbor[] };
   sysmon?: Collector & { session_events: number; recent?: boolean; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
   device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
-  router_usage?: Collector & { devices: ({ mac: string; router_name?: string; wifi_associated?: boolean } & TrafficTotals)[] };
+  router_usage?: Collector & { devices: ({
+    mac: string; router_name?: string; router_ips?: string[]; wifi_associated?: boolean;
+  } & TrafficTotals)[] };
   app_connections?: { process: string; events: number; destinations: number }[];
   adapter_traffic?: Collector & { adapters: { name: string; received_bytes: number; sent_bytes: number;
     receive_rate: number | null; send_rate: number | null }[] };
@@ -190,12 +192,14 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const routerDevices = (router?.devices ?? []).map((device) => {
     const observations = observedByMac.get(macKey(device.mac)) ?? [];
     const names = new Set(observations.map((record) => record.name).filter(Boolean));
+    const leaseIPs = Array.isArray(device.router_ips) ? device.router_ips : [];
+    const observedIPs = [...new Set(observations.map((record) => record.address))];
     return {
-      ...device, observations, name: names.size === 1 ? [...names][0] : '',
+      ...device, observations, leaseIPs, observedIPs, name: names.size === 1 ? [...names][0] : '',
       total: device.download_bytes + device.upload_bytes,
     };
   }).filter((device) => (!wifiOnly || device.wifi_associated === true) &&
-    (fits(device.mac, device.router_name ?? '') ||
+    (fits(device.mac, device.router_name ?? '', ...device.leaseIPs) ||
       device.observations.some((record) => fits(record.name, record.address, record.network))))
     .sort((a, b) => b.total - a.total || a.mac.localeCompare(b.mac));
   const largestTrafficTotal = Math.max(1, routerDevices[0]?.total ?? 0);
@@ -388,7 +392,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     </section>}
     {router && <section className="panel">
       <h2>Router traffic by device</h2>
-      <p>OpenWrt accounting-period totals, sorted by combined traffic.</p>
+      <p>OpenWrt accounting-period totals per MAC, sorted by combined traffic. The Wi-Fi column shows association reported by the router.</p>
       {router.devices.length > 0 && <label className="router-wifi-filter">
         <input type="checkbox" checked={wifiOnly} onChange={(event) => setWifiOnly(event.target.checked)} />
         Only devices seen on router Wi-Fi
@@ -399,12 +403,17 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {router.state === 'ready' && !routerDevices.length && <p>No matching device totals.</p>}
       {routerDevices.length > 0 && <div className="router-traffic-table-wrap">
         <table className="investigation-table router-traffic-table" aria-label="Router traffic by device">
-          <thead><tr><th scope="col">Device</th><th scope="col">Download</th><th scope="col">Upload</th><th scope="col">Total</th><th scope="col">Wi-Fi</th></tr></thead>
+          <thead><tr><th scope="col">Device</th><th scope="col">IP addresses</th><th scope="col" className="router-download">Download</th><th scope="col" className="router-upload">Upload</th><th scope="col">Total</th><th scope="col">Wi-Fi</th></tr></thead>
           <tbody>{routerDevices.map((device) => <tr key={device.mac}>
             <th scope="row">
               {device.router_name || device.name || device.mac}
               {(device.router_name || device.name) && <small>{device.mac} · {device.router_name ? 'DHCP lease' : 'Collector record'}</small>}
             </th>
+            <td>{(device.leaseIPs.length ? device.leaseIPs : device.observedIPs).map((address) =>
+              <button key={address} type="button" className="atlas-address-button" onClick={() => openEvents(address)}
+                aria-label={`Search IRIS for ${address}`}>{address}</button>)}
+              {device.leaseIPs.length ? <small>DHCP lease</small> : device.observedIPs.length ? <small>Collector observation</small> : '—'}
+            </td>
             <td>{formatTraffic(device.download_bytes)}</td>
             <td>{formatTraffic(device.upload_bytes)}</td>
             <td>

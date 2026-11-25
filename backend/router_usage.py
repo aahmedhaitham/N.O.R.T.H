@@ -7,6 +7,8 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from io import StringIO
+from ipaddress import IPv4Address
+from time import time
 
 from starlette.concurrency import run_in_threadpool
 
@@ -56,14 +58,29 @@ def read_totals(alias):
         stations = ""
     wireless = set(re.findall(r"^station ((?:[a-f0-9]{2}:){5}[a-f0-9]{2})\s", stations.lower(), re.M))
     names = {}
+    lease_ips = {}
+    now = time()
     for line in leases.splitlines():
         parts = line.split()
-        if len(parts) >= 4 and parts[3] != "*" and re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", parts[3]):
-            names.setdefault(parts[1].lower(), set()).add(parts[3])
+        if len(parts) < 4 or not re.fullmatch(r"[0-9]{1,16}", parts[0]):
+            continue
+        expiry = int(parts[0])
+        if expiry and expiry <= now:
+            continue
+        try:
+            address = str(IPv4Address(parts[2]))
+        except ValueError:
+            continue
+        mac = parts[1].lower()
+        lease_ips.setdefault(mac, set()).add(address)
+        if parts[3] != "*" and re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", parts[3]):
+            names.setdefault(mac, set()).add(parts[3])
     for item in devices:
         labels = names.get(item["mac"], set())
         if len(labels) == 1:
             item["router_name"] = next(iter(labels))
+        if item["mac"] in lease_ips:
+            item["router_ips"] = sorted(lease_ips[item["mac"]])[:8]
         if item["mac"] in wireless:
             item["wifi_associated"] = True
     return devices
