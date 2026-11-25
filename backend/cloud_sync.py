@@ -8,6 +8,7 @@ import os
 import socket
 import sqlite3
 from urllib.parse import urlsplit
+from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from starlette.concurrency import run_in_threadpool
@@ -55,7 +56,8 @@ def send_snapshot(url, key, data):
         raise ValueError("NORTH_CLOUD_URL must be an HTTPS origin")
     request = Request(
         url.rstrip("/") + "/api/cloud/snapshot", data=data,
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                 "User-Agent": "NORTH-Collector/1.0"},
     )
     with build_opener(NoRedirects()).open(request, timeout=12) as response:
         if response.status != 200:
@@ -74,6 +76,8 @@ async def sync_loop(store, neighbors, sysmon, url, key):
                 if event_ids:
                     await run_in_threadpool(store.record_cloud_receipts, target, event_ids)
                 previous = data
+        except HTTPError as error:
+            logging.getLogger(__name__).warning("NORTH Cloud sync was refused: HTTP %s", error.code)
         except (OSError, ValueError, sqlite3.Error) as error:
             logging.getLogger(__name__).warning("NORTH Cloud sync failed: %s", type(error).__name__)
         await asyncio.sleep(60)

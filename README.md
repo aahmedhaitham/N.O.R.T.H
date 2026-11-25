@@ -68,6 +68,8 @@ On Windows, after `npx wrangler login`, run `powershell.exe -NoProfile -Executio
 
 Use the sign-in key from a phone or computer at the deployed HTTPS URL. Cloud browsing is read-only and local Ollama drafting stays in the private desktop setup.
 
+To remember the cloud connection in the Windows launcher, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Connect-NorthCloud.ps1 -Enable -Url https://YOUR-WORKSPACE.workers.dev`, then restart with **Start NORTH.cmd**. This opts the PC into sending its collected events, investigations, and network observations to that private workspace. To stop future syncs, run the same tool with `-Disable` and restart NORTH. Disconnecting the collector does not delete data already stored in Cloudflare.
+
 ### Windows desktop client
 
 The Windows x64 client bundles the dashboard interface and contacts the selected NORTH Cloud workspace for sign-in and data. It opens its own window without launching a browser, Python or the local collector. From the repository root, install dependencies with `npm.cmd --prefix frontend ci` and `npm.cmd --prefix desktop ci`, then run `npm.cmd --prefix desktop run package:windows`. The resulting portable file is `desktop/dist/NORTH-Desktop-Windows-x64.exe`. Set `NORTH_DESKTOP_DEFAULT_URL` at build time to preselect a workspace, or enter the HTTPS workspace origin on first launch. To change it later, use **Workspace → Connect to workspace**. The desktop sign-in session lasts until the app closes or the cloud session expires.

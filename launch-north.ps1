@@ -82,6 +82,17 @@ try {
 
     $env:NORTH_NETWORK_AUTO = '1'
     $env:NORTH_SYSMON_AUTO = '1'
+    $cloudConnection = Join-Path $runtime 'cloud-connection.json'
+    if (Test-Path -LiteralPath $cloudConnection) {
+        $connection = Get-Content -LiteralPath $cloudConnection -Raw | ConvertFrom-Json
+        $keys = Get-Content -LiteralPath (Join-Path $runtime 'cloud-keys.json') -Raw | ConvertFrom-Json
+        $secureKey = ConvertTo-SecureString $keys.NORTH_INGEST_KEY
+        $credential = [Management.Automation.PSCredential]::new('north', $secureKey)
+        $env:NORTH_CLOUD_URL = $connection.url
+        $env:NORTH_CLOUD_SOURCE = $connection.source
+        $env:NORTH_CLOUD_LABEL = $connection.label
+        $env:NORTH_CLOUD_INGEST_KEY = $credential.GetNetworkCredential().Password
+    }
     $started += Start-NorthServer 'backend' $python '-m uvicorn main:app --host 127.0.0.1 --port 8000' $backend
     ConvertTo-Json -InputObject $started | Set-Content -LiteralPath $statePath -Encoding UTF8
     Wait-NorthServer $started[0] 'http://127.0.0.1:8000/api/health'
