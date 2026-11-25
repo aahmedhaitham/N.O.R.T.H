@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Background, Controls, ReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -36,12 +36,75 @@ const navigation = [
   { id: 'cases', label: 'ECHO', detail: 'Investigations' },
 ] as const;
 
+type View = (typeof navigation)[number]['id'];
+
+function QuickNavigation({ view, open }: { view: View; open: (view: View) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState('');
+  const search = query.trim().toLowerCase();
+  const matches = navigation.filter(({ label, detail }) => `${label} ${detail}`.toLowerCase().includes(search));
+  const apple = /Mac|iPhone|iPad/.test(navigator.platform);
+
+  const show = useCallback(() => {
+    dialog.current?.showModal();
+    searchInput.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.repeat || event.altKey || event.shiftKey ||
+          !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+      const picker = dialog.current;
+      if (!picker || picker.open || document.querySelector('dialog[open]')) return;
+      event.preventDefault();
+      show();
+    }
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [show]);
+
+  function goTo(destination: View) {
+    dialog.current?.close();
+    open(destination);
+  }
+
+  return <>
+    <button className="quick-nav-trigger" type="button" aria-haspopup="dialog"
+      aria-keyshortcuts={apple ? 'Meta+K' : 'Control+K'} onClick={show}>
+      Go to <kbd aria-hidden="true">{apple ? '⌘ K' : 'Ctrl K'}</kbd>
+    </button>
+    <dialog ref={dialog} className="quick-nav" aria-labelledby="quick-nav-title" onClose={() => setQuery('')}>
+      <div className="quick-nav-heading">
+        <h2 id="quick-nav-title">Go to a page</h2>
+        <button type="button" onClick={() => dialog.current?.close()}>Close</button>
+      </div>
+      <form className="quick-nav-search" onSubmit={(event) => {
+        event.preventDefault();
+        if (matches[0]) goTo(matches[0].id);
+      }}>
+        <input ref={searchInput} type="search" aria-label="Find a page" placeholder="Find a page"
+          value={query} onChange={(event) => setQuery(event.target.value)} />
+      </form>
+      <ul className="quick-nav-results">
+        {matches.map((item) => <li key={item.id}>
+          <button type="button" aria-current={item.id === view ? 'page' : undefined} onClick={() => goTo(item.id)}>
+            <span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />
+            <strong>{item.label}</strong><small>{item.detail}</small>
+          </button>
+        </li>)}
+      </ul>
+      {matches.length === 0 && <p role="status">No matching pages.</p>}
+    </dialog>
+  </>;
+}
+
 function App({ source = null, openCollectors, controls }: {
   source?: string | null;
   openCollectors?: () => void;
   controls?: import('react').ReactNode;
 }) {
-  const [view, setView] = useState<(typeof navigation)[number]['id']>('dashboard');
+  const [view, setView] = useState<View>('dashboard');
   const [eventSearch, setEventSearch] = useState('');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
@@ -133,6 +196,7 @@ function App({ source = null, openCollectors, controls }: {
       {controls}
       <header className="topbar">
         <span className="topbar-location">{navigation.find((item) => item.id === view)?.detail}</span>
+        <QuickNavigation view={view} open={setView} />
         <InstallApp />
         <span role="status" className={online || portfolio ? 'status online' : 'status'}>
           {desktopLocal ? 'This computer · Local data' : cloud ? (online ? 'Cloud connection ready' : 'Connecting to cloud') :
