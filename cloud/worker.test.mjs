@@ -52,6 +52,7 @@ test('Google sign-in creates an isolated workspace after state and PKCE checks',
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push(url);
+    assert.equal(options.redirect, 'manual');
     if (url === 'https://oauth2.googleapis.com/token') {
       assert.equal(options.body.get('redirect_uri'), root + callback);
       assert.equal(createHash('sha256').update(options.body.get('code_verifier')).digest('base64url'),
@@ -78,6 +79,9 @@ test('Google sign-in creates an isolated workspace after state and PKCE checks',
   const { ticket } = await (await desktopPost('start', { challenge })).json();
   assert.equal((await desktopPost('approve', { ticket })).status, 401);
   assert.equal((await desktopPost('exchange', { ticket, verifier })).status, 202);
+  globalThis.fetch = async () => new Response(null, { status: 302, headers: { Location: 'https://other.example/' } });
+  const redirected = await call(callback + '?code=example&state=' + state, { Cookie: cookie });
+  assert.equal(redirected.headers.get('Location'), '/?sign_in_failed=exchange');
   assert.equal((await desktopPost('approve', { ticket }, session)).status, 200);
   assert.equal((await desktopPost('exchange', { ticket, verifier: 'f'.repeat(64) })).status, 403);
   const exchange = await desktopPost('exchange', { ticket, verifier });

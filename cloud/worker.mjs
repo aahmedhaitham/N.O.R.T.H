@@ -195,7 +195,7 @@ async function googleAuth(request, url, env) {
   let stage = 'provider';
   try {
     const exchange = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
+      method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000),
       body: new URLSearchParams({ code, client_id: env.NORTH_GOOGLE_CLIENT_ID,
         client_secret: env.NORTH_GOOGLE_CLIENT_SECRET, redirect_uri: redirectUri,
         grant_type: 'authorization_code', code_verifier: parts[2] }),
@@ -207,7 +207,7 @@ async function googleAuth(request, url, env) {
     const { access_token: token } = await exchange.json();
     if (typeof token !== 'string' || !token || token.length > 4096) return reject('exchange');
     const profile = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
-      headers: { Authorization: 'Bearer ' + token }, redirect: 'error', signal: AbortSignal.timeout(10000),
+      headers: { Authorization: 'Bearer ' + token }, redirect: 'manual', signal: AbortSignal.timeout(10000),
     });
     if (!profile.ok) return reject('profile');
     const { sub } = await profile.json();
