@@ -292,6 +292,9 @@ aside h2 { font-size: 1rem; }
 .echo-case-list { padding: .65rem 0; background: var(--surface); min-width: 0; }
 .echo-case-list h2 { display: flex; justify-content: space-between; gap: .5rem; margin: .35rem .75rem .65rem; }
 .echo-case-list h2 span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.echo-case-search { display: grid; gap: .3rem; margin: 0 .75rem .65rem; font-size: .78rem; color: var(--muted); }
+.echo-case-search input { min-width: 0; width: 100%; padding: .4rem .5rem; border: 1px solid var(--line); border-radius: .3rem; background: var(--canvas); color: var(--text); font: inherit; }
+.echo-case-empty { margin: .4rem .75rem; font-size: .78rem; }
 .case { width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; padding: .55rem .75rem; font-size: .86rem; overflow-wrap: anywhere; }
 .case:not(:disabled):hover { background: var(--button); border-top-color: var(--line); }
 .case[aria-pressed="true"] { background: var(--selection); box-shadow: inset 3px 0 var(--accent); }

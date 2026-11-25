@@ -116,6 +116,7 @@ function App({ source = null, openCollectors, controls, panel }: {
   const viewContent = useRef<HTMLDivElement>(null);
   const [eventSearch, setEventSearch] = useState('');
   const [cases, setCases] = useState<Case[]>([]);
+  const [caseSearch, setCaseSearch] = useState('');
   const [selected, updateSelected] = useState(() => {
     const saved = readWorkspacePreference('case');
     const prefix = (source ?? '') + ':';
@@ -125,6 +126,9 @@ function App({ source = null, openCollectors, controls, panel }: {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const incident = cases.find((item) => item.id === selected) ?? cases[0];
+  const caseQuery = caseSearch.trim().toLowerCase();
+  const matchingCases = caseQuery ? cases.filter((item) =>
+    [item.title, item.host].some((value) => value.toLowerCase().includes(caseQuery))) : cases;
   const sourceQuery = source ? '?source=' + encodeURIComponent(source) : '';
   const networkEndpoint = portfolio ? '/demo/network.json' : '/api/network' + sourceQuery;
 
@@ -144,6 +148,7 @@ function App({ source = null, openCollectors, controls, panel }: {
   }
 
   function openCase(id: string) {
+    setCaseSearch('');
     setSelected(id);
     setView('cases');
   }
@@ -261,9 +266,17 @@ function App({ source = null, openCollectors, controls, panel }: {
         canSave={cloud} openNetwork={() => setView('network')} />}
       {view === 'cases' && <div className="workspace">
         <aside className="echo-case-list" aria-label="Investigations">
-          <h2>Investigations <span>{loaded ? cases.length : ''}</span></h2>
-          {cases.map((item) => (
-            <button key={item.id} className="case" aria-pressed={item.id === incident?.id}
+          <h2>Investigations <span>{loaded ? (caseQuery ? `${matchingCases.length} / ${cases.length}` : cases.length) : ''}</span></h2>
+          <label className="echo-case-search">
+            <span>Find an investigation</span>
+            <input type="search" placeholder="Title or host" value={caseSearch}
+              onChange={(event) => setCaseSearch(event.target.value)} />
+          </label>
+          {caseQuery && !matchingCases.length && <p className="echo-case-empty" role="status">No investigations match.</p>}
+          {caseQuery && incident && !matchingCases.includes(incident) &&
+            <p className="echo-case-empty">The open investigation is outside this filter.</p>}
+          {matchingCases.map((item) => (
+            <button type="button" key={item.id} className="case" aria-pressed={item.id === incident?.id}
               onClick={() => setSelected(item.id)}>
               <strong>{item.title}</strong>
               <small>{item.host} · {item.evidence.length} {item.evidence.length === 1 ? 'event' : 'events'}</small>

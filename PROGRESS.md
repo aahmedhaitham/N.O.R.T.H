@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- ECHO filters its investigation list by title or host while keeping the open evidence in view.
 - IRIS can move one page at a time through older or newer results while keeping applied filters. Failed page loads can be retried in place.
 - ECHO citations and connection links jump to the referenced event, pause replay, and expand raw evidence. Direct evidence fragments open their case when it is available in the selected collector.
 - The ATLAS inspector explains address scope and collector-reported names alongside the selected device. MAC address explanations distinguish locally assigned and group addresses.
