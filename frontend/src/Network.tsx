@@ -41,6 +41,12 @@ const atlasViews = [
   { id: 'health', label: 'Diagnostics' }, { id: 'traces', label: 'Packet traces' },
 ] as const;
 type AtlasView = (typeof atlasViews)[number]['id'];
+const coverageFilters = [
+  { id: 'all', label: 'Observed groups' }, { id: 'named', label: 'Named groups' },
+  { id: 'unnamed', label: 'Unnamed groups' }, { id: 'wifi', label: 'Router Wi-Fi confirmed' },
+  { id: 'usage', label: 'With router byte totals' },
+] as const;
+type CoverageFilter = (typeof coverageFilters)[number]['id'];
 
 const sysmonProblems = {
   access_denied: 'Windows denied this account access to the Sysmon event log.',
@@ -153,6 +159,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const [search, setSearch] = useState('');
   const [wifiOnly, setWifiOnly] = useState(false);
   const [atlasView, setAtlasView] = useState<AtlasView>('devices');
+  const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
   const activeView = target ? (target === 'atlas-windows-events' ? 'health' : 'devices') : atlasView;
   const [reviewing, setReviewing] = useState('');
   const [reviewError, setReviewError] = useState(false);
@@ -279,14 +286,41 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       addresses: records.map((record) => record.address), states: [...new Set(records.map((record) => record.state).filter(Boolean))],
       traffic };
   });
-  const mapDevices = observedDevices.filter((device, index) => matchesDevice(liveDevices[index]) ||
-    fits(device.observedName ?? '', ...(device.traffic?.router_ips ?? [])));
-  const coverage = [
-    { label: 'Observed groups', count: observedDevices.length },
-    { label: 'Named groups', count: observedDevices.filter((device) => device.observedName).length },
-    { label: 'Router Wi-Fi confirmed', count: observedDevices.filter((device) => device.traffic?.wifi_associated).length },
-    { label: 'With router byte totals', count: observedDevices.filter((device) => device.traffic).length },
-  ];
+  function matchesCoverage(device: (typeof observedDevices)[number], filter: CoverageFilter) {
+    switch (filter) {
+      case 'named': return Boolean(device.observedName);
+      case 'unnamed': return !device.observedName;
+      case 'wifi': return device.traffic?.wifi_associated === true;
+      case 'usage': return Boolean(device.traffic);
+      default: return true;
+    }
+  }
+  const mapDevices = observedDevices.filter((device, index) => matchesCoverage(device, coverageFilter) &&
+    (matchesDevice(liveDevices[index]) || fits(device.observedName ?? '', ...(device.traffic?.router_ips ?? []))));
+  const visibleIds = new Set(mapDevices.map((device) => device.id));
+
+  function exportInventory() {
+    const rows = [
+      ['Device', 'Name source', 'Observed IP addresses', 'MAC address', 'Interface', 'Router Wi-Fi confirmed',
+        'Router download bytes', 'Router upload bytes', 'Router sample time'],
+      ...mapDevices.map((item) => [
+        item.label, item.nameSource ?? '', item.addresses.join(' | '), item.mac, item.network,
+        item.traffic?.wifi_associated ? 'Yes' : '', item.traffic?.download_bytes ?? '',
+        item.traffic?.upload_bytes ?? '', item.traffic ? router?.updated_at ?? '' : '',
+      ]),
+    ];
+    const csv = rows.map((row) => row.map((value) => {
+      const raw = String(value);
+      const cell = /^[\s]*[=+@-]|^[\t\r\n]/.test(raw) ? "'" + raw : raw;
+      return '"' + cell.replaceAll('"', '""') + '"';
+    }).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'north-device-inventory.csv';
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   async function review(id: string) {
     setReviewError(false);
@@ -386,9 +420,13 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     <div className="atlas-section-stack" hidden={activeView !== 'devices'}>
     {observedDevices.length > 0 && <section className="panel" aria-labelledby="atlas-coverage">
       <h2 id="atlas-coverage">Device coverage</h2>
-      <dl className="health-summary">{coverage.map((item) => <div key={item.label}>
-        <dt>{item.label}</dt><dd>{item.count.toLocaleString()}</dd>
-      </div>)}</dl>
+      <div className="health-summary device-coverage-actions" role="group" aria-label="Filter observed devices">
+        {coverageFilters.map(({ id, label }) => <button key={id} type="button" aria-pressed={coverageFilter === id}
+          onClick={() => setCoverageFilter(id)}>
+          <span>{label}</span><strong>{observedDevices.filter((device) => matchesCoverage(device, id)).length.toLocaleString()}</strong>
+        </button>)}
+      </div>
+      <button type="button" disabled={!mapDevices.length} onClick={exportInventory}>Export filtered inventory</button>
     </section>}
     {labelError && <p role="status">Saved device labels are temporarily unavailable.</p>}
     <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} openEvents={openEvents}
@@ -432,7 +470,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         collector.state === 'unavailable' ? 'The collector could not read the cache. It will retry automatically.' :
         `${liveDevices.length} device groups · Last refreshed ${new Date(collector.updated_at ?? '').toLocaleTimeString()}`}</p>
       <p>Addresses are grouped by interface and MAC. Router usage appears when the router reports byte totals for that MAC.</p>
-      {devicesList(liveDevices, true)}
+      {mapDevices.length ? devicesList(liveDevices.filter(([id]) => visibleIds.has(id)), true) :
+        liveDevices.length > 0 && <p>No observed devices match the current filters.</p>}
     </section>}
     <div className="columns">
       <section className="panel">
