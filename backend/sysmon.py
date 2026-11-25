@@ -13,6 +13,16 @@ from starlette.concurrency import run_in_threadpool
 SOURCE = "windows-sysmon"
 
 
+def collection_problem(error):
+    if isinstance(error, subprocess.CalledProcessError):
+        detail = error.stderr or ""
+        if "UnauthorizedAccessException" in detail:
+            return "access_denied"
+        if "NoMatchingLogsFound" in detail:
+            return "channel_missing"
+    return "read_failed"
+
+
 def collect(store):
     after = store.collection_offset(SOURCE)
     reader = Path(__file__).resolve().parents[1] / "tools" / "Read-NorthSysmon.ps1"
@@ -36,19 +46,21 @@ class SysmonMonitor:
             "state": "starting" if enabled else "disabled",
             "updated_at": None,
             "session_events": 0,
+            "problem": None,
         }
 
     async def run(self):
         while True:
             try:
                 inserted, read = await run_in_threadpool(collect, self.store)
-            except (OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error, subprocess.SubprocessError):
-                self.current = {**self.current, "state": "unavailable"}
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error, subprocess.SubprocessError) as error:
+                self.current = {**self.current, "state": "unavailable", "problem": collection_problem(error)}
                 read = 0
             else:
                 self.current = {
                     "state": "ready",
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                     "session_events": self.current["session_events"] + inserted,
+                    "problem": None,
                 }
             await asyncio.sleep(1 if read == 500 else 15)

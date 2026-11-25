@@ -10,9 +10,15 @@ type Collector = { state: 'starting' | 'disabled' | 'ready' | 'unavailable'; upd
 type Snapshot = {
   assets: Host[]; links: Connection[];
   neighbors?: Collector & { records: Neighbor[] };
-  sysmon?: Collector & { session_events: number };
+  sysmon?: Collector & { session_events: number; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
+
+const sysmonProblems = {
+  access_denied: 'Windows denied this account access to the Sysmon event log.',
+  channel_missing: 'The Sysmon event log was not found.',
+  read_failed: 'NORTH could not read the Sysmon event log. It will retry.',
+};
 
 function readNeighbors(value: unknown): Neighbor[] {
   if (!Array.isArray(value)) throw new Error('Choose a JSON array of device records.');
@@ -139,7 +145,7 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
     {windowsEvents && windowsEvents.state !== 'disabled' && <section className="panel">
       <h2>Windows event collection</h2>
       <p role="status">{windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
-        windowsEvents.state === 'unavailable' ? 'Sysmon is unavailable or this account cannot read its log. NORTH will retry.' :
+        windowsEvents.state === 'unavailable' ? sysmonProblems[windowsEvents.problem ?? 'read_failed'] :
         `Collecting automatically · ${windowsEvents.session_events} new events since launch · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
     </section>}
     {collector && collector.state !== 'disabled' && <section className="panel">

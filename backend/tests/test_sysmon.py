@@ -1,11 +1,12 @@
 import json
+from subprocess import CalledProcessError
 from types import SimpleNamespace
 
 import pytest
 
 from main import demo_alerts
 from north import Store
-from sysmon import SOURCE, collect
+from sysmon import SOURCE, collect, collection_problem
 
 
 def test_sysmon_advances_checkpoint_after_import_and_resumes(monkeypatch, tmp_path):
@@ -36,3 +37,12 @@ def test_invalid_batch_does_not_advance_checkpoint(tmp_path):
         store.ingest([demo_alerts()[0], {}], checkpoint=(SOURCE, 11))
     assert store.collection_offset(SOURCE) == 10
     assert store.events() == []
+
+
+@pytest.mark.parametrize(("stderr", "expected"), [
+    ("FullyQualifiedErrorId: System.UnauthorizedAccessException", "access_denied"),
+    ("FullyQualifiedErrorId: NoMatchingLogsFound", "channel_missing"),
+    ("Another error", "read_failed"),
+])
+def test_collection_problem_reports_safe_reason(stderr, expected):
+    assert collection_problem(CalledProcessError(1, ["powershell.exe"], stderr=stderr)) == expected
