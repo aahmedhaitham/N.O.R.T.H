@@ -1,5 +1,7 @@
 const cookieName = '__Host-north_session';
 const sessionSeconds = 8 * 60 * 60;
+const workspaceAiLimit = 20;
+const workspaceUploadLimit = 600;
 const maxBytes = 700_000;
 const emptyNetwork = { assets: [], links: [] };
 const idPattern = /^[0-9a-f]{24}$/;
@@ -13,10 +15,20 @@ const randomHex = () => Array.from(crypto.getRandomValues(new Uint8Array(32)),
   (byte) => byte.toString(16).padStart(2, '0')).join('');
 const utcTimestamp = (ms) => new Date(ms).toISOString().replace('Z', '000+00:00');
 
-function retentionCutoff(env, now) {
+function retentionDays(env) {
   const days = String(env.NORTH_HOSTED_RETENTION_DAYS ?? '');
   if (!/^[1-9]\d{0,2}$/.test(days) || Number(days) > 365) return null;
-  return utcTimestamp(now - Number(days) * 86400000);
+  return Number(days);
+}
+
+function retentionCutoff(env, now) {
+  const days = retentionDays(env);
+  return days ? utcTimestamp(now - days * 86400000) : null;
+}
+
+async function aiAllowed(db, account) {
+  const preference = await db.prepare('SELECT ai_enabled FROM cloud_workspace_preferences WHERE account_id = ?').bind(account).first();
+  return preference?.ai_enabled !== 0;
 }
 
 function filterRetainedSnapshot(body, cutoff, now) {
@@ -367,8 +379,8 @@ async function caseDraft(env, source, caseId, account) {
       .filter(Boolean).join(' · '), evidence_ids: [event.id] };
   };
   const fallback = (reason) => json({ claims: findings.slice(0, 3).map(claim), provider: 'evidence', reason });
-  if (!env.AI) return fallback('ai_disabled');
-  if (await useQuota(env.DB, account, 'ai-brief', 20, 3600)) return fallback('ai_limit');
+  if (!env.AI || !await aiAllowed(env.DB, account)) return fallback('ai_disabled');
+  if (await useQuota(env.DB, account, 'ai-brief', workspaceAiLimit, 3600)) return fallback('ai_limit');
   if (await useQuota(env.DB, ':service', 'ai-brief', 200, 3600)) return fallback('ai_capacity');
   try {
     const answer = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
@@ -446,7 +458,7 @@ export default {
         if (paired && body.source?.id !== paired.source_id) return json({ detail: 'Pairing belongs to another collector.' }, 403);
         if (legacyKey && /^collector-[0-9a-f]{20}$/.test(body.source?.id ?? '')) return json({ detail: 'A collector pairing is required.' }, 403);
         if (paired) body.source = { id: paired.source_id, label: paired.label };
-        const retry = await useQuota(env.DB, paired?.account_id ?? 'legacy', 'snapshot', 600, 3600);
+        const retry = await useQuota(env.DB, paired?.account_id ?? 'legacy', 'snapshot', workspaceUploadLimit, 3600);
         if (retry) return json({ detail: 'The workspace has reached its hourly upload limit.' }, 429, {
           'Retry-After': String(retry),
         });
@@ -490,6 +502,23 @@ export default {
     if (!account || (account !== 'legacy' && !await env.DB.prepare(
       'SELECT id FROM cloud_accounts WHERE id = ? AND disabled_at IS NULL',
     ).bind(account).first())) return json({ detail: 'Sign in required' }, 401);
+
+    if (path === '/api/cloud/settings') {
+      if (request.method === 'GET') return json({
+        ai_available: Boolean(env.AI), ai_enabled: await aiAllowed(env.DB, account),
+        retention_days: account === 'legacy' ? null : retentionDays(env),
+        ai_hourly_limit: workspaceAiLimit, upload_hourly_limit: workspaceUploadLimit,
+      });
+      if (request.method === 'POST') {
+        if (request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+        const preferences = await readBody(request, 512).catch(() => null);
+        if (typeof preferences?.ai_enabled !== 'boolean') return json({ detail: 'Choose whether to enable cloud AI.' }, 422);
+        await env.DB.prepare(`INSERT INTO cloud_workspace_preferences (account_id, ai_enabled) VALUES (?, ?)
+          ON CONFLICT(account_id) DO UPDATE SET ai_enabled = excluded.ai_enabled`)
+          .bind(account, preferences.ai_enabled ? 1 : 0).run();
+        return json({ ai_enabled: preferences.ai_enabled });
+      }
+    }
 
     if (path === '/api/cloud/pairings') {
       if (request.method === 'GET') {

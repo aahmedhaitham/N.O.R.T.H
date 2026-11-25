@@ -21,6 +21,14 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### UX backlog
+
+- Preserve the current view and selected collector when the browser page is refreshed. The project owner reported that refresh returns to the dashboard.
+
+### Workspace settings
+
+The hosted console shows the workspace's evidence retention period and usage limits, and lets the workspace owner turn cloud AI briefs off. Tests cover account isolation for the setting and evidence briefs without model calls when a workspace opts out. Deployment is pending.
+
 ### Workspace isolation checkpoint
 
 - Added database ownership for individually provisioned accounts while keeping the existing workspace's unowned data and keys in a separate legacy scope. Account keys are stored as hashes and disabled accounts cannot sign in, read evidence or upload via paired collectors.

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { CollectorSetup } from './CollectorSetup';
 import { pollVisible } from './pollVisible';
+import { WorkspaceSettings } from './WorkspaceSettings';
 
 type Source = { id: string; label: string; updated_at: string };
 type DesktopRequest = { ticket: string; expires: number };
@@ -29,7 +30,7 @@ export function CloudGate({ children }: {
   const [busy, setBusy] = useState(false);
   const [sources, setSources] = useState<Source[]>([]);
   const [active, setActive] = useState('');
-  const [setup, setSetup] = useState(false);
+  const [section, setSection] = useState<'dashboard' | 'collectors' | 'settings'>('dashboard');
   const [google, setGoogle] = useState(false);
   const [desktopRequest, setDesktopRequest] = useState<DesktopRequest | null>(null);
   const [approval, setApproval] = useState(() => {
@@ -167,7 +168,7 @@ export function CloudGate({ children }: {
       setSignedIn(false);
       setSources([]);
       setActive('');
-      setSetup(false);
+      setSection('dashboard');
       setMessage('');
     } catch {
       setMessage('Sign-out could not be completed.');
@@ -186,7 +187,8 @@ export function CloudGate({ children }: {
       </div>
       {message && <span role="alert">{message}</span>}
       <div className="cloud-actions">
-        <button onClick={() => setSetup(!setup)} aria-pressed={setup}>Collectors</button>
+        <button onClick={() => setSection('collectors')} aria-pressed={section === 'collectors'}>Collectors</button>
+        <button onClick={() => setSection('settings')} aria-pressed={section === 'settings'}>Settings</button>
         <button onClick={() => void signOut()}>Sign out</button>
       </div>
     </div>;
@@ -200,8 +202,10 @@ export function CloudGate({ children }: {
         <button onClick={clearApproval}>Cancel</button>
       </div>
     </section></main>;
-    return setup ? <>{controls}<CollectorSetup back={() => setSetup(false)} /></> :
-      children(source?.id ?? null, () => setSetup(true), controls);
+    if (section === 'collectors') return <>{controls}<CollectorSetup back={() => setSection('dashboard')} /></>;
+    if (section === 'settings') return <>{controls}<WorkspaceSettings back={() => setSection('dashboard')}
+      openCollectors={() => setSection('collectors')} /></>;
+    return children(source?.id ?? null, () => setSection('collectors'), controls);
   }
 
   return <main className="cloud-sign-in">

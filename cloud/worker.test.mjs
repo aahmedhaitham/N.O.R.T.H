@@ -244,6 +244,16 @@ test('cloud sources keep independent event and investigation history', async (t)
   const secondLogin = await call('/api/cloud/login', post({ key: secondKey }, { Origin: root }));
   assert.equal(secondLogin.status, 200);
   const secondHeaders = { Origin: root, Cookie: secondLogin.headers.get('Set-Cookie').split(';')[0] };
+  const settings = '/api/cloud/settings';
+  assert.equal((await call(settings)).status, 401);
+  assert.equal((await call(settings, post({ ai_enabled: false }, headers))).status, 403);
+  assert.equal((await call(settings, post({ ai_enabled: 'false' }, accountHeaders))).status, 422);
+  assert.equal((await call(settings, post({ ai_enabled: false }, accountHeaders))).status, 200);
+  assert.equal((await (await call(settings, { headers: accountHeaders })).json()).ai_enabled, false);
+  assert.equal((await (await call(settings, { headers: secondHeaders })).json()).ai_enabled, true);
+  env.AI = { run: async () => assert.fail('An opted-out workspace must not call AI') };
+  assert.equal((await (await call('/api/cases/' + id + '/draft', post({}, accountHeaders))).json()).reason, 'ai_disabled');
+  assert.equal((await call(settings, post({ ai_enabled: true }, accountHeaders))).status, 200);
   assert.equal((await call('/api/events?source=' + ownPairing.source_id, { headers: secondHeaders })).status, 404);
   assert.deepEqual((await (await call(pairings, { headers: secondHeaders })).json()).pairings, []);
   assert.equal((await call(draft, post({}, secondHeaders))).status, 404);

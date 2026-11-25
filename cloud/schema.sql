@@ -71,6 +71,10 @@ CREATE TABLE IF NOT EXISTS cloud_revoked_sessions (
     session_id TEXT PRIMARY KEY,
     expires_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS cloud_workspace_preferences (
+    account_id TEXT PRIMARY KEY,
+    ai_enabled INTEGER NOT NULL CHECK (ai_enabled IN (0, 1))
+);
 CREATE INDEX IF NOT EXISTS cloud_revoked_sessions_expiry ON cloud_revoked_sessions (expires_at);
 
 INSERT OR IGNORE INTO cloud_sources (id, label, network, updated_at)
