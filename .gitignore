@@ -1,0 +1,26 @@
+# Local configuration and audit
+.env
+.env.*
+!.env.example
+LOCAL-AUDIT.md
+
+# Dependencies and build output
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+
+# Local models, VM disks, and raw telemetry
+.ollama/
+models/
+*.gguf
+*.vmdk
+*.vdi
+*.vhd*
+*.vmem
+*.ova
+*.ovf
+*.evtx
+*.log
+raw-logs/
