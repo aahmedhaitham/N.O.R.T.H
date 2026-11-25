@@ -209,7 +209,7 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
   }
 
   return <main className="network">
-    <header className="panel overview">
+    <header className="overview page-heading">
       <div>
         <h1>ATLAS <span className="workspace-title">Network inventory</span></h1>
         <p>Review devices that sent telemetry, their observed connections, and device records from your network.</p>

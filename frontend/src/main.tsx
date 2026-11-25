@@ -29,12 +29,19 @@ const desktopLocal = desktop && location.pathname === '/';
 const cloud = import.meta.env.MODE === 'cloud' && !desktopLocal;
 if (desktopLocal) document.title = 'NORTH | This computer';
 
+const navigation = [
+  { id: 'dashboard', label: 'Overview', detail: 'Security dashboard' },
+  { id: 'network', label: 'ATLAS', detail: 'Network inventory' },
+  { id: 'events', label: 'IRIS', detail: 'Event explorer' },
+  { id: 'cases', label: 'ECHO', detail: 'Investigations' },
+] as const;
+
 function App({ source = null, openCollectors, controls }: {
   source?: string | null;
   openCollectors?: () => void;
   controls?: import('react').ReactNode;
 }) {
-  const [view, setView] = useState<'dashboard' | 'cases' | 'network' | 'events'>('dashboard');
+  const [view, setView] = useState<(typeof navigation)[number]['id']>('dashboard');
   const [eventSearch, setEventSearch] = useState('');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
@@ -116,25 +123,18 @@ function App({ source = null, openCollectors, controls }: {
         <a className="brand" href={cloud && desktop ? '/cloud' : '/'} onClick={(event) => {
           event.preventDefault(); setView('dashboard');
         }}><img alt="" src="/icons/north-192.png" />NORTH</a>
-        <button type="button" aria-current={view === 'dashboard' ? 'page' : undefined} onClick={() => setView('dashboard')}>
-          <strong>Overview</strong><small>Security dashboard</small>
-        </button>
-        <button type="button" aria-current={view === 'network' ? 'page' : undefined} onClick={() => setView('network')}>
-          <strong>ATLAS</strong><small>Devices and network</small>
-        </button>
-        <button type="button" aria-current={view === 'events' ? 'page' : undefined} onClick={() => setView('events')}>
-          <strong>IRIS</strong><small>Events and intelligence</small>
-        </button>
-        <button type="button" aria-current={view === 'cases' ? 'page' : undefined} onClick={() => setView('cases')}>
-          <strong>ECHO</strong><small>Investigations and replay</small>
-        </button>
+        {navigation.map((item) => <button key={item.id} type="button" className="nav-item"
+          aria-current={view === item.id ? 'page' : undefined} onClick={() => setView(item.id)}>
+          <span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />
+          <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+        </button>)}
       </nav>
       <div className="shell-content">
       {controls}
       <header className="topbar">
-        <span>{{ dashboard: 'Overview', network: 'ATLAS / Network', events: 'IRIS / Events', cases: 'ECHO / Investigations' }[view]}</span>
+        <span className="topbar-location">{navigation.find((item) => item.id === view)?.detail}</span>
         <InstallApp />
-        <span role="status" className={online ? 'status online' : 'status'}>
+        <span role="status" className={online || portfolio ? 'status online' : 'status'}>
           {desktopLocal ? 'This computer · Local data' : cloud ? (online ? 'Cloud connection ready' : 'Connecting to cloud') :
             portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
         </span>
@@ -175,6 +175,7 @@ function Investigation({ incident, sourceQuery, openEvents }: {
 }) {
   const [cursor, setCursor] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -202,9 +203,9 @@ function Investigation({ incident, sourceQuery, openEvents }: {
     const timer = window.setTimeout(() => {
       if (active >= last) setPlaying(false);
       else setCursor(active + 1);
-    }, 900);
+    }, 900 / speed);
     return () => window.clearTimeout(timer);
-  }, [playing, active, last]);
+  }, [playing, active, last, speed]);
 
   async function requestDraft() {
     setBusy(true);
@@ -281,6 +282,9 @@ function Investigation({ incident, sourceQuery, openEvents }: {
           </button>
           <input aria-label="Timeline position" type="range" min="0" max={last} value={active}
             onChange={(event) => { setPlaying(false); setCursor(Number(event.target.value)); }} />
+          <select aria-label="Replay speed" value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
+            <option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option>
+          </select>
           <span>{active + 1} / {last + 1}</span>
         </div>
         <ol className="timeline">

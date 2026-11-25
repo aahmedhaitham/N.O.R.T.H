@@ -208,8 +208,19 @@ export function CloudGate({ children }: {
     return children(source?.id ?? null, () => setSection('collectors'), controls);
   }
 
+  const keyForm = <form className="event-filters" onSubmit={(event) => {
+    event.preventDefault(); void signIn();
+  }}>
+    <label>Workspace access key
+      <input type="password" autoComplete="current-password" value={key} required
+        onChange={(event) => setKey(event.target.value)} />
+    </label>
+    <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in with key'}</button>
+  </form>;
+
   return <main className="cloud-sign-in">
     <section className="panel">
+      <img className="sign-in-brand" src="/icons/north-192.png" alt="" />
       <h1>NORTH Cloud</h1>
       {signedIn === false && google && (desktop ? desktopRequest ? <div>
         <p>Confirm this code in your browser <strong>{desktopCode(desktopRequest.ticket)}</strong></p>
@@ -217,15 +228,9 @@ export function CloudGate({ children }: {
         <button onClick={() => setDesktopRequest(null)}>Cancel</button>
       </div> : <p><button className="primary-action" disabled={busy} onClick={() => void startDesktopSignIn()}>Sign in through browser</button></p> :
         <p><a className="button primary-action" href="/api/cloud/auth/google">Continue with Google</a></p>)}
-      {signedIn === null ? <p>Checking your session…</p> : <form className="event-filters" onSubmit={(event) => {
-        event.preventDefault(); void signIn();
-      }}>
-        <label>Workspace access key
-          <input type="password" autoComplete="current-password" value={key} required
-            onChange={(event) => setKey(event.target.value)} />
-        </label>
-        <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-      </form>}
+      {signedIn === null ? <p>Checking your session…</p> : google && !desktopRequest ?
+        <details className="alternate-signin"><summary>Use a workspace key</summary>{keyForm}</details> :
+        !desktopRequest && keyForm}
       {message && <p role="alert">{message}</p>}
       {!message && signedIn === false && new URLSearchParams(location.search).has('sign_in_failed') &&
         <p role="alert">{signInErrors[new URLSearchParams(location.search).get('sign_in_failed') ?? ''] ??

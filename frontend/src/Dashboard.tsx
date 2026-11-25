@@ -63,7 +63,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
     </section>}
     {!connect && <>
     {fetchError && <p role="status">The device and event counts could not refresh.</p>}
-    <div className="dashboard-charts overview-priority">
+    <div className="overview-priority">
       <section className="panel">
         <h2>Needs attention</h2>
         {newDevices > 0 && <p><button className="network-case" onClick={() => open('network')}>
@@ -73,6 +73,15 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
           Check data source access
         </button></p>}
         {!newDevices && !coverageIssue && <p>{inventory ? 'No device reviews or data source issues reported.' : 'Checking available data sources…'}</p>}
+      </section>
+      <section className="panel dashboard-recent">
+        <h2>What changed</h2>
+        {!latest.length && <p>{loaded ? 'No investigations have been recorded yet.' : 'Checking for recent investigations…'}</p>}
+        <ul className="network-list">{latest.slice(0, 3).map((item) => <li key={item.id}>
+          <button onClick={() => openCase(item.id)}>{item.title}</button>
+          <small>{item.host}{item.timestamp && ' · ' + new Date(item.timestamp).toLocaleString()}</small>
+        </li>)}</ul>
+        {latest.length > 3 && <button className="network-case" onClick={() => open('cases')}>See all investigations</button>}
       </section>
       <section className="panel">
         <h2>{local ? 'What NORTH can see on this PC' : 'Data sources'}</h2>
@@ -119,22 +128,13 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
         {!eventTypes.length && <p>{inventory ? 'No event types recorded yet.' : 'Loading event types…'}</p>}
       </section>
     </div>
-    <div className="columns">
-      <section className="panel dashboard-recent">
-        <h2>What changed</h2>
-        {!latest.length && <p>{loaded ? 'There are no investigations yet.' : 'Waiting for investigations…'}</p>}
-        <ul className="network-list">{latest.map((item) => <li key={item.id}>
-          <button onClick={() => openCase(item.id)}>{item.title}</button>
-          <small>{item.host}{item.timestamp && ' · ' + new Date(item.timestamp).toLocaleString()}</small>
-        </li>)}</ul>
-      </section>
+    {inventory?.device_findings?.baseline_at && (
       <section className="panel">
         <h2>Device history</h2>
-        <p>{inventory?.device_findings?.baseline_at ? 'Review devices first observed after the baseline was saved.' :
-          'Open ATLAS to inspect the devices and connections NORTH has observed.'}</p>
+        <p>Review devices first observed after the baseline was saved.</p>
         <button onClick={() => open('network')}>Open ATLAS</button>
       </section>
-    </div>
+    )}
     </>}
   </main>;
 }

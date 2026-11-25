@@ -85,7 +85,7 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
   }
 
   return <main className="event-explorer">
-    <section className="panel">
+    <section className="panel iris-filters">
       <h1>IRIS <span className="workspace-title">Event explorer</span></h1>
       <p>Search collected telemetry and inspect the original records behind alerts.</p>
       <form className="event-filters" onSubmit={(event) => {
