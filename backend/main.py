@@ -1,13 +1,15 @@
 import asyncio
 import json
 import os
+import re
 import sys
 from contextlib import asynccontextmanager, suppress
+from datetime import datetime
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -78,6 +80,25 @@ def make_app(store=None):
     @app.get("/api/cases")
     def cases():
         return build_cases(store.events())
+
+    @app.get("/api/events")
+    def events(q: str = Query("", max_length=200), kind: int | None = None,
+               before: str | None = Query(None, max_length=80), limit: int = Query(50, ge=1, le=100)):
+        offset = None
+        if before is not None:
+            try:
+                timestamp, event_id = before.split("|")
+                parsed = datetime.fromisoformat(timestamp)
+                if (
+                    parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0
+                    or parsed.isoformat(timespec="microseconds") != timestamp
+                    or not re.fullmatch(r"[0-9a-f]{24}", event_id)
+                ):
+                    raise ValueError
+            except ValueError as error:
+                raise HTTPException(422, "Invalid event page cursor") from error
+            offset = (timestamp, event_id)
+        return store.event_page(search=q.strip(), kind=kind, before=offset, limit=limit)
 
     @app.get("/api/network")
     def network():

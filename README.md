@@ -57,6 +57,8 @@ For a static portfolio build, run `npm run build -- --mode portfolio` from `fron
 
 Open **Network** to see reporting devices and observed inbound and outbound connections. Select a linked investigation to review its evidence.
 
+Open **Events** to search collected telemetry by host, process, address, or keyword. Filter by event type and expand a record to view its source fields and evidence ID. The newest page refreshes automatically. Older pages use a timestamp and event ID cursor so new activity does not move the page boundary.
+
 On Windows, **Start NORTH.cmd** includes the automatic neighbor-cache collector. It reads the existing cache every 30 seconds and keeps the current snapshot in memory. On a native Linux installation, start FastAPI with `NORTH_NETWORK_AUTO=1 .venv/bin/python -m uvicorn main:app` and the `ip` utility available. Enable automatic collection only for a private NORTH instance. The public deployment disables it.
 
 On Windows, the launcher also collects configured Sysmon process, connection and file-creation records about every 15 seconds after Sysmon is installed. NORTH saves the record cursor with the imported events and resumes after a restart. The launcher does not install or reconfigure Sysmon. Check **Windows event collection** in **Network** for status.

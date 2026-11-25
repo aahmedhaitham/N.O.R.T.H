@@ -4,6 +4,8 @@ import { Background, Controls, ReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './style.css';
 import { Network } from './Network';
+import { Events } from './Events';
+import { eventNames } from './eventNames';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
@@ -15,15 +17,11 @@ type Case = {
 };
 type Claim = { text: string; evidence_ids: string[] };
 
-const eventNames: Record<number, string> = {
-  1: 'Process created', 3: 'Network connection observed', 11: 'File created',
-  1001: 'SSH authentication failed', 1002: 'Sudo command observed',
-};
 const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
 
 function App() {
-  const [view, setView] = useState<'cases' | 'network'>('cases');
+  const [view, setView] = useState<'cases' | 'network' | 'events'>('cases');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
   const [online, setOnline] = useState(false);
@@ -78,6 +76,7 @@ function App() {
         <nav className="console-nav" aria-label="Console">
           <button type="button" aria-pressed={view === 'cases'} onClick={() => setView('cases')}>Investigations</button>
           <button type="button" aria-pressed={view === 'network'} onClick={() => setView('network')}>Network</button>
+          <button type="button" aria-pressed={view === 'events'} onClick={() => setView('events')}>Events</button>
         </nav>
         <span role="status" className={online ? 'status online' : 'status'}>
           {portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
@@ -87,6 +86,7 @@ function App() {
         <Network endpoint={view === 'network' ? (portfolio ? '/demo/network.json' : '/api/network') : ''}
           openCase={(id) => { setSelected(id); setView('cases'); }} />
       </div>
+      {view === 'events' && <Events portfolio={portfolio} />}
       {view === 'cases' && <div className="workspace">
         <aside aria-label="Investigations">
           <h2>Investigations</h2>

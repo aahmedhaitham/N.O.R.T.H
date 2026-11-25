@@ -26,6 +26,9 @@ def verify(base, read_only=False):
     assert read_json(base + "/api/health") == {"status": "ok"}
     inventory = read_json(base + "/api/network")
     assert any(asset["host"] == "WIN-LAB-01" for asset in inventory["assets"])
+    files = read_json(base + "/api/events?q=WIN-LAB-01&kind=11&limit=1")
+    file_event, = files["events"]
+    assert file_event["host"] == "WIN-LAB-01" and file_event["kind"] == 11
     cases = read_json(base + "/api/cases")
     case, = [item for item in cases if item["host"] == "WIN-LAB-01"]
     assert [item["kind"] for item in case["evidence"]] == [1, 3, 11]

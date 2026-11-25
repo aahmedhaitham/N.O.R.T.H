@@ -181,6 +181,31 @@ class Store:
                 for row in db.execute("SELECT payload FROM events ORDER BY timestamp, id")
             ]
 
+    def event_page(self, *, search="", kind=None, before=None, limit=50):
+        marker = "%s" if self.url else "?"
+        terms, params = [], []
+        if search:
+            escaped = search.lower().replace("!", "!!").replace("%", "!%").replace("_", "!_")
+            terms.append(f"LOWER(payload) LIKE {marker} ESCAPE '!'")
+            params.append(f"%{escaped}%")
+        if kind is not None:
+            field = "CAST(payload AS jsonb)->>'kind'" if self.url else "CAST(json_extract(payload, '$.kind') AS TEXT)"
+            terms.append(f"({field}) = {marker}")
+            params.append(str(kind))
+        if before:
+            timestamp, event_id = before
+            terms.append(f"(timestamp < {marker} OR (timestamp = {marker} AND id < {marker}))")
+            params.extend((timestamp, timestamp, event_id))
+        where = " WHERE " + " AND ".join(terms) if terms else ""
+        params.append(limit + 1)
+        with self.connect() as db:
+            rows = db.execute(
+                f"SELECT payload FROM events{where} ORDER BY timestamp DESC, id DESC LIMIT {marker}", params,
+            ).fetchall()
+        events = [json.loads(row[0]) for row in rows[:limit]]
+        last = events[-1] if len(rows) > limit else None
+        return {"events": events, "next": f"{last['timestamp']}|{last['id']}" if last else None}
+
 
 def windows_cases(events: list[dict]) -> list[dict]:
     """Correlate process creation with a subsequent file write by the same process."""
