@@ -98,4 +98,37 @@ test('cloud sources keep independent event and investigation history', async (t)
   assert.equal((await call('/api/cloud/snapshot', post(scopedSnapshot, scopedKey))).status, 401);
   const history = await (await call('/api/events?source=' + pairing.source_id, { headers })).json();
   assert.equal(history.events.length, 1);
+
+  const connection = { id, kind: 3, destination: '192.0.2.25', host: 'desk',
+    timestamp: '2026-11-25T00:01:00.000000+00:00', raw: { private: 'never-sent-to-ai' } };
+  const incident = { ...data, cases: [{ id, evidence: [connection] }] };
+  assert.equal((await call('/api/cloud/snapshot', post(incident, collectorHeaders))).status, 200);
+  const evidenceId = 'b'.repeat(24);
+  assert.equal((await call('/api/cloud/snapshot', post({ ...data, source: { id: 'beta', label: 'Collector B' },
+    cases: [], reports: {}, events: [
+      { ...connection, id: evidenceId, source_ip: connection.destination, destination: '' },
+      { ...connection, id: 'c'.repeat(24), timestamp: '2026-11-25T00:15:00.000000+00:00' },
+    ] }, collectorHeaders))).status, 200);
+  const related = '/api/cases/' + id + '/related?source=alpha';
+  assert.equal((await call(related)).status, 401);
+  const matches = (await (await call(related, { headers })).json()).matches;
+  assert.deepEqual(matches.map((match) => [match.id, match.collector]), [[evidenceId, 'Collector B']]);
+  const rawEvent = '/api/events/' + evidenceId;
+  assert.equal((await call(rawEvent + '?source=alpha', { headers })).status, 404);
+  assert.equal((await (await call(rawEvent + '?source=beta', { headers })).json()).raw.private, 'never-sent-to-ai');
+  const draft = '/api/cases/' + id + '/draft?source=alpha';
+  assert.equal((await call(draft, post({}, headers))).status, 403);
+  const fallback = await (await call(draft, post({}, operator))).json();
+  assert.equal(fallback.provider, 'evidence');
+  let modelInput;
+  env.AI = { run: async (_model, input) => {
+    modelInput = input;
+    return { response: { finding_ids: [1] } };
+  } };
+  const ranked = await (await call(draft, post({}, operator))).json();
+  assert.equal(ranked.provider, 'cloud-ai');
+  assert.deepEqual(ranked.claims[0].evidence_ids, [id]);
+  assert.doesNotMatch(JSON.stringify(modelInput), /never-sent-to-ai|192\.0\.2\.25|desk/);
+  env.AI = { run: async () => ({ response: '{"finding_ids":[99]}' }) };
+  assert.deepEqual(await (await call(draft, post({}, operator))).json(), fallback);
 });

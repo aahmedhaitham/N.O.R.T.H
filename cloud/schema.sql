@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS cloud_events (
     PRIMARY KEY (source_id, id)
 );
 CREATE INDEX IF NOT EXISTS cloud_events_time ON cloud_events (source_id, timestamp DESC, id DESC);
+CREATE INDEX IF NOT EXISTS cloud_events_workspace_time ON cloud_events (timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS cloud_cases (
     source_id TEXT NOT NULL REFERENCES cloud_sources(id),

@@ -19,6 +19,7 @@ type Case = {
   evidence: Evidence[]; links: { destination: string; evidence_id: string; direction?: 'inbound' }[];
 };
 type Claim = { text: string; evidence_ids: string[] };
+type RelatedEvent = { id: string; source_id: string; timestamp: string; kind: number; collector: string; host: string; address: string };
 
 const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
@@ -164,8 +165,24 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
   const [claims, setClaims] = useState<Claim[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [related, setRelated] = useState<RelatedEvent[] | null>(null);
+  const [relatedError, setRelatedError] = useState(false);
+  const [draftProvider, setDraftProvider] = useState('');
   const last = incident.evidence.length - 1;
   const active = Math.min(cursor ?? last, last);
+
+  useEffect(() => {
+    if (!cloud) return;
+    const controller = new AbortController();
+    void fetch('/api/cases/' + incident.id + '/related' + sourceQuery, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error('Could not load related events');
+        return response.json();
+      })
+      .then((body) => setRelated(body.matches))
+      .catch(() => { if (!controller.signal.aborted) setRelatedError(true); });
+    return () => controller.abort();
+  }, [incident.id, sourceQuery]);
 
   useEffect(() => {
     if (!playing) return;
@@ -180,11 +197,13 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
     setBusy(true);
     setMessage('');
     setClaims([]);
+    setDraftProvider('');
     try {
-      const response = await fetch('/api/cases/' + incident.id + '/draft', { method: 'POST' });
+      const response = await fetch('/api/cases/' + incident.id + '/draft' + sourceQuery, { method: 'POST' });
       const body = await response.json();
       if (!response.ok) throw new Error(body.detail || 'Draft request failed.');
       setClaims(body.claims);
+      setDraftProvider(body.provider ?? '');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Draft request failed.');
     } finally {
@@ -259,14 +278,27 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
         </ol>
       </section>
     </div>
+    {cloud && <section className="panel">
+      <h2>Related events across collectors</h2>
+      <p>Matches share an IP address within five minutes of the case’s latest event. Shared addresses alone cannot establish that events are part of the same incident.</p>
+      {relatedError && <p role="status">Related events are unavailable.</p>}
+      {!relatedError && !related && <p>Checking other collectors…</p>}
+      {related?.length === 0 && <p>No matching events from another collector.</p>}
+      <ul className="network-list">{related?.map((event) => <li key={event.source_id + '/' + event.id + '/' + event.address}>
+        <strong>{eventNames[event.kind] ?? 'Event ' + event.kind}</strong>
+        <small>{event.collector}{event.host ? ' · ' + event.host : ''} · {event.address} · {new Date(event.timestamp).toLocaleString()}</small>
+        <RelatedEvidence event={event} />
+      </li>)}</ul>
+    </section>}
     <section className="panel">
       <span className="module">IRIS / ANALYST REVIEW</span>
-      <h2>{publicDemo || cloud ? 'Review case evidence' : 'Local AI draft'}</h2>
-      {cloud ? <p>Open the source events in ECHO to verify these findings.</p> :
-        publicDemo ? <p>This demo uses a bundled case. Open the original events in ECHO to verify the findings. Live AI drafts are available when running NORTH with Ollama.</p> : <>
-        <p>Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.</p>
+      <h2>{publicDemo ? 'Review case evidence' : cloud ? 'Evidence brief' : 'Local AI draft'}</h2>
+      {publicDemo ? <p>This demo uses a bundled case. Open the original events in ECHO to verify the findings. Live AI drafts are available when running NORTH with Ollama.</p> : <>
+        <p>{cloud ? 'Summarize recorded activity and open the cited events to verify each observation.' :
+          'Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.'}</p>
         <button type="button" disabled={busy} onClick={requestDraft}>{busy ? 'Drafting…' : 'Generate draft'}</button>
       </>}
+      {draftProvider && <p role="status">{draftProvider === 'cloud-ai' ? 'Prioritized by cloud AI' : 'Generated from recorded evidence'}</p>}
       {message && <p role="status">{message}</p>}
       {claims.length > 0 && <ul>{claims.map((claim, index) => (
         <li key={index}>{claim.text}{' '}{claim.evidence_ids.map((id, position) => (
@@ -275,6 +307,31 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
       ))}</ul>}
     </section>
   </>;
+}
+
+function RelatedEvidence({ event }: { event: RelatedEvent }) {
+  const [open, setOpen] = useState(false);
+  const [body, setBody] = useState<Evidence | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!open || body) return;
+    const request = new AbortController();
+    fetch('/api/events/' + event.id + '?source=' + encodeURIComponent(event.source_id),
+      { signal: request.signal }).then((response) => {
+      if (!response.ok) throw new Error('Evidence unavailable');
+      return response.json();
+    }).then(setBody).catch(() => { if (!request.signal.aborted) setFailed(true); });
+    return () => request.abort();
+  }, [open, body, event.id, event.source_id]);
+
+  return <details onToggle={(toggle) => {
+    setOpen(toggle.currentTarget.open);
+    if (toggle.currentTarget.open) setFailed(false);
+  }}>
+    <summary>Open evidence</summary>
+    {body ? <pre>{JSON.stringify(body.raw ?? body, null, 2)}</pre> :
+      <p>{failed ? 'Evidence is unavailable.' : 'Loading evidence…'}</p>}
+  </details>;
 }
 
 createRoot(document.getElementById('root')!).render(cloud ?

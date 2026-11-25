@@ -68,13 +68,19 @@ On Windows, after `npx wrangler login`, run `powershell.exe -NoProfile -Executio
 
 Use the sign-in key from a phone or computer at the deployed HTTPS URL. The cloud console can manage collector access. Ollama drafting runs with the local backend.
 
-To connect an additional Windows device, open **Collectors**, give the device a name and select **Create pairing**. On the device, run the displayed command from a configured NORTH collector checkout. Enter the HTTPS workspace address and the key when prompted, then restart **Start NORTH.cmd**. The launcher encrypts the key for the current Windows user. Each key can upload only for its own collector. Revoke a pairing from **Collectors** to stop future uploads while keeping its existing history.
+To connect an additional Windows device, open **Collectors**, give the device a name and select **Create pairing**. On the device, install Python 3.11 or later with the Windows launcher and run the displayed command from the NORTH folder. Enter the HTTPS workspace address and the key when prompted. The standalone collector installs its Python dependencies on first launch, stores its key for the current Windows user, and runs without the development servers. Double-click **Start NORTH Collector.cmd** for later sessions. Leave its window open while collecting. Sysmon event collection requires permission to read the existing Sysmon log. Revoke a pairing from **Collectors** to stop future uploads while keeping its existing history.
+
+ECHO surfaces cross-collector observations sharing an address within five minutes of a case's latest event. IRIS can make a brief with citations to that case's events. Deploy with `-EnableCloudAI` to let Workers AI prioritize the brief using generic event descriptions. Hostnames, addresses, raw logs and evidence IDs stay out of the model input. The brief remains available from recorded evidence when the model is off or unavailable. [Workers AI bindings](https://developers.cloudflare.com/workers-ai/configuration/bindings/)
+
+For per-device traffic, the standalone collector supports an OpenWrt router running `nlbwmon`. Use an SSH host alias that already works with key authentication and a verified host key, then run `& '.\Start NORTH Collector.cmd' -OpenWrtHost my-router` on the paired collector. ATLAS displays download and upload totals by device MAC from the router's current accounting period. These counters depend on the router's forwarding and accounting coverage. [OpenWrt traffic accounting documentation](https://github.com/jow-/nlbwmon)
 
 To remember the cloud connection in the Windows launcher, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Connect-NorthCloud.ps1 -Enable -Url https://YOUR-WORKSPACE.workers.dev`, then restart with **Start NORTH.cmd**. This opts the PC into sending its collected events, investigations, and network observations to that private workspace. To stop future syncs, run the same tool with `-Disable` and restart NORTH. Disconnecting the collector does not delete data already stored in Cloudflare.
 
 ### Windows desktop client
 
 The Windows x64 client bundles the dashboard interface and contacts the selected NORTH Cloud workspace for sign-in and data. It opens its own window without launching a browser, Python or the local collector. From the repository root, install dependencies with `npm.cmd --prefix frontend ci` and `npm.cmd --prefix desktop ci`, then run `npm.cmd --prefix desktop run package:windows`. The resulting portable file is `desktop/dist/NORTH-Desktop-Windows-x64.exe`. Set `NORTH_DESKTOP_DEFAULT_URL` at build time to preselect a workspace, or enter the HTTPS workspace origin on first launch. To change it later, use **Workspace → Connect to workspace**. The desktop sign-in session lasts until the app closes or the cloud session expires.
+
+Run `npm.cmd --prefix desktop run package:installer` to build `desktop/dist/NORTH-Setup-Windows-x64.exe`. The manual **Build NORTH for Windows** GitHub workflow packages both Windows builds. Code signing requires a publisher certificate.
 
 ## Add lab data or use local AI
 

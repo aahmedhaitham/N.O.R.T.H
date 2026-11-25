@@ -124,6 +124,81 @@ async function saveSnapshot(db, body, now) {
   return true;
 }
 
+async function relatedEvidence(db, source, caseId) {
+  const stored = await db.prepare('SELECT payload FROM cloud_cases WHERE source_id = ? AND id = ?')
+    .bind(source, caseId).first();
+  if (!stored) return null;
+  const evidence = JSON.parse(stored.payload).evidence;
+  const addresses = [...new Set(evidence.flatMap((event) => [event?.source_ip, event?.destination])
+    .filter((address) => typeof address === 'string' && address.length <= 45 &&
+      (/^\d{1,3}(\.\d{1,3}){3}$/.test(address) || /^[0-9a-f:]+:[0-9a-f:]+$/i.test(address))))].slice(0, 20);
+  const latest = evidence.reduce((time, event) => Math.max(time, Date.parse(event?.timestamp) || 0), 0);
+  if (!addresses.length || !latest) return [];
+  const window = 5 * 60 * 1000;
+  const utc = (ms) => new Date(ms).toISOString().replace('Z', '000+00:00');
+  const { results } = await db.prepare(`
+    SELECT e.id, e.timestamp, e.kind, e.source_id, s.label AS collector,
+      json_extract(e.payload, '$.host') AS host, refs.value AS address
+    FROM cloud_events e JOIN cloud_sources s ON s.id = e.source_id
+    JOIN json_each(?) refs ON refs.value IN (json_extract(e.payload, '$.source_ip'),
+      json_extract(e.payload, '$.destination'))
+    WHERE e.timestamp BETWEEN ? AND ? AND e.source_id <> ?
+    ORDER BY e.timestamp DESC, e.source_id, e.id, refs.value LIMIT 50
+  `).bind(JSON.stringify(addresses), utc(latest - window), utc(latest + window), source).all();
+  return results;
+}
+
+const observations = new Map([
+  [1, 'A process started.'],
+  [3, 'A network connection was recorded.'],
+  [5, 'A process exited.'],
+  [11, 'A file was created.'],
+  [1001, 'An SSH authentication attempt failed.'],
+  [1002, 'A sudo command was recorded.'],
+]);
+
+async function caseDraft(env, source, caseId) {
+  const stored = await env.DB.prepare('SELECT payload FROM cloud_cases WHERE source_id = ? AND id = ?')
+    .bind(source, caseId).first();
+  if (!stored) return json({ detail: 'Case not found' }, 404);
+  const findings = JSON.parse(stored.payload).evidence
+    .filter((event) => typeof event?.id === 'string' && idPattern.test(event.id) && observations.has(event.kind))
+    .slice(0, 20);
+  if (!findings.length) return json({ detail: 'This case has no supported observations.' }, 422);
+  const field = (value) => typeof value === 'string' ? value.trim().slice(0, 160) : '';
+  const claim = (event) => {
+    const details = {
+      1: event.process, 3: event.destination, 5: event.process, 11: event.target,
+      1001: event.source_ip, 1002: event.target,
+    };
+    const detail = field(details[event.kind]);
+    const host = field(event.host);
+    return { text: [observations.get(event.kind), host && 'Host: ' + host, detail && 'Observed value: ' + detail]
+      .filter(Boolean).join(' · '), evidence_ids: [event.id] };
+  };
+  const fallback = () => json({ claims: findings.slice(0, 3).map(claim), provider: 'evidence' });
+  if (!env.AI) return fallback();
+  try {
+    const answer = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [{
+        role: 'user',
+        content: 'Prioritize up to three verified observations based on their likely value for incident triage. Return only JSON with a finding_ids array of distinct 1-based numbers. ' +
+          JSON.stringify(findings.map((event, index) => ({ id: index + 1, observation: observations.get(event.kind) }))),
+      }],
+      max_tokens: 60, temperature: 0, response_format: { type: 'json_object' },
+    });
+    const result = typeof answer?.response === 'string' ? JSON.parse(answer.response) : answer?.response;
+    const ids = result?.finding_ids;
+    if (!Array.isArray(ids) || ids.length < 1 || ids.length > 3 || new Set(ids).size !== ids.length ||
+      !ids.every((id) => Number.isInteger(id) && id >= 1 && id <= findings.length)) {
+      throw new Error('Invalid observation selection');
+    }
+    return json({ claims: ids.map((id) => claim(findings[id - 1])), provider: 'cloud-ai' });
+  } catch {
+    return fallback();
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -208,7 +283,9 @@ export default {
       ).bind(new Date().toISOString(), revoke[1]).run();
       return result.meta.changes ? json({ revoked: true }) : json({ detail: 'Collector not found.' }, 404);
     }
-    if (request.method !== 'GET') return json({ detail: 'This cloud endpoint is read-only' }, 405);
+    const draftId = request.method === 'POST' && /^\/api\/cases\/([0-9a-f]{24})\/draft$/.exec(path)?.[1];
+    if (draftId && request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+    if (request.method !== 'GET' && !draftId) return json({ detail: 'This cloud endpoint is read-only' }, 405);
     if (path === '/api/cloud/status') {
       const { results: sources } = await env.DB.prepare(
         'SELECT id, label, updated_at FROM cloud_sources ORDER BY updated_at DESC, id LIMIT 100',
@@ -221,6 +298,7 @@ export default {
       ? await env.DB.prepare('SELECT id, network FROM cloud_sources WHERE id = ?').bind(sourceId).first()
       : await env.DB.prepare('SELECT id, network FROM cloud_sources ORDER BY updated_at DESC, id LIMIT 1').first();
     if (sourceId && !source) return json({ detail: 'Collector not found' }, 404);
+    if (draftId) return source ? caseDraft(env, source.id, draftId) : json({ detail: 'Case not found' }, 404);
     if (path === '/api/cases') {
       if (!source) return json([]);
       const { results } = await env.DB.prepare(
@@ -228,10 +306,21 @@ export default {
       ).bind(source.id).all();
       return json(results.map((row) => JSON.parse(row.payload)));
     }
+    const relatedId = /^\/api\/cases\/([0-9a-f]{24})\/related$/.exec(path)?.[1];
+    if (relatedId) {
+      const matches = source ? await relatedEvidence(env.DB, source.id, relatedId) : null;
+      return matches ? json({ matches }) : json({ detail: 'Case not found' }, 404);
+    }
     if (path === '/api/network') return json(source ? JSON.parse(source.network) : emptyNetwork);
     if (path === '/api/events') {
       const page = source ? await eventPage(env.DB, source.id, url.searchParams) : { events: [], next: null };
       return page ? json(page) : json({ detail: 'Invalid event filter' }, 422);
+    }
+    const eventId = /^\/api\/events\/([0-9a-f]{24})$/.exec(path)?.[1];
+    if (eventId) {
+      const row = source && await env.DB.prepare('SELECT payload FROM cloud_events WHERE source_id = ? AND id = ?')
+        .bind(source.id, eventId).first();
+      return row ? json(JSON.parse(row.payload)) : json({ detail: 'Evidence not found' }, 404);
     }
     const id = /^\/api\/cases\/([0-9a-f]{24})\/report$/.exec(path)?.[1];
     const stored = id && source && await env.DB.prepare(

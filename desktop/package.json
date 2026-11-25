@@ -9,7 +9,8 @@
     "start": "npm run build:ui && electron .",
     "test": "node --test *.test.cjs",
     "build:ui": "npm --prefix ../frontend run build -- --mode cloud --outDir ../desktop/ui --emptyOutDir && node write-default.cjs",
-    "package:windows": "npm run build:ui && electron-builder --win portable --x64 --publish never"
+    "package:windows": "npm run build:ui && electron-builder --win portable --x64 --publish never",
+    "package:installer": "npm run build:ui && electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "electron": "45.5.0",
@@ -21,6 +22,7 @@
     "artifactName": "NORTH-Desktop-Windows-x64.exe",
     "files": ["main.cjs", "workspace.cjs", "cloud-proxy.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
     "extraResources": [{"from": "ui", "to": "north-ui"}],
+    "nsis": {"artifactName": "NORTH-Setup-Windows-x64.exe"},
     "win": {
       "icon": "icons/north.ico",
       "target": "portable"

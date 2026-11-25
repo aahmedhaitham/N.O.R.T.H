@@ -17,8 +17,10 @@ type Snapshot = {
   neighbors?: Collector & { records: Neighbor[] };
   sysmon?: Collector & { session_events: number; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
   device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
+  router_usage?: Collector & { devices: { mac: string; download_bytes: number; upload_bytes: number }[] };
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
+const megabytes = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 const sysmonProblems = {
   access_denied: 'Windows denied this account access to the Sysmon event log.',
@@ -116,6 +118,8 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
   const liveDevices = groupNeighbors(collector?.records ?? []);
   const importedDevices = groupNeighbors(neighbors);
   const watch = inventory?.device_findings;
+  const router = inventory?.router_usage;
+  const routerDevices = router?.devices.filter((device) => fits(device.mac)) ?? [];
 
   async function review(id: string) {
     setReviewError(false);
@@ -242,6 +246,18 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
         {!matchingLinks.length && <p>{inventory ? 'No observed connections match.' : 'Loading connections…'}</p>}
       </section>
     </div>
+    {router && <section className="panel">
+      <h2>Router traffic by device</h2>
+      <p>OpenWrt accounting-period totals. Devices are ranked by their combined upload and download.</p>
+      {router.state === 'unavailable' && <p role="status">Router data is unavailable. Any figures below are from the last successful refresh.</p>}
+      {router.state === 'starting' && <p>Waiting for the first router update…</p>}
+      {router.updated_at && <p className="reference">Last updated {new Date(router.updated_at).toLocaleString()}</p>}
+      {router.state === 'ready' && !routerDevices.length && <p>No matching device totals.</p>}
+      <ul className="network-list">{routerDevices.map((device) => <li key={device.mac}>
+        <strong>{device.mac}</strong>
+        <small>{megabytes.format(device.download_bytes / 1_000_000)} MB downloaded · {megabytes.format(device.upload_bytes / 1_000_000)} MB uploaded</small>
+      </li>)}</ul>
+    </section>}
     <details className="panel">
       <summary>Import a device list</summary>
       <p>Choose a Windows or Linux neighbor-cache export, or a router export formatted as JSON device records. A cache is a partial list of devices seen recently. The file stays in this browser tab.</p>

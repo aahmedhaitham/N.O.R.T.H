@@ -54,7 +54,10 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | Private NORTH Cloud | End-to-end verified | The bundled Windows app signed in and showed the Windows PC collector. The cloud acknowledged 17 distinct records and the dashboard displayed 17 events and five investigations. |
 | Collector onboarding | Implemented and API-tested | The workspace issues and revokes per-collector keys. Deploy the schema and verify a new device pairing on the live workspace. |
 | Desktop distribution | Windows x64 preview | Run the packaged app on a separate PC. Signed installers, additional OS builds and public download remain open. |
-| Product roadmap | Open | Add router integrations and traffic measurements where supported, cloud IRIS explanations with evidence citations, and broader ECHO correlation across sources. |
+| Standalone Windows collector | Implemented | First-run dependency setup and encrypted local pairing. Verify a first sync on a separate Windows device. |
+| Cloud IRIS evidence briefs | API-tested with a model stub | Verify the optional Workers AI binding and fallback on the deployed workspace. |
+| ECHO cross-collector evidence | API-tested | Verify shared-address matches in the deployed desktop console using separate collector feeds. |
+| Router traffic measurement | OpenWrt parser tested | Validate per-device byte totals against a real transfer. Additional router families and per-app attribution remain open. |
 
 ## Progress log
 

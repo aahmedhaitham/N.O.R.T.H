@@ -1,4 +1,4 @@
-param([switch]$ShowAccessKey)
+param([switch]$ShowAccessKey, [switch]$EnableCloudAI)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -71,11 +71,18 @@ try {
     Invoke-Wrangler d1 execute north-cloud --config $configPath --remote --file cloud/schema.sql
     & npm.cmd --prefix frontend run build -- --mode cloud
     if ($LASTEXITCODE -ne 0) { throw 'Cloud frontend build failed.' }
-    $deployment = @(Invoke-Wrangler deploy --config $configPath)
+    $deploymentConfig = $configPath
+    if ($EnableCloudAI) {
+        $deploymentConfig = Join-Path $root 'cloudwrangler.ai.local.jsonc'
+        $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+        $config | Add-Member -NotePropertyName ai -NotePropertyValue @{ binding = 'AI' } -Force
+        [IO.File]::WriteAllText($deploymentConfig, ($config | ConvertTo-Json -Depth 8))
+    }
+    $deployment = @(Invoke-Wrangler deploy --config $deploymentConfig)
     $deployment | Write-Output
 
     $secrets = Get-Secrets
-    ($secrets | ConvertTo-Json -Compress) | & npx.cmd --yes wrangler secret bulk --config $configPath
+    ($secrets | ConvertTo-Json -Compress) | & npx.cmd --yes wrangler secret bulk --config $deploymentConfig
     if ($LASTEXITCODE -ne 0) { throw 'Cloudflare did not accept the workspace secrets.' }
 
     $url = [regex]::Match(($deployment -join "`n"), 'https://[a-z0-9.-]+\.workers\.dev').Value

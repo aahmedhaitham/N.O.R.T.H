@@ -62,8 +62,8 @@ export function CollectorSetup({ back }: { back: () => void }) {
       </form>
       {created && <div className="pairing-secret">
         <h3>Connect {created.label}</h3>
-        <p>On that device, run the pairing tool from its NORTH folder. Enter the pairing key when prompted. This key is shown once.</p>
-        <pre>{'powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\tools\\Connect-NorthCloud.ps1 -Pair -Source ' + created.source_id}</pre>
+        <p>On a Windows device with Python installed, run this command from the NORTH project folder. Enter the workspace address and pairing key when prompted. After pairing, double-click Start NORTH Collector to reconnect.</p>
+        <pre>{"& '.\\Start NORTH Collector.cmd' -Source " + created.source_id}</pre>
         <label>Pairing key <input readOnly value={created.token} onFocus={(event) => event.currentTarget.select()} /></label>
         <button onClick={() => setCreated(null)}>Hide key</button>
       </div>}

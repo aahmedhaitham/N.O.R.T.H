@@ -23,7 +23,7 @@ class NoRedirects(HTTPRedirectHandler):
         return None
 
 
-def build_snapshot(store, neighbor_status, sysmon_status, url):
+def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=None):
     events = store.events()
     cases = sorted(
         build_cases(events), key=lambda case: case["evidence"][-1]["timestamp"], reverse=True,
@@ -31,6 +31,8 @@ def build_snapshot(store, neighbor_status, sysmon_status, url):
     network = {
         **snapshot(events), "neighbors": neighbor_status, "sysmon": sysmon_status, "device_findings": findings(store),
     }
+    if router_status is not None:
+        network["router_usage"] = router_status
     host = socket.gethostname()
     source = os.getenv("NORTH_CLOUD_SOURCE") or "host-" + hashlib.sha256(host.encode()).hexdigest()[:16]
     label = (os.getenv("NORTH_CLOUD_LABEL") or host)[:80]
@@ -64,12 +66,12 @@ def send_snapshot(url, key, data):
             raise OSError("Cloud workspace did not accept the snapshot")
 
 
-async def sync_loop(store, neighbors, sysmon, url, key):
+async def sync_loop(store, neighbors, sysmon, url, key, router=None):
     previous = None
     while True:
         try:
             data, target, event_ids = await run_in_threadpool(
-                build_snapshot, store, neighbors.current, sysmon.current, url,
+                build_snapshot, store, neighbors.current, sysmon.current, url, router.current if router else None,
             )
             if data != previous:
                 await run_in_threadpool(send_snapshot, url, key, data)

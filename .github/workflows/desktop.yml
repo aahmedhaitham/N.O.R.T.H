@@ -18,13 +18,25 @@ jobs:
       - name: Test the desktop client
         working-directory: desktop
         run: npm test
-      - name: Package the portable executable
+      - name: Package Windows downloads
         run: |
           npm --prefix frontend ci
           npm --prefix desktop ci
           npm --prefix desktop run package:windows
+          npm --prefix desktop run package:installer
+      - name: Write download checksums
+        shell: pwsh
+        run: |
+          $downloads = @('NORTH-Desktop-Windows-x64.exe', 'NORTH-Setup-Windows-x64.exe')
+          $downloads | ForEach-Object {
+            $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath "desktop/dist/$_").Hash.ToLowerInvariant()
+            "$digest  $_"
+          } | Set-Content -Encoding ascii desktop/dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: NORTH-Windows-x64
-          path: desktop/dist/NORTH-Desktop-Windows-x64.exe
+          path: |
+            desktop/dist/NORTH-Desktop-Windows-x64.exe
+            desktop/dist/NORTH-Setup-Windows-x64.exe
+            desktop/dist/SHA256SUMS.txt
           if-no-files-found: error
