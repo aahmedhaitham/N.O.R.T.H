@@ -1,0 +1,30 @@
+name: Build NORTH for Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "26"
+      - name: Test the desktop client
+        working-directory: desktop
+        run: npm test
+      - name: Package the portable executable
+        working-directory: desktop
+        run: |
+          npm install
+          npm run package:windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NORTH-Windows-x64
+          path: desktop/dist/NORTH-Windows-x64.exe
+          if-no-files-found: error

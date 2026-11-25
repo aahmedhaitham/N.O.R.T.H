@@ -1,0 +1,27 @@
+{
+  "name": "north-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NORTH Cloud desktop client",
+  "author": "NORTH",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test workspace.test.cjs",
+    "package:windows": "electron-builder --win portable --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.5.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "app.north.console",
+    "productName": "NORTH",
+    "artifactName": "NORTH-Windows-x64.exe",
+    "files": ["main.cjs", "workspace.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
+    "win": {
+      "icon": "icons/north.ico",
+      "target": "portable"
+    }
+  }
+}

@@ -68,6 +68,10 @@ On Windows, after `npx wrangler login`, run `powershell.exe -NoProfile -Executio
 
 Use the sign-in key from a phone or computer at the deployed HTTPS URL. Cloud browsing is read-only and local Ollama drafting stays in the private desktop setup.
 
+### Windows desktop client
+
+The Windows x64 client opens a chosen NORTH Cloud workspace in a separate app window with its own sign-in session. The dashboard and data are served by the workspace, so the client can open it without running Python or the local launcher. From the repository root, run `npm.cmd --prefix desktop install` and `npm.cmd --prefix desktop run package:windows`. The resulting portable file is `desktop/dist/NORTH-Windows-x64.exe`. On first launch, enter your workspace HTTPS origin. To select another workspace later, use **Workspace → Connect to workspace**.
+
 ## Add lab data or use local AI
 
 ### View your network

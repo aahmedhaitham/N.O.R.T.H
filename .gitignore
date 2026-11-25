@@ -5,7 +5,7 @@
 LOCAL-AUDIT.md
 .north-launcher/
 cloud/wrangler.jsonc
-cloud/.wrangler/
+.wrangler/
 cloud/.dev.vars
 
 # Dependencies and build output
