@@ -33,6 +33,28 @@ function Find-NorthDatabase {
     return $databases | Where-Object { $_.name -eq $deploymentName } | Select-Object -First 1
 }
 
+function Test-StagingDeployment([string]$Origin) {
+    $homepage = Invoke-WebRequest -Uri "$Origin/" -UseBasicParsing -TimeoutSec 20
+    if ($homepage.StatusCode -ne 200 -or $homepage.Content -notmatch '<div id="root"') {
+        throw 'The staging Worker did not serve the NORTH dashboard.'
+    }
+    $options = Invoke-RestMethod -Uri "$Origin/api/cloud/auth/options" -TimeoutSec 20
+    if ($options.google -isnot [bool] -or ($ConfigureGoogle -and !$options.google)) {
+        throw 'Staging did not report the expected Google sign-in configuration.'
+    }
+    try {
+        $null = Invoke-WebRequest -Uri "$Origin/api/cloud/status" -UseBasicParsing -TimeoutSec 20
+        throw 'The staging workspace status must require sign-in.'
+    } catch {
+        if ($null -eq $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 401) { throw }
+    }
+    $download = Invoke-WebRequest -Method Head -Uri "$Origin/downloads/NORTH-Collector-Windows.zip" -UseBasicParsing -TimeoutSec 20
+    if ($download.StatusCode -ne 200 -or $download.Headers['Content-Type'] -notmatch '^application/(zip|x-zip-compressed|octet-stream)(;|$)') {
+        throw 'The staging collector download did not respond with a ZIP file.'
+    }
+    Write-Host "Staging checks passed. Sign-in is required and the Windows collector is available. Google enabled: $($options.google)."
+}
+
 function Get-Secrets {
     if (Test-Path -LiteralPath $keyPath) {
         $saved = Get-Content -LiteralPath $keyPath -Raw | ConvertFrom-Json
@@ -123,9 +145,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Cloudflare did not accept the workspace secrets.' }
 
     $url = [regex]::Match(($deployment -join "`n"), 'https://[a-z0-9.-]+\.workers\.dev').Value
+    if ($Staging -and !$url) { throw 'Wrangler did not print a staging URL. Check the staging Worker in Cloudflare before proceeding.' }
     if ($url) {
         Write-Host "NORTH Cloud URL: $url"
-        if ($Staging) { Write-Host "Google OAuth callback: $url/api/cloud/auth/google/callback" }
+        if ($Staging) {
+            Write-Host "Google OAuth callback: $url/api/cloud/auth/google/callback"
+            Test-StagingDeployment $url
+        }
     }
     Write-Host 'Deployment complete. Run this script with -ShowAccessKey to view your private sign-in key.'
     Write-Host 'No local telemetry was uploaded.'
