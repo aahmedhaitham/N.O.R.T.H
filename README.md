@@ -70,7 +70,7 @@ Use the sign-in key from a phone or computer at the deployed HTTPS URL. Cloud br
 
 ### Windows desktop client
 
-The Windows x64 client opens a chosen NORTH Cloud workspace in a separate app window with its own sign-in session. The dashboard and data are served by the workspace, so the client can open it without running Python or the local launcher. From the repository root, run `npm.cmd --prefix desktop install` and `npm.cmd --prefix desktop run package:windows`. The resulting portable file is `desktop/dist/NORTH-Windows-x64.exe`. On first launch, enter your workspace HTTPS origin. To select another workspace later, use **Workspace → Connect to workspace**.
+The Windows x64 client bundles the dashboard interface and contacts the selected NORTH Cloud workspace for sign-in and data. It opens its own window without launching a browser, Python or the local collector. From the repository root, install dependencies with `npm.cmd --prefix frontend ci` and `npm.cmd --prefix desktop ci`, then run `npm.cmd --prefix desktop run package:windows`. The resulting portable file is `desktop/dist/NORTH-Desktop-Windows-x64.exe`. Set `NORTH_DESKTOP_DEFAULT_URL` at build time to preselect a workspace, or enter the HTTPS workspace origin on first launch. To change it later, use **Workspace → Connect to workspace**. The desktop sign-in session lasts until the app closes or the cloud session expires.
 
 ## Add lab data or use local AI
 

@@ -1,12 +1,45 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { workspaceOrigin } = require('./workspace.cjs');
+const { makeCloudProxy } = require('./cloud-proxy.cjs');
 
 let activeWindow;
 let setupWindow;
 let startupComplete = false;
+let cloudProxy;
 const icon = path.join(__dirname, 'icons', 'north.ico');
+const localAddress = 'north://app/';
+const partition = 'persist:north-cloud';
+const ui = app.isPackaged ? path.join(process.resourcesPath, 'north-ui') : path.join(__dirname, 'ui');
+
+protocol.registerSchemesAsPrivileged([{ scheme: 'north', privileges: {
+  standard: true, secure: true, supportFetchAPI: true,
+} }]);
+
+async function handleLocalRequest(request) {
+  const url = new URL(request.url);
+  if (url.hostname !== 'app') return new Response(null, { status: 404 });
+  if (url.pathname.startsWith('/api/')) {
+    return cloudProxy ? cloudProxy(request) : Response.json({ detail: 'No workspace selected.' }, { status: 503 });
+  }
+  if (request.method !== 'GET') return new Response(null, { status: 405 });
+  let filename;
+  try {
+    const requested = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
+    filename = path.resolve(ui, '.' + requested);
+  } catch {
+    return new Response(null, { status: 400 });
+  }
+  if (!filename.startsWith(ui + path.sep)) return new Response(null, { status: 404 });
+  const response = await net.fetch(pathToFileURL(filename).toString());
+  if (!filename.endsWith('.html')) return response;
+  const headers = new Headers(response.headers);
+  headers.set('Content-Security-Policy',
+    "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'self'");
+  return new Response(response.body, { status: response.status, headers });
+}
 
 function settingsPath() {
   return path.join(app.getPath('userData'), 'workspace.json');
@@ -46,7 +79,7 @@ async function openWorkspace(nextOrigin, remember = false) {
     backgroundColor: '#0c1018',
     webPreferences: {
       sandbox: true, contextIsolation: true, nodeIntegration: false,
-      partition: 'persist:north-cloud',
+      partition,
     },
   });
   const contents = window.webContents;
@@ -54,16 +87,19 @@ async function openWorkspace(nextOrigin, remember = false) {
   contents.session.setPermissionRequestHandler((_contents, _permission, done) => done(false));
   contents.session.setPermissionCheckHandler(() => false);
   const guard = (event) => {
-    if (new URL(event.url).origin !== nextOrigin) event.preventDefault();
+    if (!event.url.startsWith(localAddress)) event.preventDefault();
   };
   contents.on('will-navigate', guard);
   contents.on('will-redirect', guard);
+  const previousProxy = cloudProxy;
+  cloudProxy = makeCloudProxy(nextOrigin);
   try {
-    await window.loadURL(nextOrigin);
+    await window.loadURL(localAddress);
     if (remember) {
       await fs.writeFile(settingsPath(), JSON.stringify({ origin: nextOrigin }), 'utf8');
     }
   } catch (error) {
+    cloudProxy = previousProxy;
     window.destroy();
     throw error;
   }
@@ -90,6 +126,7 @@ if (!app.requestSingleInstanceLock()) {
     activeWindow?.focus();
   });
   app.whenReady().then(async () => {
+    session.fromPartition(partition).protocol.handle('north', handleLocalRequest);
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'Workspace', submenu: [
         { label: 'Connect to workspace…', click: configureWindow },
@@ -99,8 +136,9 @@ if (!app.requestSingleInstanceLock()) {
       { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
     ]));
     try {
-      const settings = JSON.parse(await fs.readFile(settingsPath(), 'utf8'));
-      await openWorkspace(workspaceOrigin(settings.origin));
+      const settings = await fs.readFile(settingsPath(), 'utf8').catch(() =>
+        fs.readFile(path.join(ui, 'workspace-default.json'), 'utf8'));
+      await openWorkspace(workspaceOrigin(JSON.parse(settings).origin));
     } catch {
       configureWindow();
     }

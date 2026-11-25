@@ -14,6 +14,7 @@ __pycache__/
 .pytest_cache/
 node_modules/
 dist/
+desktop/ui/
 
 # Local models, VM disks, and raw telemetry
 .ollama/

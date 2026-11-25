@@ -1,14 +1,15 @@
 {
   "name": "north-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "NORTH Cloud desktop client",
   "author": "NORTH",
   "main": "main.cjs",
   "scripts": {
-    "start": "electron .",
-    "test": "node --test workspace.test.cjs",
-    "package:windows": "electron-builder --win portable --x64 --publish never"
+    "start": "npm run build:ui && electron .",
+    "test": "node --test *.test.cjs",
+    "build:ui": "npm --prefix ../frontend run build -- --mode cloud --outDir ../desktop/ui --emptyOutDir && node write-default.cjs",
+    "package:windows": "npm run build:ui && electron-builder --win portable --x64 --publish never"
   },
   "devDependencies": {
     "electron": "45.5.0",
@@ -17,8 +18,9 @@
   "build": {
     "appId": "app.north.console",
     "productName": "NORTH",
-    "artifactName": "NORTH-Windows-x64.exe",
-    "files": ["main.cjs", "workspace.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
+    "artifactName": "NORTH-Desktop-Windows-x64.exe",
+    "files": ["main.cjs", "workspace.cjs", "cloud-proxy.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
+    "extraResources": [{"from": "ui", "to": "north-ui"}],
     "win": {
       "icon": "icons/north.ico",
       "target": "portable"
