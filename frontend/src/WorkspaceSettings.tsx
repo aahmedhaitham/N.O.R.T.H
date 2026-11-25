@@ -39,8 +39,8 @@ export function WorkspaceSettings({ back, openCollectors }: { back: () => void; 
     } finally { setBusy(false); }
   }
 
-  return <main className="collector-settings">
-    <header className="collector-heading"><h1>Workspace settings</h1><button onClick={back}>Back to dashboard</button></header>
+  return <main className="collector-settings collector-workspace">
+    <header className="collector-heading dashboard-heading"><h1>Workspace settings</h1><button type="button" onClick={back}>Back to workspace</button></header>
     {error && <p role="alert">{error}</p>}
     {!settings && !error && <p role="status">Loading workspace settings…</p>}
     {settings && <>

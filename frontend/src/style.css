@@ -47,6 +47,7 @@ button:disabled { opacity: .65; cursor: wait; }
 }
 .shell-content { min-width: 0; }
 .view-content { min-width: 0; }
+.workspace-pages { min-height: 100%; }
 @media (min-width: 851px) {
   .shell { height: 100dvh; min-height: 0; overflow: hidden; }
   .shell-content { display: flex; flex-direction: column; min-height: 0; }

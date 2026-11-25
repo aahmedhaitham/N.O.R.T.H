@@ -7,6 +7,7 @@ import { clearWorkspacePreferences, readWorkspacePreference, writeWorkspacePrefe
 type Source = { id: string; label: string; updated_at: string };
 type DesktopRequest = { ticket: string; expires: number };
 type WorkspaceSection = 'dashboard' | 'collectors' | 'settings';
+export type WorkspacePanel = { title: string; content: ReactNode; close: () => void };
 const desktop = location.protocol === 'north:';
 const ticketPattern = /^[a-f0-9]{32}\.[a-f0-9]{64}\.\d{10}\.[a-f0-9]{64}$/;
 const desktopCode = (ticket: string) => ticket.slice(0, 8).toUpperCase();
@@ -24,7 +25,7 @@ const desktopPost = (operation: string, payload: object, signal?: AbortSignal) =
 });
 
 export function CloudGate({ children }: {
-  children: (source: string | null, openCollectors: () => void, controls: ReactNode) => ReactNode;
+  children: (source: string | null, openCollectors: () => void, controls: ReactNode, panel?: WorkspacePanel) => ReactNode;
 }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [key, setKey] = useState('');
@@ -37,6 +38,7 @@ export function CloudGate({ children }: {
     const saved = readWorkspacePreference('section');
     return saved === 'collectors' || saved === 'settings' ? saved : 'dashboard';
   });
+  const [panelSource, setPanelSource] = useState<string | null>(null);
   const [google, setGoogle] = useState(false);
   const [desktopRequest, setDesktopRequest] = useState<DesktopRequest | null>(null);
   const [approval, setApproval] = useState(() => {
@@ -48,6 +50,7 @@ export function CloudGate({ children }: {
   const hasSource = Boolean(source);
 
   function setSection(next: WorkspaceSection) {
+    if (section === 'dashboard' && next !== 'dashboard') setPanelSource(source?.id ?? null);
     updateSection(next);
     writeWorkspacePreference('section', next);
   }
@@ -228,10 +231,14 @@ export function CloudGate({ children }: {
         <button onClick={clearApproval}>Cancel</button>
       </div>
     </section></main>;
-    if (section === 'collectors') return <>{controls}<CollectorSetup back={() => setSection('dashboard')} /></>;
-    if (section === 'settings') return <>{controls}<WorkspaceSettings back={() => setSection('dashboard')}
-      openCollectors={() => setSection('collectors')} /></>;
-    return children(source?.id ?? null, () => setSection('collectors'), controls);
+    const close = () => setSection('dashboard');
+    const openCollectors = () => setSection('collectors');
+    const panel = section === 'collectors' ? {
+      title: 'Collectors', content: <CollectorSetup back={close} />, close,
+    } : section === 'settings' ? {
+      title: 'Workspace settings', content: <WorkspaceSettings back={close} openCollectors={openCollectors} />, close,
+    } : undefined;
+    return children(panel ? panelSource : source?.id ?? null, openCollectors, controls, panel);
   }
 
   const keyForm = <form className="event-filters" onSubmit={(event) => {

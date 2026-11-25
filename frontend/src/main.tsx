@@ -8,7 +8,7 @@ import { Events } from './Events';
 import { eventNames } from './eventNames';
 import { Dashboard } from './Dashboard';
 import { InstallApp } from './InstallApp';
-import { CloudGate } from './CloudGate';
+import { CloudGate, type WorkspacePanel } from './CloudGate';
 import { CaseReview } from './CaseReview';
 import { Appearance } from './Appearance';
 import { readWorkspacePreference, writeWorkspacePreference } from './workspaceSession';
@@ -40,7 +40,7 @@ const navigation = [
 
 type View = (typeof navigation)[number]['id'];
 
-function QuickNavigation({ view, open }: { view: View; open: (view: View) => void }) {
+function QuickNavigation({ view, open }: { view?: View; open: (view: View) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
@@ -101,10 +101,11 @@ function QuickNavigation({ view, open }: { view: View; open: (view: View) => voi
   </>;
 }
 
-function App({ source = null, openCollectors, controls }: {
+function App({ source = null, openCollectors, controls, panel }: {
   source?: string | null;
   openCollectors?: () => void;
   controls?: import('react').ReactNode;
+  panel?: WorkspacePanel;
 }) {
   const [view, updateView] = useState<View>(() => {
     const saved = readWorkspacePreference('view');
@@ -127,9 +128,10 @@ function App({ source = null, openCollectors, controls }: {
 
   useEffect(() => {
     if (viewContent.current) viewContent.current.scrollTop = 0;
-  }, [view]);
+  }, [view, panel?.title]);
 
   function setView(next: View) {
+    panel?.close();
     updateView(next);
     writeWorkspacePreference('view', next);
   }
@@ -209,7 +211,7 @@ function App({ source = null, openCollectors, controls }: {
       <div className="window-heading">NORTH</div>
       <nav className="console-nav" aria-label="Console">
         {navigation.map((item) => <button key={item.id} type="button" className="nav-item"
-          aria-current={view === item.id ? 'page' : undefined} onClick={() => setView(item.id)}>
+          aria-current={!panel && view === item.id ? 'page' : undefined} onClick={() => setView(item.id)}>
           <span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />
           <span><strong>{item.label}</strong><small>{item.detail}</small></span>
         </button>)}
@@ -217,8 +219,8 @@ function App({ source = null, openCollectors, controls }: {
       <div className="shell-content">
       {controls}
       <header className="topbar">
-        <span className="topbar-location">{navigation.find((item) => item.id === view)?.detail}</span>
-        <QuickNavigation view={view} open={setView} />
+        <span className="topbar-location">{panel?.title ?? navigation.find((item) => item.id === view)?.detail}</span>
+        <QuickNavigation view={panel ? undefined : view} open={setView} />
         <Appearance />
         <InstallApp />
         <span role="status" className={online || portfolio ? 'status online' : 'status'}>
@@ -227,6 +229,8 @@ function App({ source = null, openCollectors, controls }: {
         </span>
       </header>
       <div className="view-content" ref={viewContent}>
+      {panel?.content}
+      <div className="workspace-pages" hidden={Boolean(panel)}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase} connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
@@ -254,6 +258,7 @@ function App({ source = null, openCollectors, controls }: {
             </section>}
         </main>
       </div>}
+      </div>
       </div>
       </div>
     </div>
@@ -462,5 +467,5 @@ function RelatedEvidence({ event }: { event: RelatedEvent }) {
 }
 
 createRoot(document.getElementById('root')!).render(cloud ?
-  <CloudGate>{(source, openCollectors, controls) =>
-    <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} />}</CloudGate> : <App />);
+  <CloudGate>{(source, openCollectors, controls, panel) =>
+    <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} panel={panel} />}</CloudGate> : <App />);
