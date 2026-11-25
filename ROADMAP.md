@@ -51,6 +51,7 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | Docker and PostgreSQL | Hosted check passed | GitHub Actions verified the gateway and PostgreSQL persistence after restarting with seeding disabled. [Passing run](https://github.com/aahmedhaitham/N.O.R.T.H/actions/runs/45588172311) |
 | Portfolio | Core demo verified by user | Capture the walkthrough for the portfolio. Docker, live lab ingestion, and a real Ollama draft are tracked above. |
 | Public hosting | Prepared | The hosted image seeds synthetic Windows and Kali cases. The public URL and hosted smoke check are pending. |
+| Private NORTH Cloud | End-to-end verified | The bundled Windows app signed in and showed the Windows PC collector. The cloud acknowledged 17 distinct records and the dashboard displayed 17 events and five investigations. |
 
 ## Progress log
 
