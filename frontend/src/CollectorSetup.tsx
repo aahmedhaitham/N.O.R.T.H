@@ -20,6 +20,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
   const [detailsCopyStatus, setDetailsCopyStatus] = useState('');
   const paired = items.find((item) => item.source_id === created?.source_id);
   const workspace = /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(location.origin) ? location.origin : '';
+  const restartCommand = "& '.\\Start NORTH Collector.cmd'";
   function startCommand(id: string) {
     return "& '.\\Start NORTH Collector.cmd' -Source " + id + (workspace ? ' -Workspace ' + workspace : '');
   }
@@ -145,13 +146,19 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
                 <p>{item.updated_at ? <>Last synced <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time></> :
                   'No sync recorded yet.'}</p>
                 {!item.revoked_at && <>
-                  <p>Run this in the extracted Windows collector folder. Use the pairing key issued for this collector when prompted.</p>
-                  <pre>{startCommand(item.source_id)}</pre>
+                  <p>Restart from the folder where you originally paired this collector. Windows uses the saved key.</p>
+                  <pre>{restartCommand}</pre>
                   <div className="case-links">
-                    <button type="button" onClick={() => void copy(startCommand(item.source_id), 'Command', setDetailsCopyStatus)}>Copy start command</button>
+                    <button type="button" onClick={() => void copy(restartCommand, 'Command', setDetailsCopyStatus)}>Copy restart command</button>
                     {availableSources.includes(item.source_id) && <button type="button"
                       onClick={() => useCollector(item.source_id)}>Use this collector in the workspace</button>}
                   </div>
+                  <details open={!item.updated_at || undefined}>
+                    <summary>Set up in a new folder</summary>
+                    <p>First-time setup needs the key issued when this pairing was created. NORTH Cloud stores a hash and cannot display the original key again.</p>
+                    <pre>{startCommand(item.source_id)}</pre>
+                    <button type="button" onClick={() => void copy(startCommand(item.source_id), 'Setup command', setDetailsCopyStatus)}>Copy setup command</button>
+                  </details>
                   {detailsCopyStatus && <p role="status">{detailsCopyStatus}</p>}
                 </>}
               </section>
