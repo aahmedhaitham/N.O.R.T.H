@@ -2,7 +2,9 @@ param(
     [switch]$ShowAccessKey,
     [switch]$EnableCloudAI,
     [switch]$Staging,
-    [switch]$ConfigureGoogle
+    [switch]$ConfigureGoogle,
+    [ValidatePattern('^https://north-cloud-staging\.[a-z0-9-]+\.workers\.dev/?$')]
+    [string]$CheckStagingUrl
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,6 +81,10 @@ function Get-Secrets {
 
 Push-Location -LiteralPath $root
 try {
+    if ($CheckStagingUrl) {
+        Test-StagingDeployment ($CheckStagingUrl.TrimEnd('/'))
+        return
+    }
     if ($ShowAccessKey) {
         if (!(Test-Path -LiteralPath $keyPath)) { throw 'Deploy NORTH Cloud before retrieving its key.' }
         Write-Host "NORTH sign-in key: $((Get-Secrets)['NORTH_ACCESS_KEY'])"
