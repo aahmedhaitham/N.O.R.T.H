@@ -1,4 +1,4 @@
-"""Check or import Sysmon events from a Wazuh JSON or JSON Lines export."""
+"""Check or import Wazuh Sysmon events or Linux OpenSSH journal records."""
 
 import argparse
 import json
@@ -6,10 +6,10 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from north import build_cases, normalize
+from north import SSH_FAILURE_MESSAGE, SSH_SERVICES, build_cases, normalize
 
 
-def prepare(content):
+def prepare(content, export_format="wazuh"):
     content = content.lstrip("\ufeff").strip()
     try:
         document = json.loads(content)
@@ -36,21 +36,31 @@ def prepare(content):
         if not isinstance(alert, dict):
             raise ValueError(f"Record {index} has an invalid _source object")
         try:
-            system = alert.get("data", {}).get("win", {}).get("system", {})
-            channel = system.get("channel")
-            if (
-                (channel and channel.casefold() != "microsoft-windows-sysmon/operational")
-                or str(system.get("eventID")) not in ("1", "3", "11")
-            ):
+            if export_format == "journal":
+                service = alert.get("_COMM") or alert.get("SYSLOG_IDENTIFIER")
+                message = alert.get("MESSAGE")
+                supported = (
+                    service in SSH_SERVICES and isinstance(message, str)
+                    and SSH_FAILURE_MESSAGE.match(message)
+                )
+                alert = {"source": "journalctl", "entry": alert}
+            else:
+                system = alert.get("data", {}).get("win", {}).get("system", {})
+                channel = system.get("channel")
+                supported = (
+                    (not channel or channel.casefold() == "microsoft-windows-sysmon/operational")
+                    and str(system.get("eventID")) in ("1", "3", "11")
+                )
+            if not supported:
                 skipped += 1
                 continue
             event = normalize(alert)
-        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        except (AttributeError, KeyError, TypeError, ValueError, OverflowError) as exc:
             raise ValueError(f"Supported-looking record {index} could not be normalized: {exc}") from exc
         alerts.append(alert)
         events.append(event)
     if not alerts:
-        raise ValueError(f"No supported Sysmon events found ({skipped} records skipped)")
+        raise ValueError(f"No supported {export_format} events found ({skipped} records skipped)")
     return alerts, events, skipped
 
 
@@ -58,10 +68,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("export", type=Path)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--format", choices=("wazuh", "journal"), default="wazuh")
     parser.add_argument("--check", action="store_true", help="Validate and preview locally without sending data")
     args = parser.parse_args()
     try:
-        alerts, events, skipped = prepare(args.export.read_text(encoding="utf-8-sig"))
+        alerts, events, skipped = prepare(args.export.read_text(encoding="utf-8-sig"), args.format)
         unique = {event["id"]: event for event in reversed(events)}
         case_count = len(build_cases(list(unique.values())))
         print(f"Supported events: {len(alerts)}. Skipped: {skipped}. Cases in export: {case_count}.")

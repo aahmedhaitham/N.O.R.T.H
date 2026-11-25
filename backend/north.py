@@ -3,14 +3,60 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sqlite3
+from collections import deque
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from ipaddress import ip_address
 from pathlib import Path
 
 
+SSH_FAILURE = 1001
+SSH_SERVICES = {"sshd", "sshd-session", "sshd-auth"}
+SSH_FAILURE_MESSAGE = re.compile(
+    r"^Failed (?:password|publickey|keyboard-interactive(?:/pam)?) for "
+    r"(?:invalid user )?\S+ from (?P<address>\S+) port \d+(?:\s|$)"
+)
+
+
+def normalize_journal(entry):
+    if not isinstance(entry, dict):
+        raise ValueError("Journal entry must be an object")
+    service = entry.get("_COMM") or entry.get("SYSLOG_IDENTIFIER")
+    message = entry.get("MESSAGE")
+    match = SSH_FAILURE_MESSAGE.match(message) if isinstance(message, str) else None
+    if service not in SSH_SERVICES or not match:
+        raise ValueError("Expected an OpenSSH failed authentication entry")
+    host, device, cursor = (entry.get(key) for key in ("_HOSTNAME", "_MACHINE_ID", "__CURSOR"))
+    if not all(isinstance(value, str) and value.strip() for value in (host, device, cursor)):
+        raise ValueError("Missing journal host, machine ID, or cursor")
+    timestamp = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(
+        microseconds=int(entry["__REALTIME_TIMESTAMP"])
+    )
+    source = str(ip_address(match["address"]))
+    identity = json.dumps(["journalctl", device, cursor], separators=(",", ":"))
+    return {
+        "id": hashlib.sha256(identity.encode()).hexdigest()[:24],
+        "timestamp": timestamp.isoformat(timespec="microseconds"),
+        "kind": SSH_FAILURE,
+        "host": host,
+        "asset_id": "linux-" + hashlib.sha256(device.encode()).hexdigest()[:16],
+        "process": service,
+        "process_guid": "",
+        "parent_guid": "",
+        "destination": "",
+        "source_ip": source,
+        "target": "",
+        "raw": {"MESSAGE": message, "_HOSTNAME": host, "_COMM": service,
+                "__REALTIME_TIMESTAMP": entry["__REALTIME_TIMESTAMP"]},
+    }
+
+
 def normalize(raw: dict) -> dict:
-    """Normalize a sanitized Wazuh alert containing a Sysmon event."""
+    """Normalize a Windows Sysmon alert or Linux journal entry."""
+    if raw.get("source") == "journalctl":
+        return normalize_journal(raw["entry"])
     data = raw.get("data", {}).get("win", {})
     system = data.get("system", {})
     fields = data.get("eventdata", {})
@@ -99,7 +145,7 @@ class Store:
             ]
 
 
-def build_cases(events: list[dict]) -> list[dict]:
+def windows_cases(events: list[dict]) -> list[dict]:
     """Correlate process creation with a subsequent file write by the same process."""
     writes: dict[tuple[str, str], list[dict]] = {}
     connections: dict[tuple[str, str], list[dict]] = {}
@@ -147,10 +193,45 @@ def build_cases(events: list[dict]) -> list[dict]:
     return cases
 
 
+def linux_cases(events: list[dict]) -> list[dict]:
+    windows = {}
+    cases = []
+    failures = sorted(
+        (event for event in events if event["kind"] == SSH_FAILURE),
+        key=lambda event: (event["timestamp"], event["id"]),
+    )
+    for event in failures:
+        key = (event["asset_id"], event["source_ip"])
+        pending = windows.setdefault(key, deque())
+        instant = datetime.fromisoformat(event["timestamp"])
+        while pending and instant - datetime.fromisoformat(pending[0]["timestamp"]) > timedelta(minutes=5):
+            pending.popleft()
+        pending.append(event)
+        if len(pending) == 3:
+            first = pending[0]
+            cases.append({
+                "id": first["id"],
+                "title": "Repeated SSH authentication failures",
+                "host": first["host"],
+                "asset_id": first["asset_id"],
+                "summary": "OpenSSH recorded three failed authentication attempts from one address within five minutes. These records do not establish whether a login later succeeded.",
+                "evidence": list(pending),
+                "links": [{"destination": key[1], "evidence_id": first["id"], "direction": "inbound"}],
+            })
+            pending.clear()
+    return cases
+
+
+def build_cases(events: list[dict]) -> list[dict]:
+    return [*windows_cases(events), *linux_cases(events)]
+
+
 def report(case: dict) -> str:
     evidence = [
-        f"- {item['timestamp']} | Sysmon {item['kind']} | {item['id']} | "
-        f"{item['target'] or item['destination'] or item['process']}"
+        f"- {item['timestamp']} | "
+        f"{'OpenSSH authentication failure' if item['kind'] == SSH_FAILURE else 'Sysmon ' + str(item['kind'])}"
+        f" | {item['id']} | "
+        f"{item['target'] or item['destination'] or item.get('source_ip') or item['process']}"
         for item in case["evidence"]
     ]
     return "\n".join([

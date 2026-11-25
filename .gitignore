@@ -24,5 +24,6 @@ models/
 *.evtx
 *.log
 raw-logs/
+*-journal.jsonl
 *.sqlite3
 *.sqlite3-*

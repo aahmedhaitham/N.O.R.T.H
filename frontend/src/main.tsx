@@ -6,16 +6,16 @@ import './style.css';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
-  target: string; destination: string; raw: unknown;
+  target: string; destination: string; source_ip?: string; raw: unknown;
 };
 type Case = {
   id: string; title: string; host: string; asset_id: string; summary: string;
-  evidence: Evidence[]; links: { destination: string; evidence_id: string }[];
+  evidence: Evidence[]; links: { destination: string; evidence_id: string; direction?: 'inbound' }[];
 };
 type Claim = { text: string; evidence_ids: string[] };
 
 const eventNames: Record<number, string> = {
-  1: 'Process created', 3: 'Network connection observed', 11: 'File created',
+  1: 'Process created', 3: 'Network connection observed', 11: 'File created', 1001: 'SSH authentication failed',
 };
 const publicDemo = import.meta.env.MODE === 'hosted';
 
@@ -118,15 +118,20 @@ function Investigation({ incident }: { incident: Case }) {
   }
 
   const destinations = [...new Set(incident.links.map((link) => link.destination))];
+  const inbound = incident.links.some((link) => link.direction === 'inbound');
   const nodes = [
-    { id: incident.asset_id, position: { x: 0, y: 0 }, data: { label: incident.host } },
+    { id: incident.asset_id, position: { x: inbound ? 250 : 0, y: 0 }, data: { label: incident.host } },
     ...destinations.map((ip, index) => (
-      { id: 'ip-' + ip, position: { x: 250, y: index * 90 }, data: { label: ip } }
+      { id: 'ip-' + ip, position: { x: inbound ? 0 : 250, y: index * 90 }, data: { label: ip } }
     )),
   ];
-  const edges = destinations.map((ip) => ({
-    id: 'edge-' + ip, source: incident.asset_id, target: 'ip-' + ip, animated: true,
-  }));
+  const edges = destinations.map((ip) => {
+    const inbound = incident.links.some((link) => link.destination === ip && link.direction === 'inbound');
+    return {
+      id: 'edge-' + ip, source: inbound ? 'ip-' + ip : incident.asset_id,
+      target: inbound ? incident.asset_id : 'ip-' + ip, animated: true,
+    };
+  });
 
   return <>
     <section className="panel overview">
@@ -171,7 +176,7 @@ function Investigation({ incident }: { incident: Case }) {
             <li id={'event-' + item.id} key={item.id} className={index === active ? 'current' : ''}>
               <time dateTime={item.timestamp}>{item.timestamp.slice(11, 19)} UTC</time>
               <strong>{eventNames[item.kind]}</strong>
-              <small>{item.target || item.destination || item.process}</small>
+              <small>{item.target || item.destination || item.source_ip || item.process}</small>
               <details><summary>Raw evidence</summary><pre>{JSON.stringify(item.raw, null, 2)}</pre></details>
             </li>
           ))}

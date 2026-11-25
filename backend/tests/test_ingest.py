@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from ingest import prepare
-from north import Store, build_cases
+from north import SSH_FAILURE, Store, build_cases, report
 
 
 def fixture():
@@ -42,3 +42,33 @@ def test_invalid_supported_event_is_reported_before_import():
     del records[1]["agent"]["id"]
     with pytest.raises(ValueError, match="record 2"):
         prepare(json.dumps(records))
+
+
+def test_windows_and_linux_cases_share_one_store(tmp_path):
+    journal = [
+        {"_HOSTNAME": "KALI-LAB", "_MACHINE_ID": "synthetic-kali", "_COMM": "sshd",
+         "__CURSOR": f"demo-{index}", "__REALTIME_TIMESTAMP": str(1_768_471_200_000_000 + index * 1_000_000),
+         "MESSAGE": "Failed password for demo from 192.0.2.42 port 54321 ssh2"}
+        for index in range(3)
+    ]
+    unrelated = {**journal[0], "MESSAGE": "Accepted publickey for demo from 192.0.2.42 port 54321 ssh2"}
+    alerts, events, skipped = prepare(
+        "\n".join(json.dumps(entry) for entry in [unrelated, *reversed(journal)]), "journal",
+    )
+    assert skipped == 1
+    assert not build_cases(events[:2])
+    different_source = {**events[1], "source_ip": "192.0.2.43"}
+    assert not build_cases([events[0], different_source, events[2]])
+    expired = {**events[0], "timestamp": "2026-11-25T00:00:00.000000+00:00"}
+    assert not build_cases([expired, *events[1:]])
+
+    store = Store(path=tmp_path / "mixed.sqlite3")
+    store.initialize()
+    assert store.ingest(fixture() + alerts) == 6
+    assert store.ingest(alerts) == 0
+    windows, linux = build_cases(store.events())
+    assert [event["kind"] for event in windows["evidence"]] == [1, 3, 11]
+    assert [event["kind"] for event in linux["evidence"]] == [SSH_FAILURE] * 3
+    assert linux["links"][0]["direction"] == "inbound"
+    assert "OpenSSH authentication failure" in report(linux)
+    assert all(event["id"] in report(linux) for event in linux["evidence"])
