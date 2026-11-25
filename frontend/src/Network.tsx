@@ -3,6 +3,7 @@ import { explainAddress } from './deviceExplanation';
 import { AtlasMap } from './AtlasMap';
 import { pollVisible } from './pollVisible';
 import { PacketTrace } from './PacketTrace';
+import { readRouterCsv } from './routerCsv';
 import { formatTraffic, type TrafficTotals } from './formatTraffic';
 
 type CaseReference = { id: string; title: string };
@@ -230,8 +231,10 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
 
   async function importNeighbors(file: File) {
     try {
-      if (file.size > 2_000_000) throw new Error('Choose a JSON file smaller than 2 MB.');
-      const records = readNeighbors(JSON.parse((await file.text()).replace(/^\uFEFF/, '')));
+      if (file.size > 2_000_000) throw new Error('Choose a device file smaller than 2 MB.');
+      const text = (await file.text()).replace(/^\uFEFF/, '');
+      const records = readNeighbors(/\.json$/i.test(file.name) || text.trimStart().startsWith('[') ?
+        JSON.parse(text) : readRouterCsv(text.trimStart()));
       setNeighbors(records);
       setFileMessage(records.length + ' device records loaded in this tab.');
     } catch (error) {
@@ -382,8 +385,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     </div>
     <details className="panel">
       <summary>Import a device list</summary>
-      <p>Choose a Windows or Linux neighbor-cache export, or a router export formatted as JSON device records. A cache is a partial list of devices seen recently. The file stays in this browser tab.</p>
-      <input type="file" accept=".json,application/json" aria-label="Import device inventory JSON"
+      <p>Open a device export as JSON or CSV. For CSV, include an IP Address column. Device Name, MAC Address, Interface, and Status are optional. The file stays in this window.</p>
+      <input type="file" accept=".json,.csv,.tsv" aria-label="Import device inventory"
         onChange={(event) => { const file = event.target.files?.[0]; if (file) void importNeighbors(file); event.target.value = ''; }} />
       {fileMessage && <p role="status">{fileMessage}</p>}
       {devicesList(importedDevices)}
