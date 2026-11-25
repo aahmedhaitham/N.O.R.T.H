@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from north import SSH_FAILURE, build_cases, configured_store, report
+from north import SSH_FAILURE, SUDO_COMMAND, build_cases, configured_store, report
 
 
 class Batch(BaseModel):
@@ -160,6 +160,11 @@ def observed_findings(case):
         return [{
             "text": f"OpenSSH recorded three authentication failures from {started['source_ip']}.",
             "evidence_ids": [event["id"] for event in case["evidence"]],
+        }]
+    if started["kind"] == SUDO_COMMAND:
+        return [{
+            "text": f"The Linux journal recorded sudo invoking {started['target']}.",
+            "evidence_ids": [started["id"]],
         }]
     findings = [
         {"text": f"Sysmon recorded the start of {started['process']} on {started['host']}.",

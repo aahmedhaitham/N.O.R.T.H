@@ -68,3 +68,18 @@ def test_windows_and_linux_cases_share_one_store(tmp_path):
     assert linux["links"][0]["direction"] == "inbound"
     assert "OpenSSH authentication failure" in report(linux)
     assert all(event["id"] in report(linux) for event in linux["evidence"])
+
+
+def test_linux_sudo_entry_produces_a_case_without_ssh():
+    entry = {
+        "_HOSTNAME": "KALI-DEMO", "_MACHINE_ID": "synthetic-test", "_COMM": "sudo",
+        "__CURSOR": "sudo-test-1", "__REALTIME_TIMESTAMP": "1768471200000000",
+        "MESSAGE": "test : TTY=pts/0 ; PWD=/tmp ; USER=root ; COMMAND=/usr/bin/true",
+    }
+    alerts, events, skipped = prepare(json.dumps(entry), "journal")
+    assert len(alerts) == 1 and not skipped
+    case, = build_cases(events)
+    assert case["title"] == "Sudo command observed"
+    assert case["evidence"][0]["target"] == "true"
+    assert case["links"] == []
+    assert "Sudo command" in report(case)

@@ -1,4 +1,4 @@
-"""Check or import Wazuh Sysmon events or Linux OpenSSH journal records."""
+"""Check or import Wazuh Sysmon events or Linux journal records."""
 
 import argparse
 import json
@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from north import SSH_FAILURE_MESSAGE, SSH_SERVICES, build_cases, normalize
+from north import build_cases, journal_activity, normalize
 
 
 def prepare(content, export_format="wazuh"):
@@ -37,12 +37,7 @@ def prepare(content, export_format="wazuh"):
             raise ValueError(f"Record {index} has an invalid _source object")
         try:
             if export_format == "journal":
-                service = alert.get("_COMM") or alert.get("SYSLOG_IDENTIFIER")
-                message = alert.get("MESSAGE")
-                supported = (
-                    service in SSH_SERVICES and isinstance(message, str)
-                    and SSH_FAILURE_MESSAGE.match(message)
-                )
+                supported = journal_activity(alert) is not None
                 alert = {"source": "journalctl", "entry": alert}
             else:
                 system = alert.get("data", {}).get("win", {}).get("system", {})

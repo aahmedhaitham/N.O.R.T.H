@@ -13,33 +13,50 @@ from pathlib import Path
 
 
 SSH_FAILURE = 1001
+SUDO_COMMAND = 1002
 SSH_SERVICES = {"sshd", "sshd-session", "sshd-auth"}
 SSH_FAILURE_MESSAGE = re.compile(
     r"^Failed (?:password|publickey|keyboard-interactive(?:/pam)?) for "
     r"(?:invalid user )?\S+ from (?P<address>\S+) port \d+(?:\s|$)"
 )
+SUDO_COMMAND_MESSAGE = re.compile(r"(?:^|;\s*)COMMAND=(?P<command>/\S+)(?:\s|$)")
+
+
+def journal_activity(entry):
+    service = entry.get("_COMM") or entry.get("SYSLOG_IDENTIFIER")
+    message = entry.get("MESSAGE")
+    if not isinstance(message, str):
+        return None
+    if service in SSH_SERVICES:
+        match = SSH_FAILURE_MESSAGE.match(message)
+        if match:
+            return SSH_FAILURE, service, match["address"]
+    if service == "sudo":
+        match = SUDO_COMMAND_MESSAGE.search(message)
+        if match:
+            return SUDO_COMMAND, service, match["command"].rsplit("/", 1)[-1]
+    return None
 
 
 def normalize_journal(entry):
     if not isinstance(entry, dict):
         raise ValueError("Journal entry must be an object")
-    service = entry.get("_COMM") or entry.get("SYSLOG_IDENTIFIER")
-    message = entry.get("MESSAGE")
-    match = SSH_FAILURE_MESSAGE.match(message) if isinstance(message, str) else None
-    if service not in SSH_SERVICES or not match:
-        raise ValueError("Expected an OpenSSH failed authentication entry")
+    activity = journal_activity(entry)
+    if not activity:
+        raise ValueError("Expected an OpenSSH failure or sudo command entry")
+    kind, service, value = activity
     host, device, cursor = (entry.get(key) for key in ("_HOSTNAME", "_MACHINE_ID", "__CURSOR"))
     if not all(isinstance(value, str) and value.strip() for value in (host, device, cursor)):
         raise ValueError("Missing journal host, machine ID, or cursor")
     timestamp = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(
         microseconds=int(entry["__REALTIME_TIMESTAMP"])
     )
-    source = str(ip_address(match["address"]))
+    source = str(ip_address(value)) if kind == SSH_FAILURE else ""
     identity = json.dumps(["journalctl", device, cursor], separators=(",", ":"))
     return {
         "id": hashlib.sha256(identity.encode()).hexdigest()[:24],
         "timestamp": timestamp.isoformat(timespec="microseconds"),
-        "kind": SSH_FAILURE,
+        "kind": kind,
         "host": host,
         "asset_id": "linux-" + hashlib.sha256(device.encode()).hexdigest()[:16],
         "process": service,
@@ -47,8 +64,8 @@ def normalize_journal(entry):
         "parent_guid": "",
         "destination": "",
         "source_ip": source,
-        "target": "",
-        "raw": {"MESSAGE": message, "_HOSTNAME": host, "_COMM": service,
+        "target": value if kind == SUDO_COMMAND else "",
+        "raw": {"MESSAGE": entry["MESSAGE"], "_HOSTNAME": host, "_COMM": service,
                 "__REALTIME_TIMESTAMP": entry["__REALTIME_TIMESTAMP"]},
     }
 
@@ -223,13 +240,23 @@ def linux_cases(events: list[dict]) -> list[dict]:
 
 
 def build_cases(events: list[dict]) -> list[dict]:
-    return [*windows_cases(events), *linux_cases(events)]
+    sudo = [
+        {
+            "id": event["id"], "title": "Sudo command observed", "host": event["host"],
+            "asset_id": event["asset_id"],
+            "summary": "The Linux journal recorded a sudo command. This is a local audit observation.",
+            "evidence": [event], "links": [],
+        }
+        for event in events if event["kind"] == SUDO_COMMAND
+    ]
+    return [*windows_cases(events), *linux_cases(events), *sudo]
 
 
 def report(case: dict) -> str:
+    linux_labels = {SSH_FAILURE: "OpenSSH authentication failure", SUDO_COMMAND: "Sudo command"}
     evidence = [
         f"- {item['timestamp']} | "
-        f"{'OpenSSH authentication failure' if item['kind'] == SSH_FAILURE else 'Sysmon ' + str(item['kind'])}"
+        f"{linux_labels.get(item['kind'], 'Sysmon ' + str(item['kind']))}"
         f" | {item['id']} | "
         f"{item['target'] or item['destination'] or item.get('source_ip') or item['process']}"
         for item in case["evidence"]

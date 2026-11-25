@@ -41,6 +41,8 @@ Use the Docker Compose command above, or run the same two services natively with
 
 To try a Linux case with the backend running, run `python ingest.py fixtures/linux-ssh-demo.jsonl --format journal` from `backend` on Windows, or use `python3` on Kali. The fixture contains three synthetic OpenSSH failures and requires no SSH service.
 
+For a real Kali journal sample without starting SSH, run `sudo /usr/bin/true`, then `sudo journalctl _COMM=sudo --since '2 minutes ago' --no-pager -o json --grep 'COMMAND=/usr/bin/true$' > kali-journal.jsonl`. Transfer that local file to the Git-ignored `raw-logs` directory, preview with `python backend/ingest.py raw-logs/kali-journal.jsonl --format journal --check`, and omit `--check` to import. This produces an observed sudo command case from the actual journal.
+
 ## Deploy the public portfolio demo
 
 Create a [Render Blueprint](https://render.com/docs/infrastructure-as-code) connected to this repository. The included `render.yaml` deploys a single Docker web service. It serves the React console and the FastAPI routes from the same HTTPS origin, including the live WebSocket, timeline replay and report export. Visitors can investigate the bundled synthetic Windows and Kali cases without an account. Ingestion and live model calls are disabled on the public instance. The demo uses an ephemeral SQLite database seeded at startup. The PostgreSQL configuration remains available through Docker Compose.
@@ -66,6 +68,12 @@ On the development laptop, `qwen2.5-coder:7b` returned six valid drafts out of s
 ## Test and explain
 
 For a live Windows capture without a Wazuh server, use [Microsoft Sysmon](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon) with `tools/sysmon-demo.xml` on a machine where Sysmon is not already configured. Run `tools/Capture-NorthTelemetry.ps1` in PowerShell with access to the Sysmon log. It creates a comment-only file and exports its process and file-creation events to the Git-ignored `raw-logs` folder. Preview the resulting JSON with `python backend/ingest.py <capture.json> --check`, then omit `--check` to import it into a running local backend. This direct capture checks Sysmon and NORTH ingestion. Checking Wazuh forwarding requires a Wazuh deployment.
+
+### Verify Wazuh forwarding
+
+1. Use an authorized, isolated [Wazuh manager on a supported Linux host](https://documentation.wazuh.com/current/installation-guide/wazuh-server/index.html) and [enroll the Windows agent](https://documentation.wazuh.com/current/user-manual/agent/agent-enrollment/index.html). Keep the manager and agent traffic on the private lab network.
+2. Add the block in `tools/wazuh-sysmon-localfile.xml` inside the agent's existing `ossec_config` and restart the agent. Use a fresh run of the capture script after enrollment. [Wazuh event-channel collection](https://documentation.wazuh.com/current/user-manual/capabilities/log-data-collection/configuration.html)
+3. Find the marker from the fresh capture in the manager's JSON alerts or, with JSON archiving enabled for the test, its JSON archive. Keep only the matching process and file-creation records. Copy the resulting JSON Lines into the Git-ignored `raw-logs` folder and run the NORTH import with `--check`. Expect two supported events and one case. Then import and verify both records in ECHO. [Wazuh event logging](https://documentation.wazuh.com/current/user-manual/manager/event-logging.html)
 
 Run `.\.venv\Scripts\python.exe -m pytest tests` from `backend`, and `npm.cmd run build` from `frontend`. For a standard-library-only core check, run `python -m unittest discover -s tests -p test_core.py` from `backend`.
 

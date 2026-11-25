@@ -15,7 +15,8 @@ type Case = {
 type Claim = { text: string; evidence_ids: string[] };
 
 const eventNames: Record<number, string> = {
-  1: 'Process created', 3: 'Network connection observed', 11: 'File created', 1001: 'SSH authentication failed',
+  1: 'Process created', 3: 'Network connection observed', 11: 'File created',
+  1001: 'SSH authentication failed', 1002: 'Sudo command observed',
 };
 const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
