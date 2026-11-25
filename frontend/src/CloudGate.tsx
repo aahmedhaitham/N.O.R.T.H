@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { CollectorSetup } from './CollectorSetup';
+import { pollVisible } from './pollVisible';
 
 type Source = { id: string; label: string; updated_at: string };
 type DesktopRequest = { ticket: string; expires: number };
@@ -37,6 +38,7 @@ export function CloudGate({ children }: {
     return ticketPattern.test(ticket) ? ticket : '';
   });
   const source = sources.find((item) => item.id === active) ?? sources[0];
+  const hasSource = Boolean(source);
 
   useEffect(() => {
     if (!desktop && location.protocol !== 'https:') return;
@@ -137,10 +139,9 @@ export function CloudGate({ children }: {
         }
       }
     }
-    void status();
-    const timer = window.setInterval(status, 30000);
-    return () => { controller.abort(); window.clearInterval(timer); };
-  }, [signedIn]);
+    const stop = pollVisible(status, signedIn && !hasSource ? 5000 : 30000);
+    return () => { controller.abort(); stop(); };
+  }, [signedIn, hasSource]);
 
   async function signIn() {
     setBusy(true);

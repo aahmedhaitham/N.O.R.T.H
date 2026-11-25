@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { explainAddress } from './deviceExplanation';
 import { AtlasMap } from './AtlasMap';
+import { pollVisible } from './pollVisible';
 
 type CaseReference = { id: string; title: string };
 type Host = { id: string; host: string; events: number; last_seen: string; cases: CaseReference[] };
@@ -74,7 +75,6 @@ export function useNetworkInventory(endpoint: string, interval = 5000) {
   useEffect(() => {
     if (!endpoint) return;
     const controller = new AbortController();
-    let timer: number | undefined;
     async function refresh() {
       setRefreshing(true);
       try {
@@ -95,14 +95,13 @@ export function useNetworkInventory(endpoint: string, interval = 5000) {
       } finally {
         if (!controller.signal.aborted) {
           setRefreshing(false);
-          if (interval && endpoint.startsWith('/api/')) timer = window.setTimeout(refresh, interval);
         }
       }
     }
-    void refresh();
+    const stop = pollVisible(refresh, endpoint.startsWith('/api/') ? interval : 0);
     return () => {
       controller.abort();
-      window.clearTimeout(timer);
+      stop();
     };
   }, [endpoint, revision, interval]);
 

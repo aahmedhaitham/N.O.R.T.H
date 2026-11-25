@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { pollVisible } from './pollVisible';
 
 type Pairing = { source_id: string; label: string; revoked_at: string | null; updated_at: string | null };
 type Created = { source_id: string; label: string; token: string };
@@ -26,11 +27,10 @@ export function CollectorSetup({ back }: { back: () => void }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void update(controller.signal).catch(() => {
+    const stop = pollVisible(() => update(controller.signal).catch(() => {
       if (!controller.signal.aborted) { setLoading(false); setMessage('Could not load collectors.'); }
-    });
-    const timer = window.setInterval(() => { void update(controller.signal).catch(() => {}); }, 10000);
-    return () => { controller.abort(); window.clearInterval(timer); };
+    }), 10000);
+    return () => { controller.abort(); stop(); };
   }, []);
 
   async function copy(value: string, label: string) {
