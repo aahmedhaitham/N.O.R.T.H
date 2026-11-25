@@ -140,6 +140,15 @@ button:disabled { opacity: .65; cursor: wait; }
 .atlas-device-detail dt { color: var(--muted); font-size: .82rem; }
 .atlas-device-detail dd { margin: .2rem 0 .65rem; }
 .atlas-device-detail code { display: block; }
+.atlas-traffic { border-top: 1px solid var(--line); padding-top: .9rem; }
+.atlas-traffic h4 { margin: 0; }
+.atlas-traffic p { margin: .35rem 0 .7rem; color: var(--muted); font-size: .82rem; }
+.atlas-traffic ul { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }
+.atlas-traffic-row { display: grid; grid-template-columns: 1fr auto; gap: .25rem .5rem; align-items: baseline; font-size: .82rem; }
+.atlas-traffic-row strong { font-variant-numeric: tabular-nums; }
+.atlas-traffic-track { grid-column: 1 / -1; height: .35rem; border-radius: 1rem; background: var(--line); overflow: hidden; }
+.atlas-traffic-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.atlas-traffic-row + .atlas-traffic-row .atlas-traffic-track span { background: #9ab4ff; }
 @media (max-width: 850px) { .atlas-layout { grid-template-columns: 1fr; } }
 .activity-chart {
   display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(.2rem, 1vw, .6rem);

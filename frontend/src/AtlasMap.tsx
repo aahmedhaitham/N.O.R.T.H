@@ -11,10 +11,41 @@ export type AtlasDevice = {
   traffic?: { download_bytes: number; upload_bytes: number };
 };
 
-const mb = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const trafficAmount = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const virtual = /VMware|VirtualBox|vEthernet|Hyper-V/i;
 const wireless = /wi-?fi|wlan|wireless/i;
 const pageSize = 8;
+
+function formatTraffic(bytes: number) {
+  if (bytes >= 1e9) return trafficAmount.format(bytes / 1e9) + ' GB';
+  if (bytes >= 1e6) return trafficAmount.format(bytes / 1e6) + ' MB';
+  if (bytes >= 1e3) return trafficAmount.format(bytes / 1e3) + ' kB';
+  return trafficAmount.format(bytes) + ' B';
+}
+
+function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; stale: boolean }) {
+  if (!traffic) return <section className="atlas-traffic">
+    <h4>Router traffic</h4>
+    <p>Traffic totals are unavailable for this device.</p>
+  </section>;
+  const rows = [
+    { label: 'Downloaded', bytes: traffic.download_bytes },
+    { label: 'Uploaded', bytes: traffic.upload_bytes },
+  ];
+  const scale = Math.max(1, ...rows.map(({ bytes }) => bytes));
+  return <section className="atlas-traffic">
+    <h4>Router traffic</h4>
+    <p>{stale ? 'Last available router totals' : 'Router accounting period'}</p>
+    <ul>
+      {rows.map(({ label, bytes }) => <li className="atlas-traffic-row" key={label}>
+        <span>{label}</span><strong>{formatTraffic(bytes)}</strong>
+        <div className="atlas-traffic-track" aria-hidden="true">
+          <span style={{ width: (bytes / scale) * 100 + '%' }} />
+        </div>
+      </li>)}
+    </ul>
+  </section>;
+}
 
 export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; staleTraffic: boolean }) {
   const [filter, setFilter] = useState('all');
@@ -81,7 +112,7 @@ export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; st
         </ReactFlow>
       </div>
       {selectedDevice && <aside className="atlas-device-detail">
-        <h3>Device details</h3>
+        <h3>{selectedDevice.label}</h3>
         <label>Observed device
           <select value={'device:' + selectedDevice.id} onChange={(event) => setSelected(event.target.value)}>
             {displayed.map((item) => <option key={item.id} value={'device:' + item.id}>{item.label} · {item.network}</option>)}
@@ -90,12 +121,11 @@ export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; st
         <dl>
           <dt>Observed on</dt><dd>{selectedDevice.network}</dd>
           <dt>MAC address</dt><dd>{selectedDevice.mac || 'Unavailable'}</dd>
-          <dt>IP addresses</dt><dd>{selectedDevice.addresses.map((address) => <code key={address}>{address}</code>)}</dd>
+          <dt>IP addresses</dt><dd>{selectedDevice.addresses.length ?
+            selectedDevice.addresses.map((address) => <code key={address}>{address}</code>) : 'Unavailable'}</dd>
           <dt>Last observed state</dt><dd>{selectedDevice.states.join(' · ') || 'Unavailable'}</dd>
         </dl>
-        <h4>Router traffic</h4>
-        <p>{selectedDevice.traffic ? `${mb.format(selectedDevice.traffic.download_bytes / 1e6)} MB downloaded · ${mb.format(selectedDevice.traffic.upload_bytes / 1e6)} MB uploaded · ${staleTraffic ? 'Last available router totals' : 'Router accounting period'}` :
-          'Traffic totals are unavailable for this device.'}</p>
+        <RouterTraffic traffic={selectedDevice.traffic} stale={staleTraffic} />
       </aside>}
       </div>
     </>}

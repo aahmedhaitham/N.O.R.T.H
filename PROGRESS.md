@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- ATLAS device details show separate router download and upload totals with relative bars and readable units. Missing or stale router data is labeled.
 - Added a searchable page switcher with Ctrl+K or Command+K for Overview, ATLAS, IRIS, and ECHO.
 - Polished workspace navigation, responsive Overview cards, and the ATLAS and IRIS page headings. Added reduced-motion-aware transitions, a simpler Google sign-in screen, and ECHO replay speed controls. Cloud and standard frontend builds pass. Visual review is queued for the combined staging pass.
 - Preserve the current view and selected collector when the browser page is refreshed. The project owner reported that refresh returns to the dashboard.
