@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { eventNames } from './eventNames';
 import { SavedSearches } from './SavedSearches';
+import { pollVisible } from './pollVisible';
 
 type Event = {
   id: string; timestamp: string; kind: number; host: string; process: string;
@@ -46,7 +47,6 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
   useEffect(() => {
     const filter = { ...criteria, before };
     const controller = new AbortController();
-    let timer: number | undefined;
     async function load() {
       try {
         const query = new URLSearchParams({ limit: String(pageSize) });
@@ -65,16 +65,12 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
         }
       } catch {
         if (!controller.signal.aborted) setError(true);
-      } finally {
-        if (!controller.signal.aborted && !portfolio && !filter.before) {
-          timer = window.setTimeout(load, 10000);
-        }
       }
     }
-    void load();
+    const stop = pollVisible(load, portfolio || before ? 0 : 10000);
     return () => {
       controller.abort();
-      window.clearTimeout(timer);
+      stop();
     };
   }, [criteria, before, attempt, portfolio, source]);
 

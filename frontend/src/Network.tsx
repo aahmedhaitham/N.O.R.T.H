@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { explainAddress } from './deviceExplanation';
 import { AtlasMap } from './AtlasMap';
 import { pollVisible } from './pollVisible';
@@ -21,6 +21,7 @@ type Finding = { id: string; first_seen: string; last_seen: string; reviewed_at:
   mac: string; interface: string; addresses: string[] };
 type Snapshot = {
   assets: Host[]; links: Connection[];
+  collector_synced_at?: string;
   local_device?: { host: string; addresses: { interface: string; address: string }[] };
   activity?: { interval: 'minute' | 'hour' | 'day' | null; buckets: { start: string; count: number }[];
     types: { kind: number; count: number }[] };
@@ -101,13 +102,12 @@ export function groupNeighbors(records: Neighbor[]) {
   return [...devices];
 }
 
-export function useNetworkInventory(endpoint: string, interval = 5000) {
+export function useNetworkInventory(endpoint: string) {
   const [inventory, setInventory] = useState<Snapshot | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [revision, setRevision] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>();
-  const manual = useRef(false);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -115,10 +115,7 @@ export function useNetworkInventory(endpoint: string, interval = 5000) {
     async function refresh() {
       setRefreshing(true);
       try {
-        const requested = manual.current && location.protocol === 'north:' && location.pathname === '/';
-        manual.current = false;
-        const response = await fetch(requested ? endpoint + '?refresh=1' : endpoint,
-          { signal: controller.signal, cache: 'no-store' });
+        const response = await fetch(endpoint, { signal: controller.signal, cache: 'no-store' });
         if (!response.ok) throw new Error('Inventory unavailable');
         const result: Snapshot = await response.json();
         if (result.neighbors) result.neighbors.records = readNeighbors(result.neighbors.records);
@@ -135,17 +132,14 @@ export function useNetworkInventory(endpoint: string, interval = 5000) {
         }
       }
     }
-    const stop = pollVisible(refresh, endpoint.startsWith('/api/') ? interval : 0);
+    const stop = pollVisible(refresh, endpoint.startsWith('/api/') ? 10000 : 0);
     return () => {
       controller.abort();
       stop();
     };
-  }, [endpoint, revision, interval]);
+  }, [endpoint, revision]);
 
-  return { inventory, fetchError, refreshing, lastRefresh, refresh: () => {
-    manual.current = true;
-    setRevision((value) => value + 1);
-  } };
+  return { inventory, fetchError, refreshing, lastRefresh, reloadAfterChange: () => setRevision((value) => value + 1) };
 }
 
 export function Network({ endpoint, openCase, openEvents, target, onTarget, demo, readOnly, labelSource }: {
@@ -153,8 +147,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   target: AtlasTarget | null; onTarget: (target: null) => void; demo: boolean; readOnly: boolean;
   labelSource: string | null;
 }) {
-  const [interval, setInterval] = useState(15000);
-  const { inventory, fetchError, refresh, refreshing, lastRefresh } = useNetworkInventory(endpoint, interval);
+  const { inventory, fetchError, refreshing, lastRefresh, reloadAfterChange } = useNetworkInventory(endpoint);
+  const oldSnapshot = Boolean(inventory?.collector_synced_at &&
+    Date.now() - Date.parse(inventory.collector_synced_at) > 3 * 60 * 1000);
   const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
   const [fileMessage, setFileMessage] = useState('');
   const [search, setSearch] = useState('');
@@ -339,7 +334,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewed: true }),
       });
       if (!response.ok) throw new Error('Review failed');
-      refresh();
+      reloadAfterChange();
     } catch {
       setReviewError(true);
     } finally {
@@ -419,12 +414,12 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       <label className="network-search">Find device
         <input type="search" placeholder="Host, IP or MAC address" value={search} onChange={(event) => setSearch(event.target.value)} />
       </label>
-      <button type="button" className="primary-action" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh observations'}</button>
-      {endpoint.startsWith('/api/') && <label>Auto refresh <select value={interval} onChange={(event) => setInterval(Number(event.target.value))}>
-        <option value={0}>Off</option><option value={15000}>Every 15 seconds</option>
-        <option value={30000}>Every 30 seconds</option><option value={60000}>Every minute</option>
-      </select></label>}
-      {lastRefresh && <small>View updated {lastRefresh}</small>}
+      {endpoint.startsWith('/api/') && <span className="atlas-live-state" data-state={fetchError || oldSnapshot ? 'waiting' : 'automatic'}>
+        {fetchError ? 'Connection interrupted · retrying' : oldSnapshot ? 'Automatic updates · no new snapshot in 3 minutes' : 'Automatic updates'}
+      </span>}
+      {inventory?.collector_synced_at ? <small>Collector synced <time dateTime={inventory.collector_synced_at}>
+        {new Date(inventory.collector_synced_at).toLocaleTimeString()}</time></small> :
+        lastRefresh && <small>{demo ? 'Sample data loaded' : 'Last checked ' + lastRefresh}</small>}
     </section>
     <div className="atlas-section-stack" hidden={activeView !== 'devices'}>
     {observedDevices.length > 0 && <section className="panel" aria-labelledby="atlas-coverage">

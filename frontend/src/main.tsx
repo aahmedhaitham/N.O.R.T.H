@@ -11,6 +11,7 @@ import { InstallApp } from './InstallApp';
 import { CloudGate, type WorkspacePanel } from './CloudGate';
 import { CaseReview } from './CaseReview';
 import { Appearance } from './Appearance';
+import { pollVisible } from './pollVisible';
 import { readWorkspacePreference, writeWorkspacePreference } from './workspaceSession';
 
 type Evidence = {
@@ -182,10 +183,9 @@ function App({ source = null, openCollectors, controls, panel }: {
   useEffect(() => {
     if (cloud || desktopLocal) {
       const controller = new AbortController();
-      let timer: number | undefined;
       async function update() {
         try {
-          const response = await fetch('/api/cases' + sourceQuery, { signal: controller.signal });
+          const response = await fetch('/api/cases' + sourceQuery, { signal: controller.signal, cache: 'no-store' });
           if (!response.ok) throw new Error('Cloud case feed unavailable');
           const items: Case[] = await response.json();
           if (!controller.signal.aborted) {
@@ -193,12 +193,10 @@ function App({ source = null, openCollectors, controls, panel }: {
           }
         } catch {
           if (!controller.signal.aborted) { setOnline(false); setLoadError(true); }
-        } finally {
-          if (!controller.signal.aborted) timer = window.setTimeout(update, 15000);
         }
       }
-      void update();
-      return () => { controller.abort(); window.clearTimeout(timer); };
+      const stop = pollVisible(update, 10000);
+      return () => { controller.abort(); stop(); };
     }
     if (portfolio) {
       const controller = new AbortController();

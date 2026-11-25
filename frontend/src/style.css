@@ -221,6 +221,8 @@ button:disabled { opacity: .65; cursor: wait; }
 .atlas-map-heading p { font-size: .83rem; }
 .atlas-toolbar label, .atlas-map-heading label { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .atlas-toolbar small { color: var(--muted); }
+.atlas-live-state { color: var(--accent); font-size: .82rem; }
+.atlas-live-state[data-state="waiting"] { color: var(--warning); }
 .atlas-toolbar select, .atlas-map-heading select { color: inherit; font: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: .35rem; padding: .45rem; }
 .atlas-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 290px); gap: 0; border: 1px solid var(--line); }
 .atlas-pagination { margin-block: .65rem; }

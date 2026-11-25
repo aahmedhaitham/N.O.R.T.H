@@ -645,7 +645,7 @@ export default {
     }
     const sourceId = url.searchParams.get('source');
     if (sourceId && !sourcePattern.test(sourceId)) return json({ detail: 'Invalid collector identity' }, 422);
-    const source = await env.DB.prepare(`SELECT s.id, s.network FROM cloud_sources s
+    const source = await env.DB.prepare(`SELECT s.id, s.network, s.updated_at FROM cloud_sources s
       LEFT JOIN cloud_source_owners o ON o.source_id = s.id
       WHERE coalesce(o.account_id, 'legacy') = ? AND (? IS NULL OR s.id = ?)
       ORDER BY s.updated_at DESC, s.id LIMIT 1`).bind(account, sourceId, sourceId).first();
@@ -664,7 +664,9 @@ export default {
       const matches = source ? await relatedEvidence(env.DB, source.id, relatedId, account) : null;
       return matches ? json({ matches }) : json({ detail: 'Case not found' }, 404);
     }
-    if (path === '/api/network') return json(source ? JSON.parse(source.network) : emptyNetwork);
+    if (path === '/api/network') return json(source ? {
+      ...JSON.parse(source.network), collector_synced_at: source.updated_at,
+    } : emptyNetwork);
     if (path === '/api/network/device-labels') {
       if (!sourceId || !source) return json({ detail: 'Select a collector first.' }, 404);
       if (request.method === 'GET') {

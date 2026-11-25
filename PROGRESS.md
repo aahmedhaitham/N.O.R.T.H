@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+- ATLAS checks automatically while visible and shows the collector's actual cloud sync time. Overview, IRIS newest events, and ECHO refresh when their window regains focus. Collector sampling continues independently while the collector runs.
 - Completed router intervals persist across collector restarts. The first successful reading after a restart or missed sample establishes a new baseline. Windows adapter views show up to 12 recent measured rates per adapter.
 - The collector retains its last 72 internet checks across restarts, scoped to the collector and cloud origin. Diagnostics includes selectable history and a response-time chart.
 - Device coverage filters the observed map and inventory. The filtered inventory can be exported to CSV with unmeasured fields left blank.
