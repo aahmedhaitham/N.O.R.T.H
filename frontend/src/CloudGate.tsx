@@ -233,8 +233,9 @@ export function CloudGate({ children }: {
     </section></main>;
     const close = () => setSection('dashboard');
     const openCollectors = () => setSection('collectors');
-    const panel = section === 'collectors' ? {
-      title: 'Collectors', content: <CollectorSetup back={close} />, close,
+    const panel: WorkspacePanel | undefined = section === 'collectors' ? {
+      title: 'Collectors', content: <CollectorSetup back={close} availableSources={sources.map(({ id }) => id)}
+        useCollector={(id) => { selectCollector(id); close(); }} />, close,
     } : section === 'settings' ? {
       title: 'Workspace settings', content: <WorkspaceSettings back={close} openCollectors={openCollectors} />, close,
     } : undefined;

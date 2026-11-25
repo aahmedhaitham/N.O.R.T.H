@@ -316,6 +316,10 @@ button:disabled { opacity: .65; cursor: wait; }
 .collector-table tbody th { background: transparent; color: var(--text); }
 .collector-table td, .collector-table tbody th { vertical-align: middle; }
 .collector-table button { padding: .35rem .55rem; font-size: .8rem; }
+.collector-table .collector-details-toggle { color: var(--accent); background: transparent; border-color: transparent; text-align: left; font-weight: 650; }
+.collector-details { padding: .55rem; }
+.collector-details h3 { margin: 0; }
+.collector-details pre { padding: .55rem; border: 1px solid var(--line); background: var(--canvas); }
 .collector-state { display: inline-flex; align-items: baseline; gap: .35rem; color: var(--muted); }
 .collector-state::before { content: ''; flex: 0 0 .42rem; height: .42rem; border-radius: 50%; background: currentColor; }
 .collector-state[data-state="synced"] { color: var(--accent); }

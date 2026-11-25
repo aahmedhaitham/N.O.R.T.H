@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { pollVisible } from './pollVisible';
 
 type Pairing = { source_id: string; label: string; revoked_at: string | null; updated_at: string | null };
 type Created = { source_id: string; label: string; token: string };
 
-export function CollectorSetup({ back }: { back: () => void }) {
+export function CollectorSetup({ back, availableSources, useCollector }: {
+  back: () => void; availableSources: string[]; useCollector: (id: string) => void;
+}) {
   const [items, setItems] = useState<Pairing[]>([]);
   const [loading, setLoading] = useState(true);
   const [label, setLabel] = useState('');
@@ -14,10 +16,14 @@ export function CollectorSetup({ back }: { back: () => void }) {
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
+  const [opened, setOpened] = useState('');
+  const [detailsCopyStatus, setDetailsCopyStatus] = useState('');
   const paired = items.find((item) => item.source_id === created?.source_id);
   const workspace = /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(location.origin) ? location.origin : '';
-  const command = created ? "& '.\\Start NORTH Collector.cmd' -Source " + created.source_id +
-    (workspace ? ' -Workspace ' + workspace : '') : '';
+  function startCommand(id: string) {
+    return "& '.\\Start NORTH Collector.cmd' -Source " + id + (workspace ? ' -Workspace ' + workspace : '');
+  }
+  const command = created ? startCommand(created.source_id) : '';
 
   async function update(signal?: AbortSignal) {
     const response = await fetch('/api/cloud/pairings', { signal });
@@ -34,12 +40,12 @@ export function CollectorSetup({ back }: { back: () => void }) {
     return () => { controller.abort(); stop(); };
   }, []);
 
-  async function copy(value: string, label: string) {
+  async function copy(value: string, label: string, report = setCopyStatus) {
     try {
       await navigator.clipboard.writeText(value);
-      setCopyStatus(label + ' copied.');
+      report(label + ' copied.');
     } catch {
-      setCopyStatus('Select the ' + label.toLowerCase() + ' and copy it manually.');
+      report('Select the ' + label.toLowerCase() + ' and copy it manually.');
     }
   }
 
@@ -111,8 +117,15 @@ export function CollectorSetup({ back }: { back: () => void }) {
       {items.length > 0 && <div className="collector-table-wrap">
         <table className="investigation-table collector-table" aria-label="Paired collectors">
           <thead><tr><th scope="col">Collector</th><th scope="col">Pairing status</th><th scope="col">Last sync</th><th scope="col">Actions</th></tr></thead>
-          <tbody>{items.map((item) => <tr key={item.source_id}>
-            <th scope="row">{item.label}</th>
+          <tbody>{items.map((item) => <Fragment key={item.source_id}>
+          <tr>
+            <th scope="row"><button type="button" className="collector-details-toggle"
+              aria-expanded={opened === item.source_id}
+              aria-controls={opened === item.source_id ? 'collector-details' : undefined}
+              onClick={() => {
+                setOpened(opened === item.source_id ? '' : item.source_id);
+                setDetailsCopyStatus('');
+              }}>{item.label}</button></th>
             <td><span className="collector-state" data-state={item.revoked_at ? 'revoked' : item.updated_at ? 'synced' : 'waiting'}>
               {item.revoked_at ? 'Revoked' : item.updated_at ? 'Has synced' : 'Waiting for first sync'}
             </span></td>
@@ -123,7 +136,28 @@ export function CollectorSetup({ back }: { back: () => void }) {
               </button>
               <button type="button" onClick={() => setConfirm('')}>Cancel</button>
             </div> : <button type="button" aria-label={`Revoke ${item.label}`} onClick={() => setConfirm(item.source_id)}>Revoke</button>)}</td>
-          </tr>)}</tbody>
+          </tr>
+          {opened === item.source_id && <tr>
+            <td colSpan={4}>
+              <section className="collector-details" id="collector-details" aria-label={`${item.label} details`}>
+                <h3>{item.label}</h3>
+                <p>Source ID <code>{item.source_id}</code></p>
+                <p>{item.updated_at ? <>Last synced <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time></> :
+                  'No sync recorded yet.'}</p>
+                {!item.revoked_at && <>
+                  <p>Run this in the extracted Windows collector folder. Use the pairing key issued for this collector when prompted.</p>
+                  <pre>{startCommand(item.source_id)}</pre>
+                  <div className="case-links">
+                    <button type="button" onClick={() => void copy(startCommand(item.source_id), 'Command', setDetailsCopyStatus)}>Copy start command</button>
+                    {availableSources.includes(item.source_id) && <button type="button"
+                      onClick={() => useCollector(item.source_id)}>Use this collector in the workspace</button>}
+                  </div>
+                  {detailsCopyStatus && <p role="status">{detailsCopyStatus}</p>}
+                </>}
+              </section>
+            </td>
+          </tr>}
+          </Fragment>)}</tbody>
         </table>
       </div>}
     </section>
