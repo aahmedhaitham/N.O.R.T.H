@@ -10,6 +10,7 @@ export function CollectorSetup({ back }: { back: () => void }) {
   const [label, setLabel] = useState('');
   const [created, setCreated] = useState<Created | null>(null);
   const [message, setMessage] = useState('');
+  const [listError, setListError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
@@ -22,13 +23,13 @@ export function CollectorSetup({ back }: { back: () => void }) {
     const response = await fetch('/api/cloud/pairings', { signal });
     if (!response.ok) throw new Error('Could not load collectors.');
     const data = await response.json();
-    if (!signal?.aborted) { setItems(data.pairings); setLoading(false); }
+    if (!signal?.aborted) { setItems(data.pairings); setLoading(false); setListError(false); }
   }
 
   useEffect(() => {
     const controller = new AbortController();
     const stop = pollVisible(() => update(controller.signal).catch(() => {
-      if (!controller.signal.aborted) { setLoading(false); setMessage('Could not load collectors.'); }
+      if (!controller.signal.aborted) { setLoading(false); setListError(true); }
     }), 10000);
     return () => { controller.abort(); stop(); };
   }, []);
@@ -50,9 +51,16 @@ export function CollectorSetup({ back }: { back: () => void }) {
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail ?? 'Cloud request failed.');
-      if (showKey) { setCreated(result); setLabel(''); }
+      if (showKey) {
+        setCreated(result);
+        setLabel('');
+        setCopyStatus('');
+      } else if (created?.source_id === confirm) {
+        setCreated(null);
+        setCopyStatus('');
+      }
       setConfirm('');
-      await update();
+      await update().catch(() => setListError(true));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Cloud request failed.');
     } finally {
@@ -60,10 +68,10 @@ export function CollectorSetup({ back }: { back: () => void }) {
     }
   }
 
-  return <main className="collector-settings">
-    <header className="collector-heading">
-      <div><h1>Collectors</h1><p>Connect a device to this workspace and manage its access.</p></div>
-      <button onClick={back}>Back to dashboard</button>
+  return <main className="collector-settings collector-workspace">
+    <header className="collector-heading dashboard-heading">
+      <h1>Collectors</h1>
+      <button type="button" onClick={back}>Back to workspace</button>
     </header>
     {message && <p role="alert">{message}</p>}
     <section className="panel">
@@ -97,21 +105,27 @@ export function CollectorSetup({ back }: { back: () => void }) {
     </section>
     <section className="panel">
       <h2>Paired collectors</h2>
-      {loading && <p>Loading collectors…</p>}
-      {!loading && !items.length && <p>No collector pairings have been created.</p>}
-      <ul className="network-list">{items.map((item) => <li key={item.source_id} className="collector-row">
-        <div>
-          <strong>{item.label}</strong>
-          <small>{item.revoked_at ? 'Revoked' : item.updated_at ?
-            'Last synced ' + new Date(item.updated_at).toLocaleString() : 'Waiting for first sync'}</small>
-        </div>
-        {!item.revoked_at && (confirm === item.source_id ? <div className="case-links">
-          <button disabled={busy} onClick={() => void mutate('/api/cloud/pairings/' + item.source_id + '/revoke', {}, false)}>
-            Confirm revoke
-          </button>
-          <button onClick={() => setConfirm('')}>Cancel</button>
-        </div> : <button onClick={() => setConfirm(item.source_id)}>Revoke</button>)}
-      </li>)}</ul>
+      {loading && <p role="status">Loading collectors…</p>}
+      {listError && <p role="status">Collector status could not refresh. Retrying…</p>}
+      {!loading && !listError && !items.length && <p>No collector pairings have been created.</p>}
+      {items.length > 0 && <div className="collector-table-wrap">
+        <table className="investigation-table collector-table" aria-label="Paired collectors">
+          <thead><tr><th scope="col">Collector</th><th scope="col">Pairing status</th><th scope="col">Last sync</th><th scope="col">Actions</th></tr></thead>
+          <tbody>{items.map((item) => <tr key={item.source_id}>
+            <th scope="row">{item.label}</th>
+            <td><span className="collector-state" data-state={item.revoked_at ? 'revoked' : item.updated_at ? 'synced' : 'waiting'}>
+              {item.revoked_at ? 'Revoked' : item.updated_at ? 'Has synced' : 'Waiting for first sync'}
+            </span></td>
+            <td>{item.updated_at ? <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time> : '—'}</td>
+            <td>{!item.revoked_at && (confirm === item.source_id ? <div className="case-links">
+              <button type="button" disabled={busy} onClick={() => void mutate('/api/cloud/pairings/' + item.source_id + '/revoke', {}, false)}>
+                Confirm revoke
+              </button>
+              <button type="button" onClick={() => setConfirm('')}>Cancel</button>
+            </div> : <button type="button" aria-label={`Revoke ${item.label}`} onClick={() => setConfirm(item.source_id)}>Revoke</button>)}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
     </section>
   </main>;
 }

@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- Collector management shows pairing status and last sync separately in a compact table. Temporary status failures keep the previous list visible and clear on recovery.
 - Temporary cloud status errors keep the signed-in workspace open and show a retry message. A confirmed expired session still returns to sign-in.
 - ECHO has a compact investigation list and a timeline-first evidence view. Connection graphs appear when the case contains connection records.
 - IRIS uses a split event list and evidence inspector, with related-event actions beside the selected record.
