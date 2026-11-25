@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- Added system, light, and dark appearance settings, a centered NORTH title, a translucent sidebar, and a native desktop View menu for zoom and fullscreen.
 - ECHO case cards show evidence counts. Timeline playback includes previous and next event controls and an accessible event position.
 - IRIS previews observed values in collapsed event rows, displays the number of results on the current page, and lets users remove applied filters individually.
 - ATLAS device details show separate router download and upload totals with relative bars and readable units. Missing or stale router data is labeled.

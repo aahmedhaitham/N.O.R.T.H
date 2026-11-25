@@ -10,6 +10,7 @@ import { Dashboard } from './Dashboard';
 import { InstallApp } from './InstallApp';
 import { CloudGate } from './CloudGate';
 import { CaseReview } from './CaseReview';
+import { Appearance } from './Appearance';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
@@ -182,10 +183,8 @@ function App({ source = null, openCollectors, controls }: {
 
   return (
     <div className="shell">
+      <div className="window-heading">NORTH</div>
       <nav className="console-nav" aria-label="Console">
-        <a className="brand" href={cloud && desktop ? '/cloud' : '/'} onClick={(event) => {
-          event.preventDefault(); setView('dashboard');
-        }}><img alt="" src="/icons/north-192.png" />NORTH</a>
         {navigation.map((item) => <button key={item.id} type="button" className="nav-item"
           aria-current={view === item.id ? 'page' : undefined} onClick={() => setView(item.id)}>
           <span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />
@@ -197,6 +196,7 @@ function App({ source = null, openCollectors, controls }: {
       <header className="topbar">
         <span className="topbar-location">{navigation.find((item) => item.id === view)?.detail}</span>
         <QuickNavigation view={view} open={setView} />
+        <Appearance />
         <InstallApp />
         <span role="status" className={online || portfolio ? 'status online' : 'status'}>
           {desktopLocal ? 'This computer · Local data' : cloud ? (online ? 'Cloud connection ready' : 'Connecting to cloud') :
@@ -331,7 +331,7 @@ function Investigation({ incident, sourceQuery, openEvents }: {
         <h2>Observed connections</h2>
         <div className="graph">
           <ReactFlow key={destinations.join(',')} nodes={nodes} edges={edges}
-            fitView fitViewOptions={{ maxZoom: 1 }} nodesDraggable={false} nodesConnectable={false} colorMode="dark">
+            fitView fitViewOptions={{ maxZoom: 1 }} nodesDraggable={false} nodesConnectable={false}>
             <Background gap={18} /><Controls showInteractive={false} />
           </ReactFlow>
         </div>

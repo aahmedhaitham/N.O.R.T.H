@@ -107,7 +107,7 @@ export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; st
           onNodeClick={(_, node) => { if (node.id.startsWith('device:')) setSelected(node.id); }}
           onSelectionChange={({ nodes: selection }) => { if (selection[0]?.id.startsWith('device:')) setSelected(selection[0].id); }}
           fitView fitViewOptions={{ maxZoom: 1.2, padding: .1 }} minZoom={.1}
-          nodesDraggable={false} nodesConnectable={false} colorMode="dark">
+          nodesDraggable={false} nodesConnectable={false}>
           <Background gap={20} /><Controls showInteractive={false} />
         </ReactFlow>
       </div>

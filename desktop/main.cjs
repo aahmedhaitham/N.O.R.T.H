@@ -176,6 +176,7 @@ if (!app.requestSingleInstanceLock()) {
         { role: 'quit' },
       ] },
       { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+      { label: 'View', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
     ]));
     await openWorkspace(hostedOrigin);
     startupComplete = true;

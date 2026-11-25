@@ -220,7 +220,6 @@ export function CloudGate({ children }: {
 
   return <main className="cloud-sign-in">
     <section className="panel">
-      <img className="sign-in-brand" src="/icons/north-192.png" alt="" />
       <h1>NORTH Cloud</h1>
       {signedIn === false && google && (desktop ? desktopRequest ? <div>
         <p>Confirm this code in your browser <strong>{desktopCode(desktopRequest.ticket)}</strong></p>
