@@ -41,8 +41,8 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | Area | Status | Evidence or remaining check |
 | --- | --- | --- |
 | Event storage and IRIS correlation | Core verified with SQLite | Tests cover replay, duplicates, near misses, malformed batches and linked evidence. |
-| FastAPI and WebSockets | Implemented | API tests cover health, report, reconnect and offline drafts. Running them requires package access. |
-| ATLAS and ECHO console | Implemented | TypeScript syntax check passed. Package installation, full bundle build and browser walkthrough remain open. |
+| FastAPI and WebSockets | Implemented | Draft citation test passed. The API integration test and live smoke run could not start their Windows socket loop in the restricted session. |
+| ATLAS and ECHO console | Build verified | The TypeScript check and Vite production build passed. Browser walkthrough remains open. |
 | Wazuh and Sysmon | Fixture format verified | The importer accepts JSON and JSON Lines. Verify a sanitized export from the authorized lab. |
 | Ollama | Implemented | Verify a real local draft and review its evidence references. |
 | Docker and PostgreSQL | Configured | Docker is unavailable on the audited host. Run the build and check persistence once available. |
@@ -55,3 +55,4 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | 2026-11-25 | Read-only audit recorded. No installers, services or VM settings changed. | Check project runtime compatibility and agree on the first setup change before making it. |
 | 2026-11-25 | Published requirements support the initial Python and Node choices. | Validate the resolved dependencies with the Week 1 scaffold. |
 | 2026-11-25 | Implemented the console, ingest path, case analysis, topology, replay and report export. | Install project dependencies to run the API tests and browser walkthrough. |
+| 2026-11-25 | Installed dependencies on the host, verified the frontend production build and four backend tests, and confirmed the demo commit reached GitHub. | Verify live HTTP, WebSockets and the browser walkthrough. |

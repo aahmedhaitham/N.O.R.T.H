@@ -25,7 +25,7 @@ Terminal 2:
 
 ```powershell
 Set-Location frontend
-npm.cmd install
+npm.cmd ci
 npm.cmd run dev
 ```
 
