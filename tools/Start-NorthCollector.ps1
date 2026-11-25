@@ -1,5 +1,6 @@
 param(
     [ValidatePattern('^collector-[a-f0-9]{20}$')][string]$Source,
+    [string]$Workspace,
     [ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$')][string]$OpenWrtHost,
     [switch]$DisableOpenWrt
 )
@@ -10,10 +11,14 @@ $runtime = Join-Path $root '.north-launcher'
 $settings = Join-Path $runtime 'collector-connection.json'
 $routerSettings = Join-Path $runtime 'collector-openwrt.txt'
 $environment = Join-Path $runtime 'collector-python'
-$python = Join-Path $environment 'Scriptspython.exe'
-$requirements = Join-Path $root 'backendequirements.txt'
+$python = Join-Path $environment 'Scripts/python.exe'
+$requirements = Join-Path $root 'backend/requirements.txt'
 $requirementsStamp = Join-Path $environment 'north-requirements.sha256'
 if ($OpenWrtHost -and $DisableOpenWrt) { throw 'Choose an OpenWrt host or disable OpenWrt collection.' }
+if ($Workspace -and !$Source) { throw 'Supply a pairing source when setting the workspace address.' }
+if (!$Source -and !(Test-Path -LiteralPath $settings)) {
+    throw 'Create a pairing in the Collectors screen and run the command it shows once.'
+}
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 
 try {
@@ -37,7 +42,8 @@ try {
         Set-Content -LiteralPath $requirementsStamp -Value $hash
     }
     if ($Source) {
-        $address = [Uri]::new((Read-Host 'NORTH Cloud HTTPS address'), [UriKind]::Absolute)
+        $destination = if ($Workspace) { $Workspace } else { Read-Host 'NORTH Cloud HTTPS address' }
+        $address = [Uri]::new($destination, [UriKind]::Absolute)
         if ($address.Scheme -ne 'https' -or !$address.Host -or $address.UserInfo -or
             $address.AbsolutePath -ne '/' -or $address.Query -or $address.Fragment) {
             throw 'Enter the HTTPS workspace address without a path, query or credentials.'
@@ -49,9 +55,6 @@ try {
             source = $Source
             ingest_key = ConvertFrom-SecureString $token
         } | ConvertTo-Json | Set-Content -LiteralPath $settings -Encoding UTF8
-    }
-    if (!(Test-Path -LiteralPath $settings)) {
-        throw 'Create a pairing in the Collectors screen and run the command it shows once.'
     }
     $connection = Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json
     $credential = [Management.Automation.PSCredential]::new('north', (ConvertTo-SecureString $connection.ingest_key))
@@ -67,7 +70,7 @@ try {
     }
     Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
     Write-Host 'NORTH Collector is running. Leave this window open. Press Ctrl+C to stop.'
-    & $python (Join-Path $root 'backendun_collector.py')
+    & $python (Join-Path $root 'backend/run_collector.py')
     if ($LASTEXITCODE -ne 0) { throw 'NORTH Collector stopped with an error.' }
 } finally {
     $collectorLock.Dispose()

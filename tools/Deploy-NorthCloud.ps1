@@ -97,6 +97,7 @@ try {
     Invoke-Wrangler d1 execute $deploymentName --config $configPath --remote --file cloud/schema.sql
     & npm.cmd --prefix frontend run build -- --mode cloud
     if ($LASTEXITCODE -ne 0) { throw 'Cloud frontend build failed.' }
+    & (Join-Path $PSScriptRoot 'Build-NorthCollectorZip.ps1') -OutputPath 'frontend/dist/downloads/NORTH-Collector-Windows.zip'
     $deploymentConfig = $configPath
     if ($EnableCloudAI) {
         $aiConfig = if ($Staging) { 'wrangler.staging.ai.local.jsonc' } else { 'wrangler.ai.local.jsonc' }

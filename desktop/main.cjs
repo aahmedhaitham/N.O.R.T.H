@@ -97,6 +97,9 @@ async function openWorkspace(nextOrigin, remember = false) {
       approval.searchParams.set('desktop_sign_in', ticket);
       void shell.openExternal(approval.href).catch(() => {});
     }
+    if (connected && url === 'north://app/downloads/NORTH-Collector-Windows.zip') {
+      void shell.openExternal(new URL('/downloads/NORTH-Collector-Windows.zip', nextOrigin).href).catch(() => {});
+    }
     return { action: 'deny' };
   });
   contents.session.setPermissionRequestHandler((_contents, _permission, done) => done(false));
