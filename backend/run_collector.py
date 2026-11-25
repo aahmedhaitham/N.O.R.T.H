@@ -3,9 +3,10 @@
 import asyncio
 import logging
 import os
+import socket
 import sys
 
-from cloud_sync import sync_loop
+from cloud_sync import collector_source, snapshot_target, sync_loop
 from adapter_traffic import AdapterTraffic
 from internet_health import InternetHealth
 from neighbors import NeighborMonitor
@@ -22,7 +23,8 @@ async def collect():
     alias = os.getenv("NORTH_OPENWRT_HOST")
     router = RouterUsage(alias) if alias else None
     cloud_url = os.environ["NORTH_CLOUD_URL"]
-    health = InternetHealth(cloud_url)
+    health = InternetHealth(cloud_url, store, snapshot_target(cloud_url, collector_source(socket.gethostname())))
+    await health.restore()
     traffic = AdapterTraffic() if sys.platform == "win32" else None
     async with asyncio.TaskGroup() as tasks:
         tasks.create_task(neighbors.run())

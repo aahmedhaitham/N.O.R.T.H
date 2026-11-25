@@ -163,6 +163,35 @@ class Store:
                     PRIMARY KEY (target, event_id)
                 )
                 """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS internet_checks (
+                    scope TEXT NOT NULL, checked_at TEXT NOT NULL, payload TEXT NOT NULL,
+                    PRIMARY KEY (scope, checked_at)
+                )
+                """)
+
+    def internet_checks(self, scope):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            rows = db.execute(
+                f"SELECT payload FROM internet_checks WHERE scope = {marker} ORDER BY checked_at DESC LIMIT 72",
+                (scope,),
+            ).fetchall()
+        return [json.loads(row[0]) for row in reversed(rows)]
+
+    def record_internet_check(self, scope, sample):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            db.execute(
+                f"INSERT INTO internet_checks (scope, checked_at, payload) VALUES ({marker}, {marker}, {marker}) "
+                "ON CONFLICT (scope, checked_at) DO NOTHING",
+                (scope, sample["checked_at"], json.dumps(sample)),
+            )
+            db.execute(
+                f"DELETE FROM internet_checks WHERE scope = {marker} AND checked_at NOT IN "
+                f"(SELECT checked_at FROM internet_checks WHERE scope = {marker} ORDER BY checked_at DESC LIMIT 72)",
+                (scope, scope),
+            )
 
     def collection_offset(self, source):
         marker = "%s" if self.url else "?"

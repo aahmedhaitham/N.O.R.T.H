@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+- The collector retains its last 72 internet checks across restarts, scoped to the collector and cloud origin. Diagnostics includes selectable history and a response-time chart.
 - Device coverage filters the observed map and inventory. The filtered inventory can be exported to CSV with unmeasured fields left blank.
 - Collector diagnostics check a dedicated HTTPS health endpoint without credentials and distinguish a cloud response, rejected requests, TLS failures, and timeouts. The dashboard marks old samples, and the staging deploy checks the health endpoint.
 - The trace viewer reads Ethernet, raw IP, and both Linux cooked headers in PCAP and PCAPNG. It supports TCP/UDP port filtering and displays IPv6 addresses in compressed form.

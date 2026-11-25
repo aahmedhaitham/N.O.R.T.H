@@ -280,6 +280,10 @@ button:disabled { opacity: .65; cursor: wait; }
 .device-coverage-actions button[aria-pressed="true"] { border-color: var(--accent); background: var(--selection); }
 .health-summary small { margin-inline-start: .45rem; font-weight: 400; }
 .health-stale { margin-inline-start: .45rem; color: var(--warning); }
+.diagnostic-history-chart { display: flex; gap: 2px; height: 4rem; margin-block: .5rem; padding-inline: .3rem; border-bottom: 1px solid var(--line); }
+.diagnostic-history-chart > div { flex: 1; min-width: 0; display: flex; align-items: end; }
+.diagnostic-history-chart span { width: 100%; background: var(--accent); }
+.diagnostic-history-chart span[data-missed="true"] { background: var(--warning); }
 .router-wifi-filter { display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; }
 @media (max-width: 850px) {
   .atlas-layout { grid-template-columns: 1fr; }

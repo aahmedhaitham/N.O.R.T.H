@@ -23,6 +23,14 @@ class NoRedirects(HTTPRedirectHandler):
         return None
 
 
+def collector_source(host):
+    return os.getenv("NORTH_CLOUD_SOURCE") or "host-" + hashlib.sha256(host.encode()).hexdigest()[:16]
+
+
+def snapshot_target(url, source):
+    return hashlib.sha256((url.rstrip("/") + "|" + source).encode()).hexdigest()
+
+
 def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=None, health=None, traffic=None):
     events = store.events()
     cases = sorted(
@@ -40,9 +48,9 @@ def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=Non
     host = socket.gethostname()
     if sysmon_status and sysmon_status.get("state") != "disabled":
         network["app_connections"] = app_connections(events, host)
-    source = os.getenv("NORTH_CLOUD_SOURCE") or "host-" + hashlib.sha256(host.encode()).hexdigest()[:16]
+    source = collector_source(host)
     label = (os.getenv("NORTH_CLOUD_LABEL") or host)[:80]
-    target = hashlib.sha256((url.rstrip("/") + "|" + source).encode()).hexdigest()
+    target = snapshot_target(url, source)
     pending = store.pending_cloud_events(target)
     payload = {"source": {"id": source, "label": label},
                "cases": cases, "events": pending, "network": network,

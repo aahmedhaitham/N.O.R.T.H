@@ -2,8 +2,10 @@
 
 import asyncio
 import json
+import logging
 import socket
 import ssl
+import sqlite3
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -85,12 +87,24 @@ def check_origin(origin):
 
 
 class InternetHealth:
-    def __init__(self, origin):
+    def __init__(self, origin, store, scope):
         self.origin = origin
+        self.store = store
+        self.scope = scope
         self.current = []
+
+    async def restore(self):
+        try:
+            self.current = await run_in_threadpool(self.store.internet_checks, self.scope)
+        except (OSError, sqlite3.Error):
+            logging.getLogger(__name__).warning("Could not restore recent NORTH connectivity checks.")
 
     async def run(self):
         while True:
             sample = await run_in_threadpool(check_origin, self.origin)
-            self.current = [*self.current[-11:], sample]
+            self.current = [*self.current[-71:], sample]
+            try:
+                await run_in_threadpool(self.store.record_internet_check, self.scope, sample)
+            except (OSError, sqlite3.Error):
+                logging.getLogger(__name__).warning("Could not save a NORTH connectivity check.")
             await asyncio.sleep(300)

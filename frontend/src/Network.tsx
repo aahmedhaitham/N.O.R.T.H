@@ -158,6 +158,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const [fileMessage, setFileMessage] = useState('');
   const [search, setSearch] = useState('');
   const [wifiOnly, setWifiOnly] = useState(false);
+  const [healthWindow, setHealthWindow] = useState(12);
   const [atlasView, setAtlasView] = useState<AtlasView>('devices');
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
   const activeView = target ? (target === 'atlas-windows-events' ? 'health' : 'devices') : atlasView;
@@ -221,6 +222,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const collector = inventory?.neighbors;
   const windowsEvents = inventory?.sysmon;
   const latestHealth = Array.isArray(inventory?.internet_health) ? inventory.internet_health.at(-1) : undefined;
+  const healthHistory = Array.isArray(inventory?.internet_health) ? inventory.internet_health.slice(-healthWindow) : [];
+  const respondingChecks = healthHistory.filter((sample) => sample.https_ms !== null).length;
+  const peakLatency = Math.max(1, ...healthHistory.map((sample) => sample.https_ms ?? 0));
   const matchingApps = inventory?.app_connections?.filter((app) => fits(app.process)) ?? [];
   const adapterTraffic = inventory?.adapter_traffic;
   const adapterRows = (adapterTraffic?.adapters ?? []).filter((item) => fits(item.name))
@@ -610,10 +614,22 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {!inventory.internet_health.length && <p>Waiting for the first check.</p>}
       {inventory.internet_health.length > 0 && <details>
         <summary>Recent check history</summary>
+        <label className="router-wifi-filter">Show <select value={healthWindow} onChange={(event) => setHealthWindow(Number(event.target.value))}>
+          <option value={12}>Last 12 checks</option><option value={72}>Last 72 checks</option>
+        </select></label>
+        <p className="reference">HTTPS responded in {respondingChecks} of {healthHistory.length} sampled checks.</p>
+        <div className="diagnostic-history-chart" role="list" aria-label="HTTPS response times">
+          {healthHistory.map((sample) => <div key={sample.checked_at} role="listitem"
+            aria-label={`${new Date(sample.checked_at).toLocaleString()}, ${httpsResult(sample)}${sample.https_ms === null ? '' : ', ' + sample.https_ms + ' ms'}`}
+            title={`${httpsResult(sample)}${sample.https_ms === null ? '' : ' · ' + sample.https_ms + ' ms'}`}>
+            <span data-missed={sample.https_ms === null || undefined}
+              style={{ height: sample.https_ms === null ? '4px' : `max(2px, ${sample.https_ms / peakLatency * 100}%)` }} />
+          </div>)}
+        </div>
         <div className="router-traffic-table-wrap">
         <table className="investigation-table router-traffic-table" aria-label="Collector internet checks">
           <thead><tr><th scope="col">Checked</th><th scope="col">Gateway</th><th scope="col">DNS</th><th scope="col">HTTPS</th><th scope="col">Response</th></tr></thead>
-          <tbody>{inventory.internet_health.slice(-12).reverse().map((sample) => <tr key={sample.checked_at}>
+          <tbody>{[...healthHistory].reverse().map((sample) => <tr key={sample.checked_at}>
             <td><time dateTime={sample.checked_at}>{new Date(sample.checked_at).toLocaleString()}</time></td>
             <td>{sample.gateway === 'responded' ? 'Replied' : sample.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</td>
             <td>{sample.dns_ms === null ? 'Lookup failed' : sample.dns_ms + ' ms'}</td>
