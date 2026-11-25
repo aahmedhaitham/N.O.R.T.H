@@ -28,6 +28,8 @@ function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; st
     { label: 'Uploaded', bytes: traffic.upload_bytes },
   ];
   const scale = Math.max(1, ...rows.map(({ bytes }) => bytes));
+  const intervals = Array.isArray(traffic.recent_usage) ? traffic.recent_usage.slice(-12) : [];
+  const peak = intervals.reduce((largest, sample) => Math.max(largest, sample.download_bytes + sample.upload_bytes), 1);
   return <section className="atlas-traffic">
     <h4>Router traffic</h4>
     <p>{stale ? 'Last available router totals' : 'Router accounting period'}</p>
@@ -39,9 +41,16 @@ function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; st
         </div>
       </li>)}
     </ul>
-    {Array.isArray(traffic.recent_usage) && traffic.recent_usage.length > 0 && <details className="atlas-address-context">
+    {intervals.length > 0 && <details className="atlas-address-context">
       <summary>Recent usage intervals</summary>
-      <ul>{traffic.recent_usage.slice(-12).reverse().map((interval) => <li key={interval.to}>
+      <p>Bytes transferred per interval</p>
+      <div className="atlas-usage-chart" aria-hidden="true">
+        {intervals.map((interval) => <div key={interval.to} className="atlas-usage-column">
+          <span style={{ height: `${interval.upload_bytes / peak * 100}%` }} />
+          <span style={{ height: `${interval.download_bytes / peak * 100}%` }} />
+        </div>)}
+      </div>
+      <ul>{[...intervals].reverse().map((interval) => <li key={interval.to}>
         <p>{new Date(interval.from).toLocaleTimeString()}–{new Date(interval.to).toLocaleTimeString()}</p>
         <p>↓ {formatTraffic(interval.download_bytes)} · ↑ {formatTraffic(interval.upload_bytes)}</p>
       </li>)}</ul>

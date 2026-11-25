@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+- ATLAS separates Devices, Traffic, Diagnostics, and Packet traces into focused views. Router usage intervals have a per-device chart, and the app connections table links directly to an IRIS process search.
 - Local packet analysis includes IP and protocol filters, visible TCP and UDP ports where available, and selectable address pairs ranked by original packet bytes. Internet health shows the latest gateway, DNS, and HTTPS results above recent history. Router traffic can be filtered to devices observed on Wi-Fi.
 The first batch adds collector gateway, DNS, and HTTPS checks with 12 recent samples, Windows Sysmon app connection counts, OpenWrt DHCP names and positive Wi-Fi associations for devices with traffic counters, and 12 recent router byte-counter intervals. ATLAS can inspect classic Ethernet PCAP headers and enhanced Ethernet packet blocks in PCAPNG locally. Live packet capture, per-app byte measurements, additional router integrations, and live deployment checks remain open.
 

@@ -29,6 +29,11 @@ type Snapshot = {
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
 export type AtlasTarget = 'atlas-new-devices' | 'atlas-windows-events' | 'atlas-local-devices';
+const atlasViews = [
+  { id: 'devices', label: 'Devices' }, { id: 'traffic', label: 'Traffic' },
+  { id: 'health', label: 'Diagnostics' }, { id: 'traces', label: 'Packet traces' },
+] as const;
+type AtlasView = (typeof atlasViews)[number]['id'];
 
 const sysmonProblems = {
   access_denied: 'Windows denied this account access to the Sysmon event log.',
@@ -125,6 +130,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const [fileMessage, setFileMessage] = useState('');
   const [search, setSearch] = useState('');
   const [wifiOnly, setWifiOnly] = useState(false);
+  const [atlasView, setAtlasView] = useState<AtlasView>('devices');
+  const activeView = target ? (target === 'atlas-windows-events' ? 'health' : 'devices') : atlasView;
   const [reviewing, setReviewing] = useState('');
   const [reviewError, setReviewError] = useState(false);
   const hasInventory = Boolean(inventory);
@@ -136,6 +143,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       heading?.scrollIntoView({ block: 'start' });
       heading?.focus({ preventScroll: true });
       if (target === 'atlas-new-devices') setSearch('');
+      setAtlasView(target === 'atlas-windows-events' ? 'health' : 'devices');
       onTarget(null);
     });
     return () => window.cancelAnimationFrame(frame);
@@ -156,6 +164,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const collector = inventory?.neighbors;
   const windowsEvents = inventory?.sysmon;
   const latestHealth = Array.isArray(inventory?.internet_health) ? inventory.internet_health.at(-1) : undefined;
+  const matchingApps = inventory?.app_connections?.filter((app) => fits(app.process)) ?? [];
   const matchesDevice = ([, records]: [string, Neighbor[]]) => records.some((record) =>
     fits(record.address, record.name, record.mac, record.network));
   const liveDevices = groupNeighbors(collector?.records ?? []);
@@ -251,8 +260,13 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     <header className="dashboard-heading">
       <h1 id="atlas-heading" tabIndex={-1}>ATLAS <span className="workspace-title">Network inventory</span></h1>
     </header>
+    <nav className="atlas-view-bar" aria-label="ATLAS tools">
+      {atlasViews.map(({ id, label }) => <button key={id} type="button"
+        aria-current={activeView === id ? 'page' : undefined} onClick={() => { setAtlasView(id); onTarget(null); }}>{label}</button>)}
+    </nav>
     {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
-    <section className="panel atlas-toolbar" aria-label="Network map controls">
+    {endpoint && !inventory && !fetchError && activeView !== 'traces' && <p role="status">Loading network observations…</p>}
+    <section className="panel atlas-toolbar" aria-label="Network inventory controls">
       <label className="network-search">Find device
         <input type="search" placeholder="Host, IP or MAC address" value={search} onChange={(event) => setSearch(event.target.value)} />
       </label>
@@ -263,45 +277,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       </select></label>}
       {lastRefresh && <small>View updated {lastRefresh}</small>}
     </section>
+    <div className="atlas-section-stack" hidden={activeView !== 'devices'}>
     <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} openEvents={openEvents} />
-    {Array.isArray(inventory?.internet_health) && <section className="panel">
-      <h2>Internet health from the collector</h2>
-      <p>Default IPv4 gateway response, plus DNS lookup and HTTPS response time for NORTH Cloud. Some gateways block ping replies.</p>
-      {latestHealth && <>
-        <p className="reference">Last checked <time dateTime={latestHealth.checked_at}>{new Date(latestHealth.checked_at).toLocaleString()}</time></p>
-        <dl className="health-summary">
-          <div><dt>Gateway</dt><dd>{latestHealth.gateway === 'responded' ? 'Replied' : latestHealth.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</dd></div>
-          <div><dt>DNS lookup</dt><dd>{latestHealth.dns_ms === null ? 'Failed' : latestHealth.dns_ms + ' ms'}</dd></div>
-          <div><dt>HTTPS response</dt><dd>{latestHealth.https_ms === null ? 'No response' : latestHealth.https_ms + ' ms'}
-            {latestHealth.http_status !== null && <small>HTTP {latestHealth.http_status}</small>}</dd></div>
-        </dl>
-      </>}
-      {!inventory.internet_health.length && <p>Waiting for the first check.</p>}
-      {inventory.internet_health.length > 0 && <details>
-        <summary>Recent check history</summary>
-        <div className="router-traffic-table-wrap">
-        <table className="investigation-table router-traffic-table" aria-label="Collector internet checks">
-          <thead><tr><th scope="col">Checked</th><th scope="col">Gateway</th><th scope="col">DNS</th><th scope="col">HTTPS</th><th scope="col">Response</th></tr></thead>
-          <tbody>{inventory.internet_health.slice(-12).reverse().map((sample) => <tr key={sample.checked_at}>
-            <td><time dateTime={sample.checked_at}>{new Date(sample.checked_at).toLocaleString()}</time></td>
-            <td>{sample.gateway === 'responded' ? 'Replied' : sample.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</td>
-            <td>{sample.dns_ms === null ? 'Lookup failed' : sample.dns_ms + ' ms'}</td>
-            <td>{sample.https_ms === null ? 'No response' : sample.https_ms + ' ms'}</td>
-            <td>{sample.http_status ?? '—'}</td>
-          </tr>)}</tbody>
-        </table>
-        </div>
-      </details>}
-    </section>}
-    {(inventory?.local_device || Array.isArray(inventory?.app_connections)) && <section className="panel">
-      <h2>App network activity</h2>
-      <p>Connection counts from the selected endpoint’s recorded Sysmon events. Byte totals come from separate traffic telemetry.</p>
-      {!inventory.app_connections?.length && <p>{windowsEvents?.state === 'unavailable' ?
-        'Allow this Windows account to read the Sysmon event log to see app network activity.' : 'No app connections in the available event history.'}</p>}
-      <ul className="network-list">{inventory.app_connections?.filter((app) => fits(app.process)).map((app) => <li key={app.process}>
-        <strong>{app.process}</strong><small>{app.events} {app.events === 1 ? 'connection' : 'connections'} · {app.destinations} {app.destinations === 1 ? 'destination' : 'destinations'}</small>
-      </li>)}</ul>
-    </section>}
     {localDevice && <section className="panel">
       <h2>This computer</h2>
       <p>{localDevice.host} · {adapters.size} {adapters.size === 1 ? 'network adapter' : 'network adapters'}</p>
@@ -334,12 +311,6 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
             onClick={() => void review(item.id)}>{reviewing === item.id ? 'Saving…' : 'Mark reviewed'}</button>}
         </li>
       ))}</ul>
-    </section>}
-    {windowsEvents && windowsEvents.state !== 'disabled' && <section className="panel">
-      <h2 id="atlas-windows-events" tabIndex={-1}>Windows event collection</h2>
-      <p role="status">{windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
-        windowsEvents.state === 'unavailable' ? sysmonProblems[windowsEvents.problem ?? 'read_failed'] :
-        `${windowsEvents.session_events} ${windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
     </section>}
     {collector && collector.state !== 'disabled' && <section className="panel">
       <h2 id="atlas-local-devices" tabIndex={-1}>Local network devices</h2>
@@ -379,6 +350,16 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         {!matchingLinks.length && <p>{inventory ? 'No observed connections match.' : 'Loading connections…'}</p>}
       </section>
     </div>
+    <details className="panel">
+      <summary>Import a device list</summary>
+      <p>Choose a Windows or Linux neighbor-cache export, or a router export formatted as JSON device records. A cache is a partial list of devices seen recently. The file stays in this browser tab.</p>
+      <input type="file" accept=".json,application/json" aria-label="Import device inventory JSON"
+        onChange={(event) => { const file = event.target.files?.[0]; if (file) void importNeighbors(file); event.target.value = ''; }} />
+      {fileMessage && <p role="status">{fileMessage}</p>}
+      {devicesList(importedDevices)}
+    </details>
+    </div>
+    <div className="atlas-section-stack" hidden={activeView !== 'traffic'}>
     {router && <section className="panel">
       <h2>Router traffic by device</h2>
       <p>OpenWrt accounting-period totals, sorted by combined traffic.</p>
@@ -412,14 +393,64 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         </table>
       </div>}
     </section>}
+    {(inventory?.local_device || Array.isArray(inventory?.app_connections)) && <section className="panel">
+      <h2>App network activity</h2>
+      <p>Connection counts from the selected endpoint’s recorded Sysmon events. Byte totals come from separate traffic telemetry.</p>
+      {!inventory.app_connections?.length && <p>{windowsEvents?.state === 'unavailable' ?
+        'Allow this Windows account to read the Sysmon event log to see app network activity.' : 'No app connections in the available event history.'}</p>}
+      {inventory.app_connections?.length ? (matchingApps.length ? <div className="router-traffic-table-wrap">
+        <table className="investigation-table" aria-label="App connections">
+          <thead><tr><th scope="col">Process</th><th scope="col">Connections</th><th scope="col">Destinations</th></tr></thead>
+          <tbody>{matchingApps.map((app) => <tr key={app.process}>
+            <td><button type="button" className="atlas-address-button" onClick={() => openEvents(app.process)}
+              aria-label={`Search IRIS for ${app.process}`}>{app.process}</button></td>
+            <td>{app.events.toLocaleString()}</td><td>{app.destinations.toLocaleString()}</td>
+          </tr>)}</tbody>
+        </table>
+      </div> : <p>No processes match the search.</p>) : null}
+    </section>}
+    {inventory && !router && !inventory.local_device && !inventory.app_connections && <p>No traffic source is reporting to this collector.</p>}
+    </div>
+    <div className="atlas-section-stack" hidden={activeView !== 'health'}>
+    {Array.isArray(inventory?.internet_health) && <section className="panel">
+      <h2>Internet health from the collector</h2>
+      <p>Default IPv4 gateway response, plus DNS lookup and HTTPS response time for NORTH Cloud. Some gateways block ping replies.</p>
+      {latestHealth && <>
+        <p className="reference">Last checked <time dateTime={latestHealth.checked_at}>{new Date(latestHealth.checked_at).toLocaleString()}</time></p>
+        <dl className="health-summary">
+          <div><dt>Gateway</dt><dd>{latestHealth.gateway === 'responded' ? 'Replied' : latestHealth.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</dd></div>
+          <div><dt>DNS lookup</dt><dd>{latestHealth.dns_ms === null ? 'Failed' : latestHealth.dns_ms + ' ms'}</dd></div>
+          <div><dt>HTTPS response</dt><dd>{latestHealth.https_ms === null ? 'No response' : latestHealth.https_ms + ' ms'}
+            {latestHealth.http_status !== null && <small>HTTP {latestHealth.http_status}</small>}</dd></div>
+        </dl>
+      </>}
+      {!inventory.internet_health.length && <p>Waiting for the first check.</p>}
+      {inventory.internet_health.length > 0 && <details>
+        <summary>Recent check history</summary>
+        <div className="router-traffic-table-wrap">
+        <table className="investigation-table router-traffic-table" aria-label="Collector internet checks">
+          <thead><tr><th scope="col">Checked</th><th scope="col">Gateway</th><th scope="col">DNS</th><th scope="col">HTTPS</th><th scope="col">Response</th></tr></thead>
+          <tbody>{inventory.internet_health.slice(-12).reverse().map((sample) => <tr key={sample.checked_at}>
+            <td><time dateTime={sample.checked_at}>{new Date(sample.checked_at).toLocaleString()}</time></td>
+            <td>{sample.gateway === 'responded' ? 'Replied' : sample.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</td>
+            <td>{sample.dns_ms === null ? 'Lookup failed' : sample.dns_ms + ' ms'}</td>
+            <td>{sample.https_ms === null ? 'No response' : sample.https_ms + ' ms'}</td>
+            <td>{sample.http_status ?? '—'}</td>
+          </tr>)}</tbody>
+        </table>
+        </div>
+      </details>}
+    </section>}
+    {windowsEvents && windowsEvents.state !== 'disabled' && <section className="panel">
+      <h2 id="atlas-windows-events" tabIndex={-1}>Windows event collection</h2>
+      <p role="status">{windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
+        windowsEvents.state === 'unavailable' ? sysmonProblems[windowsEvents.problem ?? 'read_failed'] :
+        `${windowsEvents.session_events} ${windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
+    </section>}
+    {inventory && !inventory.internet_health && (!windowsEvents || windowsEvents.state === 'disabled') && <p>This collector has not supplied diagnostics.</p>}
+    </div>
+    <div className="atlas-section-stack" hidden={activeView !== 'traces'}>
     <PacketTrace />
-    <details className="panel">
-      <summary>Import a device list</summary>
-      <p>Choose a Windows or Linux neighbor-cache export, or a router export formatted as JSON device records. A cache is a partial list of devices seen recently. The file stays in this browser tab.</p>
-      <input type="file" accept=".json,application/json" aria-label="Import device inventory JSON"
-        onChange={(event) => { const file = event.target.files?.[0]; if (file) void importNeighbors(file); event.target.value = ''; }} />
-      {fileMessage && <p role="status">{fileMessage}</p>}
-      {devicesList(importedDevices)}
-    </details>
+    </div>
   </main>;
 }

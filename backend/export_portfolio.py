@@ -6,7 +6,7 @@ from pathlib import Path
 
 from main import demo_alerts
 from device_watch import demo_findings
-from network import snapshot
+from network import app_connections, snapshot
 from north import build_cases, normalize, report
 
 
@@ -35,8 +35,15 @@ def export(directory: Path):
                 {"checked_at": findings["items"][0]["first_seen"], "gateway": "responded",
                  "dns_ms": 26, "https_ms": 83, "http_status": 200},
             ],
+            "app_connections": app_connections(events, "WIN-LAB-01"),
             "router_usage": {"state": "ready", "updated_at": sample_time, "devices": [
-                {"mac": records[0]["mac"], "download_bytes": 128_000_000, "upload_bytes": 24_000_000},
+                {"mac": records[0]["mac"], "download_bytes": 128_000_000, "upload_bytes": 24_000_000,
+                 "recent_usage": [
+                     {"from": sample_time, "to": "2026-01-15T10:01:00+00:00",
+                      "download_bytes": 4_000_000, "upload_bytes": 900_000},
+                     {"from": "2026-01-15T10:01:00+00:00", "to": "2026-01-15T10:02:00+00:00",
+                      "download_bytes": 9_000_000, "upload_bytes": 1_500_000},
+                 ]},
                 {"mac": records[2]["mac"], "download_bytes": 32_000_000, "upload_bytes": 8_000_000,
                  "wifi_associated": True},
             ]},

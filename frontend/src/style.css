@@ -199,6 +199,14 @@ button:disabled { opacity: .65; cursor: wait; }
 .adapter-addresses code { color: inherit; margin-inline-start: .2rem; overflow-wrap: anywhere; }
 .atlas-toolbar, .atlas-map-heading { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: center; }
 .atlas-workspace { padding: .75rem; gap: .65rem; }
+.atlas-view-bar { display: flex; flex-wrap: wrap; gap: .25rem; padding: .26rem; border: 1px solid var(--line); background: var(--surface); }
+.atlas-view-bar button { padding: .4rem .65rem; background: transparent; border-color: transparent; font-size: .84rem; }
+.atlas-view-bar button[aria-current="page"] { color: var(--accent); border-color: var(--selection-line); background: var(--selection); }
+.atlas-section-stack:not([hidden]) { display: grid; gap: .65rem; min-width: 0; }
+.atlas-usage-chart { display: flex; gap: .25rem; height: 4rem; border-bottom: 1px solid var(--line); }
+.atlas-address-context .atlas-usage-column { display: flex; flex: 1; flex-direction: column; justify-content: end; margin: 0; }
+.atlas-usage-column span { background: var(--chart-blue); }
+.atlas-usage-column span + span { background: var(--accent); }
 .atlas-workspace .panel { border-radius: .2rem; background: var(--surface); }
 .atlas-workspace .atlas-toolbar, .atlas-workspace .atlas-map { padding: .65rem .8rem; }
 .atlas-toolbar .network-search input { padding: .45rem .55rem; }
