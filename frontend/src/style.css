@@ -224,6 +224,8 @@ button:disabled { opacity: .65; cursor: wait; }
 .atlas-device-detail dt { color: var(--muted); font-size: .82rem; }
 .atlas-device-detail dd { margin: .2rem 0 .65rem; }
 .atlas-device-detail code { display: block; }
+.atlas-address-button { display: flex; gap: .35rem; align-items: baseline; max-width: 100%; padding: .2rem .3rem; border-color: transparent; background: transparent; color: var(--accent); font-size: .82rem; text-align: left; }
+.atlas-address-button code { min-width: 0; }
 .atlas-address-context { margin: .55rem 0 .8rem; border: 1px solid var(--line); padding: .55rem; background: var(--canvas); }
 .atlas-address-context summary { cursor: pointer; font-weight: 600; }
 .atlas-address-context div { margin-top: .65rem; }

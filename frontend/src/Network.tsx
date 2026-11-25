@@ -111,8 +111,8 @@ export function useNetworkInventory(endpoint: string, interval = 5000) {
   } };
 }
 
-export function Network({ endpoint, openCase, demo, readOnly }: {
-  endpoint: string; openCase: (id: string) => void; demo: boolean; readOnly: boolean;
+export function Network({ endpoint, openCase, openEvents, demo, readOnly }: {
+  endpoint: string; openCase: (id: string) => void; openEvents: (search: string) => void; demo: boolean; readOnly: boolean;
 }) {
   const [interval, setInterval] = useState(15000);
   const { inventory, fetchError, refresh, refreshing, lastRefresh } = useNetworkInventory(endpoint, interval);
@@ -224,7 +224,7 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
       </select></label>}
       {lastRefresh && <small>View updated {lastRefresh}</small>}
     </section>
-    <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} />
+    <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} openEvents={openEvents} />
     {inventory?.local_device && <section className="panel">
       <h2>App network activity on this PC</h2>
       <p>Recent connection counts from Sysmon. Bandwidth per app and activity on other devices require separate telemetry.</p>
@@ -287,7 +287,10 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
         <ul className="network-list">{matchingHosts.map((asset) => <li key={asset.id}>
           <strong>{asset.host}</strong>
           <small>{asset.events} events · Last seen {new Date(asset.last_seen).toLocaleString()}</small>
-          <div className="case-links">{caseButtons(asset.cases)}</div>
+          <div className="case-links">
+            {asset.host && <button type="button" className="network-case" onClick={() => openEvents(asset.host)}>Search host in IRIS</button>}
+            {caseButtons(asset.cases)}
+          </div>
         </li>)}</ul>
         {!matchingHosts.length && <p>{inventory ? 'No reporting devices match.' : 'Loading reporting devices…'}</p>}
       </section>
@@ -300,7 +303,10 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
             <summary>Explain this address</summary>
             <p>{explainAddress(link.address)}</p>
           </details>
-          <div className="case-links">{caseButtons(link.cases)}</div>
+          <div className="case-links">
+            <button type="button" className="network-case" onClick={() => openEvents(link.address)}>Search address in IRIS</button>
+            {caseButtons(link.cases)}
+          </div>
         </li>)}</ul>
         {!matchingLinks.length && <p>{inventory ? 'No observed connections match.' : 'Loading connections…'}</p>}
       </section>

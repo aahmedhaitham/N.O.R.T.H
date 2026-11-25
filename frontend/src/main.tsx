@@ -153,6 +153,11 @@ function App({ source = null, openCollectors, controls, panel }: {
     setView('cases');
   }
 
+  function openEvents(search: string) {
+    setEventSearch(search.slice(0, 200));
+    setView('events');
+  }
+
   useEffect(() => {
     function openLinkedCase() {
       const hash = location.hash;
@@ -260,7 +265,8 @@ function App({ source = null, openCollectors, controls, panel }: {
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase} connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
-        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud} />
+        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} openEvents={openEvents}
+          demo={publicDemo} readOnly={publicDemo || cloud} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} source={source} initialSearch={eventSearch}
         canSave={cloud} openNetwork={() => setView('network')} />}
@@ -285,7 +291,7 @@ function App({ source = null, openCollectors, controls, panel }: {
         </aside>
         <main className="echo-workspace">
           {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery} visible={!panel}
-            openEvents={(search) => { setEventSearch(search); setView('events'); }} /> :
+            openEvents={openEvents} /> :
             <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations yet' : 'Waiting for telemetry'}</h1>
               {loaded && !loadError && <p>Investigations appear when NORTH links related events. You can inspect individual events in IRIS.</p>}
               {(loaded || loadError) && <button onClick={() => setView('events')}>Open IRIS events</button>}

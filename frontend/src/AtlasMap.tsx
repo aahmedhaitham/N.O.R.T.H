@@ -49,7 +49,9 @@ function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; st
   </section>;
 }
 
-export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; staleTraffic: boolean }) {
+export function AtlasMap({ devices, staleTraffic, openEvents }: {
+  devices: AtlasDevice[]; staleTraffic: boolean; openEvents: (search: string) => void;
+}) {
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState('');
   const [page, setPage] = useState(0);
@@ -128,7 +130,10 @@ export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; st
           <dt>Observed on</dt><dd>{selectedDevice.network}</dd>
           <dt>MAC address</dt><dd>{selectedDevice.mac || 'Unavailable'}</dd>
           <dt>IP addresses</dt><dd>{selectedDevice.addresses.length ?
-            selectedDevice.addresses.map((address) => <code key={address}>{address}</code>) : 'Unavailable'}</dd>
+            selectedDevice.addresses.map((address) => <button key={address} type="button" className="atlas-address-button"
+              aria-label={`Search IRIS for ${address}`} onClick={() => openEvents(address)}>
+              <code>{address}</code><span aria-hidden="true">↗</span>
+            </button>) : 'Unavailable'}</dd>
           <dt>Last observed state</dt><dd>{selectedDevice.states.join(' · ') || 'Unavailable'}</dd>
         </dl>
         <details className="atlas-address-context" key={selectedDevice.id}>
