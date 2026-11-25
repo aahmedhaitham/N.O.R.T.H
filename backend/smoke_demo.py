@@ -48,6 +48,7 @@ def verify(base, read_only=False):
         assert all(item["raw"]["_COMM"] == "sshd" for item in linux["evidence"])
         assert linux["links"][0]["direction"] == "inbound"
         assert any(asset["host"] == "KALI-DEMO" for asset in inventory["assets"])
+        assert inventory["device_findings"]["unreviewed"] == 1
         checked.append(linux)
 
     for _ in range(2):
@@ -66,6 +67,7 @@ def verify(base, read_only=False):
         for endpoint, body in (
             ("/api/ingest", {"alerts": alerts}),
             (f"/api/cases/{case['id']}/draft", {}),
+            ("/api/network/devices/portfolio-device/review", {"reviewed": True}),
         ):
             try:
                 read_json(base + endpoint, json.dumps(body).encode())

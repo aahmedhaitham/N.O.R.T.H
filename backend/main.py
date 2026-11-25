@@ -19,10 +19,15 @@ from north import SSH_FAILURE, SUDO_COMMAND, build_cases, configured_store, repo
 from network import snapshot
 from neighbors import NeighborMonitor
 from sysmon import SysmonMonitor
+from device_watch import demo_findings, findings, mark_reviewed
 
 
 class Batch(BaseModel):
     alerts: list[dict] = Field(min_length=1, max_length=1000)
+
+
+class DeviceReview(BaseModel):
+    reviewed: bool
 
 
 def demo_alerts(include_linux=False):
@@ -38,7 +43,7 @@ def make_app(store=None):
     store = store if store is not None else configured_store()
     public_demo = os.getenv("NORTH_PUBLIC_DEMO") == "1"
     watch_neighbors = not public_demo and os.getenv("NORTH_NETWORK_AUTO") == "1"
-    neighbors = NeighborMonitor(watch_neighbors)
+    neighbors = NeighborMonitor(store, watch_neighbors)
     watch_sysmon = not public_demo and sys.platform == "win32" and os.getenv("NORTH_SYSMON_AUTO") == "1"
     sysmon = SysmonMonitor(store, watch_sysmon)
 
@@ -102,7 +107,20 @@ def make_app(store=None):
 
     @app.get("/api/network")
     def network():
-        return {**snapshot(store.events()), "neighbors": neighbors.current, "sysmon": sysmon.current}
+        return {
+            **snapshot(store.events()), "neighbors": neighbors.current, "sysmon": sysmon.current,
+            "device_findings": demo_findings() if public_demo else findings(store),
+        }
+
+    @app.post("/api/network/devices/{device_id}/review")
+    def review_device(device_id: str, review: DeviceReview):
+        if public_demo:
+            raise HTTPException(403, "Public demo is read-only")
+        if not review.reviewed:
+            raise HTTPException(422, "An explicit review is required")
+        if not re.fullmatch(r"[0-9a-f]{24}", device_id) or not mark_reviewed(store, device_id):
+            raise HTTPException(404, "Device finding not found")
+        return {"reviewed": True}
 
     @app.post("/api/ingest")
     def ingest(batch: Batch):

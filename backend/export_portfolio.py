@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from main import demo_alerts
+from device_watch import demo_findings
 from network import snapshot
 from north import build_cases, normalize, report
 
@@ -15,7 +16,9 @@ def export(directory: Path):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
     (directory / "events.json").write_text(json.dumps(events), encoding="utf-8")
-    (directory / "network.json").write_text(json.dumps(snapshot(events)), encoding="utf-8")
+    (directory / "network.json").write_text(
+        json.dumps({**snapshot(events), "device_findings": demo_findings()}), encoding="utf-8",
+    )
     for case in cases:
         (directory / f"{case['id']}.md").write_text(report(case), encoding="utf-8")
 

@@ -7,10 +7,13 @@ type Connection = {
   events: number; last_seen: string; cases: CaseReference[]; source: string;
 };
 type Collector = { state: 'starting' | 'disabled' | 'ready' | 'unavailable'; updated_at: string | null };
+type Finding = { id: string; first_seen: string; last_seen: string; reviewed_at: string | null;
+  mac: string; interface: string; addresses: string[] };
 type Snapshot = {
   assets: Host[]; links: Connection[];
   neighbors?: Collector & { records: Neighbor[] };
   sysmon?: Collector & { session_events: number; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
+  device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
 
@@ -55,6 +58,7 @@ function groupNeighbors(records: Neighbor[]) {
 export function useNetworkInventory(endpoint: string) {
   const [inventory, setInventory] = useState<Snapshot | null>(null);
   const [fetchError, setFetchError] = useState(false);
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -83,16 +87,18 @@ export function useNetworkInventory(endpoint: string) {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [endpoint]);
+  }, [endpoint, revision]);
 
-  return { inventory, fetchError };
+  return { inventory, fetchError, refresh: () => setRevision((value) => value + 1) };
 }
 
-export function Network({ endpoint, openCase }: { endpoint: string; openCase: (id: string) => void }) {
-  const { inventory, fetchError } = useNetworkInventory(endpoint);
+export function Network({ endpoint, openCase, demo }: { endpoint: string; openCase: (id: string) => void; demo: boolean }) {
+  const { inventory, fetchError, refresh } = useNetworkInventory(endpoint);
   const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
   const [fileMessage, setFileMessage] = useState('');
   const [search, setSearch] = useState('');
+  const [reviewing, setReviewing] = useState('');
+  const [reviewError, setReviewError] = useState(false);
   const query = search.trim().toLowerCase();
   const fits = (...values: string[]) => values.some((value) => value.toLowerCase().includes(query));
   const hosts = new Map(inventory?.assets.map((asset) => [asset.id, asset.host]));
@@ -104,6 +110,23 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
     fits(record.address, record.name, record.mac, record.network));
   const liveDevices = groupNeighbors(collector?.records ?? []);
   const importedDevices = groupNeighbors(neighbors);
+  const watch = inventory?.device_findings;
+
+  async function review(id: string) {
+    setReviewError(false);
+    setReviewing(id);
+    try {
+      const response = await fetch('/api/network/devices/' + encodeURIComponent(id) + '/review', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewed: true }),
+      });
+      if (!response.ok) throw new Error('Review failed');
+      refresh();
+    } catch {
+      setReviewError(true);
+    } finally {
+      setReviewing('');
+    }
+  }
 
   async function importNeighbors(file: File) {
     try {
@@ -148,6 +171,23 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
       </label>
     </header>
     {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
+    {watch && (watch.baseline_at || collector?.state === 'starting') && <section className="panel">
+      <h2>Newly observed devices</h2>
+      <p>{watch.baseline_at ? `${watch.unreviewed} awaiting review · Baseline started ${new Date(watch.baseline_at).toLocaleString()}` :
+        'Waiting for the first usable device snapshot.'}</p>
+      {demo && <p>Sample finding from a synthetic network.</p>}
+      {reviewError && <p role="alert">That finding could not be marked as reviewed.</p>}
+      {!watch.items.length && watch.baseline_at && <p>No new devices have appeared since the first snapshot.</p>}
+      <ul className="network-list">{watch.items.filter((item) => fits(item.mac, item.interface, ...item.addresses)).map((item) => (
+        <li key={item.id}>
+          <strong>{item.addresses.join(', ')}</strong>
+          <small>{item.mac} · {item.interface} · First seen {new Date(item.first_seen).toLocaleString()}</small>
+          <small>{item.reviewed_at ? 'Reviewed' : 'Needs review'} · Last seen {new Date(item.last_seen).toLocaleString()}</small>
+          {!demo && !item.reviewed_at && <button className="network-case" disabled={Boolean(reviewing)}
+            onClick={() => void review(item.id)}>{reviewing === item.id ? 'Saving…' : 'Mark reviewed'}</button>}
+        </li>
+      ))}</ul>
+    </section>}
     {windowsEvents && windowsEvents.state !== 'disabled' && <section className="panel">
       <h2>Windows event collection</h2>
       <p role="status">{windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :

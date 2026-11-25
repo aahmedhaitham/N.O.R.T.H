@@ -2,12 +2,15 @@
 
 import asyncio
 import json
+import sqlite3
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 from starlette.concurrency import run_in_threadpool
+
+from device_watch import record_snapshot
 
 
 def read_neighbors():
@@ -33,7 +36,8 @@ def read_neighbors():
 
 
 class NeighborMonitor:
-    def __init__(self, enabled):
+    def __init__(self, store, enabled):
+        self.store = store
         self.current = {
             "state": "starting" if enabled else "disabled",
             "updated_at": None,
@@ -43,12 +47,14 @@ class NeighborMonitor:
     async def refresh(self):
         try:
             records = await run_in_threadpool(read_neighbors)
-        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
+            observed_at = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+            await run_in_threadpool(record_snapshot, self.store, records, observed_at)
+        except (OSError, RuntimeError, ValueError, sqlite3.Error, subprocess.SubprocessError):
             self.current = {**self.current, "state": "unavailable"}
         else:
             self.current = {
                 "state": "ready",
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": observed_at,
                 "records": records,
             }
 

@@ -68,5 +68,10 @@ export function Dashboard({ endpoint, cases, loaded, demo, open, openCase }: {
         </li>)}</ul>
       </section>
     </div>
+    {inventory?.device_findings?.baseline_at && <section className="panel">
+      <h2>Newly observed devices</h2>
+      <p>{inventory.device_findings.unreviewed} awaiting review{demo && ' · Synthetic demo'}</p>
+      <button onClick={() => open('network')}>Open device history</button>
+    </section>}
   </main>;
 }

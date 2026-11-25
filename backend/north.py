@@ -143,6 +143,20 @@ class Store:
                     source TEXT PRIMARY KEY, position BIGINT NOT NULL
                 )
                 """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS neighbor_baseline (
+                    scope TEXT PRIMARY KEY, started_at TEXT NOT NULL
+                )
+                """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS neighbor_devices (
+                    id TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
+                    payload TEXT NOT NULL, baseline INTEGER NOT NULL, reviewed_at TEXT
+                )
+                """)
+            db.execute("""
+                CREATE INDEX IF NOT EXISTS neighbor_review ON neighbor_devices (baseline, reviewed_at, first_seen)
+                """)
 
     def collection_offset(self, source):
         marker = "%s" if self.url else "?"

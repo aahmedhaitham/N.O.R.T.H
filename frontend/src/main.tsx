@@ -95,7 +95,7 @@ function App() {
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} open={setView} openCase={openCase} />}
       <div hidden={view !== 'network'}>
-        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} />
+        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} />}
       {view === 'cases' && <div className="workspace">

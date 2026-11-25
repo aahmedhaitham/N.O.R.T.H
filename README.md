@@ -63,6 +63,8 @@ Open **Events** to search collected telemetry by host, process, address, or keyw
 
 On Windows, **Start NORTH.cmd** includes the automatic neighbor-cache collector. It reads the existing cache every 30 seconds and keeps the current snapshot in memory. On a native Linux installation, start FastAPI with `NORTH_NETWORK_AUTO=1 .venv/bin/python -m uvicorn main:app` and the `ip` utility available. Enable automatic collection only for a private NORTH instance. The public deployment disables it.
 
+The first usable snapshot starts a saved device baseline. NORTH flags previously unseen MAC-and-interface combinations in subsequent snapshots. Open **Newly observed devices** to see the addresses and first/last observation times, then mark a finding reviewed. A changed or randomized MAC can show as new, and moving the collector to another network can reveal many new devices. The finding records a cache observation and does not determine whether a device is harmful or still online.
+
 On Windows, the launcher also collects configured Sysmon process, connection and file-creation records about every 15 seconds after Sysmon is installed. NORTH saves the record cursor with the imported events and resumes after a restart. The launcher does not install or reconfigure Sysmon. Check **Windows event collection** in **Network** for status.
 
 For another device source, choose **Import a device list**. You can load a saved neighbor cache or a router inventory converted to a JSON array with fields `address`, optional `name` and `mac`. The browser keeps imported records in memory and clears them when the page reloads.
