@@ -33,11 +33,13 @@ function equal(left, right) {
 async function sessionValid(request, secret) {
   const token = request.headers.get('Cookie')?.match(/(?:^|;\s*)__Host-north_session=([^;]+)/)?.[1];
   const parts = token?.split('.');
-  if (!parts || parts.length !== 3 || !/^\d{10}$/.test(parts[0]) || !/^[0-9a-f-]{36}$/.test(parts[1])) return false;
+  if (!parts || ![3, 4].includes(parts.length) || !/^\d{10}$/.test(parts[0]) || !/^[0-9a-f-]{36}$/.test(parts[1])) return null;
   const expires = Number(parts[0]);
   const now = Math.floor(Date.now() / 1000);
-  if (expires <= now || expires > now + sessionSeconds) return false;
-  return equal(parts[2], await signature(secret, parts[0] + '.' + parts[1]));
+  if (expires <= now || expires > now + sessionSeconds) return null;
+  const account = parts.length === 4 ? parts[2] : 'legacy';
+  if (!/^[a-z0-9-]{1,64}$/.test(account)) return null;
+  return equal(parts.at(-1), await signature(secret, parts.slice(0, -1).join('.'))) ? account : null;
 }
 
 function cookie(value, lifetime) {
@@ -124,7 +126,7 @@ async function saveSnapshot(db, body, now) {
   return true;
 }
 
-async function relatedEvidence(db, source, caseId) {
+async function relatedEvidence(db, source, caseId, account) {
   const stored = await db.prepare('SELECT payload FROM cloud_cases WHERE source_id = ? AND id = ?')
     .bind(source, caseId).first();
   if (!stored) return null;
@@ -140,11 +142,12 @@ async function relatedEvidence(db, source, caseId) {
     SELECT e.id, e.timestamp, e.kind, e.source_id, s.label AS collector,
       json_extract(e.payload, '$.host') AS host, refs.value AS address
     FROM cloud_events e JOIN cloud_sources s ON s.id = e.source_id
+    LEFT JOIN cloud_source_owners o ON o.source_id = e.source_id
     JOIN json_each(?) refs ON refs.value IN (json_extract(e.payload, '$.source_ip'),
       json_extract(e.payload, '$.destination'))
-    WHERE e.timestamp BETWEEN ? AND ? AND e.source_id <> ?
+    WHERE e.timestamp BETWEEN ? AND ? AND e.source_id <> ? AND coalesce(o.account_id, 'legacy') = ?
     ORDER BY e.timestamp DESC, e.source_id, e.id, refs.value LIMIT 50
-  `).bind(JSON.stringify(addresses), utc(latest - window), utc(latest + window), source).all();
+  `).bind(JSON.stringify(addresses), utc(latest - window), utc(latest + window), source, account).all();
   return results;
 }
 
@@ -214,7 +217,10 @@ export default {
       if (!token) return json({ detail: 'Unauthorized' }, 401);
       const legacyKey = equal(token, env.NORTH_INGEST_KEY);
       const paired = legacyKey ? null : await env.DB.prepare(
-        'SELECT source_id, label, revoked_at FROM cloud_pairings WHERE token_hash = ?',
+        `SELECT p.source_id, p.label, p.revoked_at FROM cloud_pairings p
+         LEFT JOIN cloud_source_owners o ON o.source_id = p.source_id
+         LEFT JOIN cloud_accounts a ON a.id = o.account_id
+         WHERE p.token_hash = ? AND (o.account_id IS NULL OR (a.id IS NOT NULL AND a.disabled_at IS NULL))`,
       ).bind(await fingerprint(token)).first();
       if (!legacyKey && (!paired || paired.revoked_at)) {
         return json({ detail: 'Unauthorized' }, 401);
@@ -238,8 +244,14 @@ export default {
       if (path.endsWith('/logout')) return json({ signed_in: false }, 200, { 'Set-Cookie': cookie('', 0) });
       try {
         const { key } = await readBody(request, 1024);
-        if (typeof key !== 'string' || !equal(key, env.NORTH_ACCESS_KEY)) return json({ detail: 'Access key did not match.' }, 401);
-        const value = Math.floor(Date.now() / 1000 + sessionSeconds) + '.' + crypto.randomUUID();
+        if (typeof key !== 'string') return json({ detail: 'Access key did not match.' }, 401);
+        const legacy = equal(key, env.NORTH_ACCESS_KEY);
+        const account = legacy ? null : /^[a-f0-9]{64}$/.test(key) && await env.DB.prepare(
+          'SELECT id FROM cloud_accounts WHERE access_key_hash = ? AND disabled_at IS NULL',
+        ).bind(await fingerprint(key)).first();
+        if (!legacy && !account) return json({ detail: 'Access key did not match.' }, 401);
+        const value = Math.floor(Date.now() / 1000 + sessionSeconds) + '.' + crypto.randomUUID() +
+          (account ? '.' + account.id : '');
         return json({ signed_in: true }, 200, {
           'Set-Cookie': cookie(value + '.' + await signature(env.NORTH_SESSION_SECRET, value), sessionSeconds),
         });
@@ -248,15 +260,19 @@ export default {
       }
     }
 
-    if (!await sessionValid(request, env.NORTH_SESSION_SECRET)) return json({ detail: 'Sign in required' }, 401);
+    const account = await sessionValid(request, env.NORTH_SESSION_SECRET);
+    if (!account || (account !== 'legacy' && !await env.DB.prepare(
+      'SELECT id FROM cloud_accounts WHERE id = ? AND disabled_at IS NULL',
+    ).bind(account).first())) return json({ detail: 'Sign in required' }, 401);
 
     if (path === '/api/cloud/pairings') {
       if (request.method === 'GET') {
         const { results } = await env.DB.prepare(
           `SELECT p.source_id, p.label, p.created_at, p.revoked_at, s.updated_at
            FROM cloud_pairings p LEFT JOIN cloud_sources s ON s.id = p.source_id
-           ORDER BY p.created_at DESC LIMIT 100`,
-        ).all();
+           LEFT JOIN cloud_source_owners o ON o.source_id = p.source_id
+           WHERE coalesce(o.account_id, 'legacy') = ? ORDER BY p.created_at DESC LIMIT 100`,
+        ).bind(account).all();
         return json({ pairings: results });
       }
       if (request.method === 'POST') {
@@ -267,8 +283,12 @@ export default {
           if (!label || label.length > 80) return json({ detail: 'Enter a name up to 80 characters.' }, 422);
           const sourceId = 'collector-' + crypto.randomUUID().replaceAll('-', '').slice(0, 20);
           const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join('');
-          await env.DB.prepare('INSERT INTO cloud_pairings (source_id, label, token_hash, created_at) VALUES (?, ?, ?, ?)')
-            .bind(sourceId, label, await fingerprint(token), new Date().toISOString()).run();
+          const pairing = env.DB.prepare('INSERT INTO cloud_pairings (source_id, label, token_hash, created_at) VALUES (?, ?, ?, ?)')
+            .bind(sourceId, label, await fingerprint(token), new Date().toISOString());
+          if (account === 'legacy') await pairing.run();
+          else await env.DB.batch([pairing, env.DB.prepare(
+            'INSERT INTO cloud_source_owners (source_id, account_id) VALUES (?, ?)',
+          ).bind(sourceId, account)]);
           return json({ source_id: sourceId, label, token }, 201);
         } catch {
           return json({ detail: 'Could not create the collector pairing.' }, 400);
@@ -279,8 +299,9 @@ export default {
     if (request.method === 'POST' && revoke) {
       if (request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
       const result = await env.DB.prepare(
-        'UPDATE cloud_pairings SET revoked_at = coalesce(revoked_at, ?) WHERE source_id = ?',
-      ).bind(new Date().toISOString(), revoke[1]).run();
+        `UPDATE cloud_pairings SET revoked_at = coalesce(revoked_at, ?) WHERE source_id = ?
+         AND coalesce((SELECT account_id FROM cloud_source_owners WHERE source_id = cloud_pairings.source_id), 'legacy') = ?`,
+      ).bind(new Date().toISOString(), revoke[1], account).run();
       return result.meta.changes ? json({ revoked: true }) : json({ detail: 'Collector not found.' }, 404);
     }
     const draftId = request.method === 'POST' && /^\/api\/cases\/([0-9a-f]{24})\/draft$/.exec(path)?.[1];
@@ -288,15 +309,18 @@ export default {
     if (request.method !== 'GET' && !draftId) return json({ detail: 'This cloud endpoint is read-only' }, 405);
     if (path === '/api/cloud/status') {
       const { results: sources } = await env.DB.prepare(
-        'SELECT id, label, updated_at FROM cloud_sources ORDER BY updated_at DESC, id LIMIT 100',
-      ).all();
+        `SELECT s.id, s.label, s.updated_at FROM cloud_sources s
+         LEFT JOIN cloud_source_owners o ON o.source_id = s.id
+         WHERE coalesce(o.account_id, 'legacy') = ? ORDER BY s.updated_at DESC, s.id LIMIT 100`,
+      ).bind(account).all();
       return json({ signed_in: true, sources });
     }
     const sourceId = url.searchParams.get('source');
     if (sourceId && !sourcePattern.test(sourceId)) return json({ detail: 'Invalid collector identity' }, 422);
-    const source = sourceId
-      ? await env.DB.prepare('SELECT id, network FROM cloud_sources WHERE id = ?').bind(sourceId).first()
-      : await env.DB.prepare('SELECT id, network FROM cloud_sources ORDER BY updated_at DESC, id LIMIT 1').first();
+    const source = await env.DB.prepare(`SELECT s.id, s.network FROM cloud_sources s
+      LEFT JOIN cloud_source_owners o ON o.source_id = s.id
+      WHERE coalesce(o.account_id, 'legacy') = ? AND (? IS NULL OR s.id = ?)
+      ORDER BY s.updated_at DESC, s.id LIMIT 1`).bind(account, sourceId, sourceId).first();
     if (sourceId && !source) return json({ detail: 'Collector not found' }, 404);
     if (draftId) return source ? caseDraft(env, source.id, draftId) : json({ detail: 'Case not found' }, 404);
     if (path === '/api/cases') {
@@ -308,7 +332,7 @@ export default {
     }
     const relatedId = /^\/api\/cases\/([0-9a-f]{24})\/related$/.exec(path)?.[1];
     if (relatedId) {
-      const matches = source ? await relatedEvidence(env.DB, source.id, relatedId) : null;
+      const matches = source ? await relatedEvidence(env.DB, source.id, relatedId, account) : null;
       return matches ? json({ matches }) : json({ detail: 'Case not found' }, 404);
     }
     if (path === '/api/network') return json(source ? JSON.parse(source.network) : emptyNetwork);

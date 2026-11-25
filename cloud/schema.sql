@@ -40,6 +40,18 @@ CREATE TABLE IF NOT EXISTS cloud_pairings (
     revoked_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS cloud_accounts (
+    id TEXT PRIMARY KEY CHECK (id <> 'legacy'),
+    access_key_hash TEXT NOT NULL UNIQUE,
+    disabled_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cloud_source_owners (
+    source_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL REFERENCES cloud_accounts(id)
+);
+CREATE INDEX IF NOT EXISTS cloud_source_owners_account ON cloud_source_owners (account_id);
+
 INSERT OR IGNORE INTO cloud_sources (id, label, network, updated_at)
 SELECT 'legacy', 'Earlier collector', json_extract(payload, '$.network'), updated_at FROM snapshots;
 

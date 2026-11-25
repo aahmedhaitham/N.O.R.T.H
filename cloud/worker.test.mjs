@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
@@ -131,4 +132,45 @@ test('cloud sources keep independent event and investigation history', async (t)
   assert.doesNotMatch(JSON.stringify(modelInput), /never-sent-to-ai|192\.0\.2\.25|desk/);
   env.AI = { run: async () => ({ response: '{"finding_ids":[99]}' }) };
   assert.deepEqual(await (await call(draft, post({}, operator))).json(), fallback);
+
+  const accountKey = 'c'.repeat(64);
+  sqlite.prepare('INSERT INTO cloud_accounts (id, access_key_hash) VALUES (?, ?)')
+    .run('account-one', createHash('sha256').update(accountKey).digest('hex'));
+  const accountLogin = await call('/api/cloud/login', post({ key: accountKey }, { Origin: root }));
+  assert.equal(accountLogin.status, 200);
+  const accountHeaders = { Origin: root, Cookie: accountLogin.headers.get('Set-Cookie').split(';')[0] };
+  assert.deepEqual((await (await call('/api/cloud/status', { headers: accountHeaders })).json()).sources, []);
+  assert.equal((await call('/api/network?source=alpha', { headers: accountHeaders })).status, 404);
+  const ownPairingResponse = await call(pairings, post({ label: 'Private collector' }, accountHeaders));
+  assert.equal(ownPairingResponse.status, 201);
+  const ownPairing = await ownPairingResponse.json();
+  const ownHeaders = { Authorization: 'Bearer ' + ownPairing.token };
+  const ownSnapshot = { ...incident, source: { id: ownPairing.source_id, label: 'Ignored' }, events: [connection] };
+  assert.equal((await call('/api/cloud/snapshot', post(ownSnapshot, ownHeaders))).status, 200);
+  assert.equal((await call('/api/network?source=' + ownPairing.source_id, { headers })).status, 404);
+  for (const endpoint of [
+    '/api/events', '/api/events/' + id, '/api/cases', '/api/cases/' + id + '/report',
+    '/api/cases/' + id + '/related',
+  ]) {
+    assert.equal((await call(endpoint + '?source=' + ownPairing.source_id, { headers })).status, 404);
+    assert.equal((await call(endpoint + '?source=alpha', { headers: accountHeaders })).status, 404);
+  }
+  assert.equal((await call('/api/cases/' + id + '/draft?source=' + ownPairing.source_id, post({}, operator))).status, 404);
+  assert.deepEqual((await (await call('/api/cases/' + id + '/related', { headers: accountHeaders })).json()).matches, []);
+  assert.equal((await (await call(related, { headers })).json()).matches.length, 1);
+  assert.equal((await call(pairings + '/' + ownPairing.source_id + '/revoke', post({}, operator))).status, 404);
+  assert.equal((await (await call(pairings, { headers: accountHeaders })).json()).pairings.length, 1);
+  assert.equal((await (await call(pairings, { headers })).json()).pairings.some((item) => item.source_id === ownPairing.source_id), false);
+  const secondKey = 'd'.repeat(64);
+  sqlite.prepare('INSERT INTO cloud_accounts (id, access_key_hash) VALUES (?, ?)')
+    .run('account-two', createHash('sha256').update(secondKey).digest('hex'));
+  const secondLogin = await call('/api/cloud/login', post({ key: secondKey }, { Origin: root }));
+  assert.equal(secondLogin.status, 200);
+  const secondHeaders = { Origin: root, Cookie: secondLogin.headers.get('Set-Cookie').split(';')[0] };
+  assert.equal((await call('/api/events?source=' + ownPairing.source_id, { headers: secondHeaders })).status, 404);
+  assert.deepEqual((await (await call(pairings, { headers: secondHeaders })).json()).pairings, []);
+  assert.equal((await call(draft, post({}, secondHeaders))).status, 404);
+  sqlite.prepare('UPDATE cloud_accounts SET disabled_at = ? WHERE id = ?').run(new Date().toISOString(), 'account-one');
+  assert.equal((await call('/api/cloud/status', { headers: accountHeaders })).status, 401);
+  assert.equal((await call('/api/cloud/snapshot', post(ownSnapshot, ownHeaders))).status, 401);
 });
