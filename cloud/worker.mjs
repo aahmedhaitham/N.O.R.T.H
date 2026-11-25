@@ -85,7 +85,7 @@ function equal(left, right) {
   return difference === 0;
 }
 
-async function sessionValid(request, secret) {
+async function readSession(request, secret) {
   const token = request.headers.get('Cookie')?.match(/(?:^|;\s*)__Host-north_session=([^;]+)/)?.[1];
   const parts = token?.split('.');
   if (!parts || ![3, 4].includes(parts.length) || !/^\d{10}$/.test(parts[0]) || !/^[0-9a-f-]{36}$/.test(parts[1])) return null;
@@ -94,7 +94,16 @@ async function sessionValid(request, secret) {
   if (expires <= now || expires > now + sessionSeconds) return null;
   const account = parts.length === 4 ? parts[2] : 'legacy';
   if (!/^[a-z0-9-]{1,64}$/.test(account)) return null;
-  return equal(parts.at(-1), await signature(secret, parts.slice(0, -1).join('.'))) ? account : null;
+  return equal(parts.at(-1), await signature(secret, parts.slice(0, -1).join('.')))
+    ? { account, id: parts[1], expires } : null;
+}
+
+async function sessionAccount(request, env) {
+  const session = await readSession(request, env.NORTH_SESSION_SECRET);
+  if (!session) return null;
+  const revoked = await env.DB.prepare('SELECT session_id FROM cloud_revoked_sessions WHERE session_id = ?')
+    .bind(session.id).first();
+  return revoked ? null : session.account;
 }
 
 function cookie(value, lifetime) {
@@ -136,7 +145,7 @@ async function desktopAuth(request, url, env) {
   const ticket = await desktopTicket(env.NORTH_SESSION_SECRET, data.ticket);
   if (!ticket) return json({ detail: 'Desktop request has expired.' }, 410);
   if (url.pathname.endsWith('/approve')) {
-    const account = await sessionValid(request, env.NORTH_SESSION_SECRET);
+    const account = await sessionAccount(request, env);
     if (!account || account === 'legacy') return json({ detail: 'Sign in with your individual account first.' }, 401);
     const grant = await env.DB.prepare(`INSERT INTO cloud_desktop_grants (nonce, account_id, expires_at)
       SELECT ?, id, ? FROM cloud_accounts WHERE id = ? AND disabled_at IS NULL
@@ -388,9 +397,15 @@ async function caseDraft(env, source, caseId, account) {
 
 export default {
   async scheduled(controller, env) {
-    await env.DB.prepare(`DELETE FROM cloud_desktop_grants WHERE nonce IN (
-      SELECT nonce FROM cloud_desktop_grants WHERE expires_at <= ? ORDER BY expires_at LIMIT 1000
-    )`).bind(Math.floor(controller.scheduledTime / 1000)).run();
+    const now = Math.floor(controller.scheduledTime / 1000);
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM cloud_desktop_grants WHERE nonce IN (
+        SELECT nonce FROM cloud_desktop_grants WHERE expires_at <= ? ORDER BY expires_at LIMIT 1000
+      )`).bind(now),
+      env.DB.prepare(`DELETE FROM cloud_revoked_sessions WHERE session_id IN (
+        SELECT session_id FROM cloud_revoked_sessions WHERE expires_at <= ? ORDER BY expires_at LIMIT 1000
+      )`).bind(now),
+    ]);
     const cutoff = retentionCutoff(env, controller.scheduledTime);
     if (cutoff) await pruneHostedData(env.DB, cutoff);
   },
@@ -447,7 +462,14 @@ export default {
 
     if (request.method === 'POST' && ['/api/cloud/login', '/api/cloud/logout'].includes(path)) {
       if (request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
-      if (path.endsWith('/logout')) return json({ signed_in: false }, 200, { 'Set-Cookie': cookie('', 0) });
+      if (path.endsWith('/logout')) {
+        const session = await readSession(request, env.NORTH_SESSION_SECRET);
+        if (session) {
+          await env.DB.prepare('INSERT OR IGNORE INTO cloud_revoked_sessions (session_id, expires_at) VALUES (?, ?)')
+            .bind(session.id, session.expires).run();
+        }
+        return json({ signed_in: false }, 200, { 'Set-Cookie': cookie('', 0) });
+      }
       try {
         const { key } = await readBody(request, 1024);
         if (typeof key !== 'string') return json({ detail: 'Access key did not match.' }, 401);
@@ -464,7 +486,7 @@ export default {
       }
     }
 
-    const account = await sessionValid(request, env.NORTH_SESSION_SECRET);
+    const account = await sessionAccount(request, env);
     if (!account || (account !== 'legacy' && !await env.DB.prepare(
       'SELECT id FROM cloud_accounts WHERE id = ? AND disabled_at IS NULL',
     ).bind(account).first())) return json({ detail: 'Sign in required' }, 401);

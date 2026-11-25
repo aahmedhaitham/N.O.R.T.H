@@ -67,6 +67,12 @@ CREATE TABLE IF NOT EXISTS cloud_desktop_grants (
 );
 CREATE INDEX IF NOT EXISTS cloud_desktop_grants_expiry ON cloud_desktop_grants (expires_at);
 
+CREATE TABLE IF NOT EXISTS cloud_revoked_sessions (
+    session_id TEXT PRIMARY KEY,
+    expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cloud_revoked_sessions_expiry ON cloud_revoked_sessions (expires_at);
+
 INSERT OR IGNORE INTO cloud_sources (id, label, network, updated_at)
 SELECT 'legacy', 'Earlier collector', json_extract(payload, '$.network'), updated_at FROM snapshots;
 

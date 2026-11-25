@@ -90,6 +90,17 @@ test('Google sign-in creates an isolated workspace after state and PKCE checks',
   assert.equal((await call('/api/cloud/status', { Cookie: desktopCookie })).status, 200);
   assert.equal((await desktopPost('approve', { ticket }, session)).status, 409);
   assert.equal((await desktopPost('exchange', { ticket, verifier })).status, 202);
+  const logout = await worker.fetch(new Request(root + '/api/cloud/logout', {
+    method: 'POST', headers: { Origin: root, Cookie: session },
+  }), env);
+  assert.equal(logout.status, 200);
+  assert.match(logout.headers.get('Set-Cookie'), /Max-Age=0/);
+  assert.equal((await call('/api/cloud/status', { Cookie: session })).status, 401);
+  assert.equal((await desktopPost('approve', { ticket }, session)).status, 401);
+  assert.equal((await call('/api/cloud/status', { Cookie: desktopCookie })).status, 200);
+  const untilExpiry = sqlite.prepare('SELECT expires_at FROM cloud_revoked_sessions').get().expires_at;
+  await worker.scheduled({ scheduledTime: untilExpiry * 1000 }, env);
+  assert.equal(sqlite.prepare('SELECT count(*) AS count FROM cloud_revoked_sessions').get().count, 0);
 });
 
 test('cloud sources keep independent event and investigation history', async (t) => {
