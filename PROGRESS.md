@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- ATLAS ranks router traffic by device and shows download, upload, and combined totals. A collector-reported name appears when observations for that MAC agree.
 - ATLAS can open a prefiltered IRIS search from a reporting host, observed connection, or device inspector IP address.
 - ECHO filters its investigation list by title or host while keeping the open evidence in view.
 - IRIS can move one page at a time through older or newer results while keeping applied filters. Failed page loads can be retried in place.

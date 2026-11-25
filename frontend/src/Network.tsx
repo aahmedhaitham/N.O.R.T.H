@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { explainAddress } from './deviceExplanation';
 import { AtlasMap } from './AtlasMap';
 import { pollVisible } from './pollVisible';
+import { formatTraffic } from './formatTraffic';
 
 type CaseReference = { id: string; title: string };
 type Host = { id: string; host: string; events: number; last_seen: string; cases: CaseReference[] };
@@ -24,7 +25,6 @@ type Snapshot = {
   app_connections?: { process: string; events: number; destinations: number }[];
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
-const megabytes = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 const sysmonProblems = {
   access_denied: 'Windows denied this account access to the Sysmon event log.',
@@ -142,9 +142,27 @@ export function Network({ endpoint, openCase, openEvents, demo, readOnly }: {
   const importedDevices = groupNeighbors(neighbors);
   const watch = inventory?.device_findings;
   const router = inventory?.router_usage;
-  const routerDevices = router?.devices.filter((device) => fits(device.mac)) ?? [];
   const macKey = (mac: string) => mac.replace(/[:-]/g, '').toLowerCase();
   const trafficByMac = new Map(router?.devices.map((device) => [macKey(device.mac), device]));
+  const observedByMac = new Map<string, Neighbor[]>();
+  for (const record of collector?.records ?? []) {
+    if (!record.mac) continue;
+    const key = macKey(record.mac);
+    const observations = observedByMac.get(key) ?? [];
+    observations.push(record);
+    observedByMac.set(key, observations);
+  }
+  const routerDevices = (router?.devices ?? []).map((device) => {
+    const observations = observedByMac.get(macKey(device.mac)) ?? [];
+    const names = new Set(observations.map((record) => record.name).filter(Boolean));
+    return {
+      ...device, observations, name: names.size === 1 ? [...names][0] : '',
+      total: device.download_bytes + device.upload_bytes,
+    };
+  }).filter((device) => fits(device.mac) ||
+    device.observations.some((record) => fits(record.name, record.address, record.network)))
+    .sort((a, b) => b.total - a.total || a.mac.localeCompare(b.mac));
+  const largestTrafficTotal = Math.max(1, routerDevices[0]?.total ?? 0);
   const mapDevices = liveDevices.filter(matchesDevice).map(([id, records]) => {
     const first = records[0];
     const observedName = records.find((record) => record.name)?.name;
@@ -313,15 +331,28 @@ export function Network({ endpoint, openCase, openEvents, demo, readOnly }: {
     </div>
     {router && <section className="panel">
       <h2>Router traffic by device</h2>
-      <p>OpenWrt accounting-period totals. Devices are ranked by their combined upload and download.</p>
+      <p>OpenWrt accounting-period totals, sorted by combined traffic.</p>
       {router.state === 'unavailable' && <p role="status">Router data is unavailable. Any figures below are from the last successful refresh.</p>}
       {router.state === 'starting' && <p>Waiting for the first router update…</p>}
       {router.updated_at && <p className="reference">Last updated {new Date(router.updated_at).toLocaleString()}</p>}
       {router.state === 'ready' && !routerDevices.length && <p>No matching device totals.</p>}
-      <ul className="network-list">{routerDevices.map((device) => <li key={device.mac}>
-        <strong>{device.mac}</strong>
-        <small>{megabytes.format(device.download_bytes / 1_000_000)} MB downloaded · {megabytes.format(device.upload_bytes / 1_000_000)} MB uploaded</small>
-      </li>)}</ul>
+      {routerDevices.length > 0 && <div className="router-traffic-table-wrap">
+        <table className="investigation-table router-traffic-table" aria-label="Router traffic by device">
+          <thead><tr><th scope="col">Device</th><th scope="col">Download</th><th scope="col">Upload</th><th scope="col">Total</th></tr></thead>
+          <tbody>{routerDevices.map((device) => <tr key={device.mac}>
+            <th scope="row">{device.name || device.mac}{device.name && <small>{device.mac}</small>}</th>
+            <td>{formatTraffic(device.download_bytes)}</td>
+            <td>{formatTraffic(device.upload_bytes)}</td>
+            <td>
+              {formatTraffic(device.total)}
+              <div className="router-traffic-track" aria-hidden="true">
+                <span style={{ width: `${device.download_bytes / largestTrafficTotal * 100}%` }} />
+                <span style={{ width: `${device.upload_bytes / largestTrafficTotal * 100}%` }} />
+              </div>
+            </td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
     </section>}
     <details className="panel">
       <summary>Import a device list</summary>

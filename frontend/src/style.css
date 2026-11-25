@@ -239,6 +239,15 @@ button:disabled { opacity: .65; cursor: wait; }
 .atlas-traffic-track { grid-column: 1 / -1; height: .35rem; border-radius: 1rem; background: var(--line); overflow: hidden; }
 .atlas-traffic-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 .atlas-traffic-row + .atlas-traffic-row .atlas-traffic-track span { background: var(--chart-blue); }
+.router-traffic-table-wrap { overflow-x: auto; }
+.router-traffic-table td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.router-traffic-table tbody th { color: var(--text); background: transparent; }
+.router-traffic-table th small { display: block; margin-top: .2rem; color: var(--muted); font-weight: 400; }
+.router-traffic-table thead th:nth-child(2) { color: var(--accent); }
+.router-traffic-table thead th:nth-child(3) { color: var(--chart-blue); }
+.router-traffic-track { display: flex; min-width: 4rem; margin-top: .25rem; height: .3rem; border-radius: 1rem; background: var(--line); overflow: hidden; }
+.router-traffic-track span { background: var(--accent); }
+.router-traffic-track span + span { background: var(--chart-blue); }
 @media (max-width: 850px) {
   .atlas-layout { grid-template-columns: 1fr; }
   .atlas-device-detail { border-inline-start: 0; border-top: 1px solid var(--line); }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Background, Controls, Position, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { explainAddress, explainMacAddress } from './deviceExplanation';
+import { formatTraffic } from './formatTraffic';
 
 export type AtlasDevice = {
   id: string;
@@ -13,17 +14,9 @@ export type AtlasDevice = {
   traffic?: { download_bytes: number; upload_bytes: number };
 };
 
-const trafficAmount = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const virtual = /VMware|VirtualBox|vEthernet|Hyper-V/i;
 const wireless = /wi-?fi|wlan|wireless/i;
 const pageSize = 8;
-
-function formatTraffic(bytes: number) {
-  if (bytes >= 1e9) return trafficAmount.format(bytes / 1e9) + ' GB';
-  if (bytes >= 1e6) return trafficAmount.format(bytes / 1e6) + ' MB';
-  if (bytes >= 1e3) return trafficAmount.format(bytes / 1e3) + ' kB';
-  return trafficAmount.format(bytes) + ' B';
-}
 
 function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; stale: boolean }) {
   if (!traffic) return <section className="atlas-traffic">
