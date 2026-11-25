@@ -4,6 +4,7 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/index.html frontend/tsconfig.json frontend/vite.config.js ./
 COPY frontend/src ./src
+COPY frontend/public ./public
 RUN npm run build -- --mode hosted
 
 FROM python:3.14-slim

@@ -6,6 +6,8 @@ import './style.css';
 import { Network } from './Network';
 import { Events } from './Events';
 import { eventNames } from './eventNames';
+import { Dashboard } from './Dashboard';
+import { InstallApp } from './InstallApp';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
@@ -21,13 +23,19 @@ const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
 
 function App() {
-  const [view, setView] = useState<'cases' | 'network' | 'events'>('cases');
+  const [view, setView] = useState<'dashboard' | 'cases' | 'network' | 'events'>('dashboard');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
   const [online, setOnline] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const incident = cases.find((item) => item.id === selected) ?? cases[0];
+  const networkEndpoint = portfolio ? '/demo/network.json' : '/api/network';
+
+  function openCase(id: string) {
+    setSelected(id);
+    setView('cases');
+  }
 
   useEffect(() => {
     if (portfolio) {
@@ -74,17 +82,20 @@ function App() {
       <header className="topbar">
         <a className="brand" href="/">NORTH</a>
         <nav className="console-nav" aria-label="Console">
+          <button type="button" aria-pressed={view === 'dashboard'} onClick={() => setView('dashboard')}>Dashboard</button>
           <button type="button" aria-pressed={view === 'cases'} onClick={() => setView('cases')}>Investigations</button>
           <button type="button" aria-pressed={view === 'network'} onClick={() => setView('network')}>Network</button>
           <button type="button" aria-pressed={view === 'events'} onClick={() => setView('events')}>Events</button>
         </nav>
+        <InstallApp />
         <span role="status" className={online ? 'status online' : 'status'}>
           {portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
         </span>
       </header>
+      {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
+        demo={publicDemo} open={setView} openCase={openCase} />}
       <div hidden={view !== 'network'}>
-        <Network endpoint={view === 'network' ? (portfolio ? '/demo/network.json' : '/api/network') : ''}
-          openCase={(id) => { setSelected(id); setView('cases'); }} />
+        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} />}
       {view === 'cases' && <div className="workspace">

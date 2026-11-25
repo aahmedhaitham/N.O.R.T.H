@@ -22,7 +22,14 @@ def verify(base, read_only=False):
         "wss" if origin.scheme == "https" else "ws", origin.netloc, "/api/live", "", "",
     ))
     with urlopen(base, timeout=10) as response:
-        assert b"NORTH" in response.read(), "Frontend index did not contain the NORTH title"
+        index = response.read()
+        assert b"NORTH" in index and b"/manifest.webmanifest" in index
+    manifest = read_json(base + "/manifest.webmanifest")
+    assert manifest["display"] == "standalone"
+    assert {icon["sizes"] for icon in manifest["icons"]} >= {"192x192", "512x512"}
+    for icon in manifest["icons"]:
+        with urlopen(base + icon["src"], timeout=10) as response:
+            assert response.read(8) == b"\x89PNG\r\n\x1a\n"
     assert read_json(base + "/api/health") == {"status": "ok"}
     inventory = read_json(base + "/api/network")
     assert any(asset["host"] == "WIN-LAB-01" for asset in inventory["assets"])

@@ -52,23 +52,9 @@ function groupNeighbors(records: Neighbor[]) {
   return [...devices];
 }
 
-export function Network({ endpoint, openCase }: { endpoint: string; openCase: (id: string) => void }) {
+export function useNetworkInventory(endpoint: string) {
   const [inventory, setInventory] = useState<Snapshot | null>(null);
   const [fetchError, setFetchError] = useState(false);
-  const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
-  const [fileMessage, setFileMessage] = useState('');
-  const [search, setSearch] = useState('');
-  const query = search.trim().toLowerCase();
-  const fits = (...values: string[]) => values.some((value) => value.toLowerCase().includes(query));
-  const hosts = new Map(inventory?.assets.map((asset) => [asset.id, asset.host]));
-  const matchingHosts = inventory?.assets.filter((asset) => fits(asset.host)) ?? [];
-  const matchingLinks = inventory?.links.filter((link) => fits(link.address, hosts.get(link.asset_id) ?? '')) ?? [];
-  const collector = inventory?.neighbors;
-  const windowsEvents = inventory?.sysmon;
-  const matchesDevice = ([, records]: [string, Neighbor[]]) => records.some((record) =>
-    fits(record.address, record.name, record.mac, record.network));
-  const liveDevices = groupNeighbors(collector?.records ?? []);
-  const importedDevices = groupNeighbors(neighbors);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -98,6 +84,26 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
       window.clearTimeout(timer);
     };
   }, [endpoint]);
+
+  return { inventory, fetchError };
+}
+
+export function Network({ endpoint, openCase }: { endpoint: string; openCase: (id: string) => void }) {
+  const { inventory, fetchError } = useNetworkInventory(endpoint);
+  const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
+  const [fileMessage, setFileMessage] = useState('');
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
+  const fits = (...values: string[]) => values.some((value) => value.toLowerCase().includes(query));
+  const hosts = new Map(inventory?.assets.map((asset) => [asset.id, asset.host]));
+  const matchingHosts = inventory?.assets.filter((asset) => fits(asset.host)) ?? [];
+  const matchingLinks = inventory?.links.filter((link) => fits(link.address, hosts.get(link.asset_id) ?? '')) ?? [];
+  const collector = inventory?.neighbors;
+  const windowsEvents = inventory?.sysmon;
+  const matchesDevice = ([, records]: [string, Neighbor[]]) => records.some((record) =>
+    fits(record.address, record.name, record.mac, record.network));
+  const liveDevices = groupNeighbors(collector?.records ?? []);
+  const importedDevices = groupNeighbors(neighbors);
 
   async function importNeighbors(file: File) {
     try {
