@@ -210,6 +210,20 @@ test('cloud sources keep independent event and investigation history', async (t)
   assert.equal((await call('/api/events?source=' + ownPairing.source_id, { headers: secondHeaders })).status, 404);
   assert.deepEqual((await (await call(pairings, { headers: secondHeaders })).json()).pairings, []);
   assert.equal((await call(draft, post({}, secondHeaders))).status, 404);
+  const hour = Math.floor(Date.now() / 3600000) * 3600;
+  const quota = sqlite.prepare(`INSERT INTO cloud_usage_limits VALUES (?, ?, ?, ?)
+    ON CONFLICT(account_id, operation) DO UPDATE SET window_start = excluded.window_start, used = excluded.used`);
+  quota.run('account-one', 'snapshot', hour, 600);
+  const throttled = await call('/api/cloud/snapshot', post(ownSnapshot, ownHeaders));
+  assert.equal(throttled.status, 429);
+  assert.ok(Number(throttled.headers.get('Retry-After')) > 0);
+  assert.equal((await call('/api/cloud/snapshot', post(incident, collectorHeaders))).status, 200);
+  quota.run('account-one', 'snapshot', hour - 3600, 600);
+  assert.equal((await call('/api/cloud/snapshot', post(ownSnapshot, ownHeaders))).status, 200);
+  quota.run('account-one', 'ai-brief', hour, 20);
+  env.AI = { run: async () => ({ response: { finding_ids: [1] } }) };
+  assert.equal((await (await call('/api/cases/' + id + '/draft', post({}, accountHeaders))).json()).reason, 'ai_limit');
+  assert.equal((await (await call(draft, post({}, operator))).json()).provider, 'cloud-ai');
   sqlite.prepare('UPDATE cloud_accounts SET disabled_at = ? WHERE id = ?').run(new Date().toISOString(), 'account-one');
   assert.equal((await call('/api/cloud/status', { headers: accountHeaders })).status, 401);
   assert.equal((await call('/api/cloud/snapshot', post(ownSnapshot, ownHeaders))).status, 401);

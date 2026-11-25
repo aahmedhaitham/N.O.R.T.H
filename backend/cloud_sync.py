@@ -69,6 +69,7 @@ def send_snapshot(url, key, data):
 async def sync_loop(store, neighbors, sysmon, url, key, router=None):
     previous = None
     while True:
+        retry_delay = 60
         try:
             data, target, event_ids = await run_in_threadpool(
                 build_snapshot, store, neighbors.current, sysmon.current, url, router.current if router else None,
@@ -80,6 +81,9 @@ async def sync_loop(store, neighbors, sysmon, url, key, router=None):
                 previous = data
         except HTTPError as error:
             logging.getLogger(__name__).warning("NORTH Cloud sync was refused: HTTP %s", error.code)
+            retry_after = error.headers.get("Retry-After", "") if error.headers else ""
+            if error.code == 429 and len(retry_after) <= 5 and retry_after.isascii() and retry_after.isdigit():
+                retry_delay = max(60, min(int(retry_after), 3600))
         except (OSError, ValueError, sqlite3.Error) as error:
             logging.getLogger(__name__).warning("NORTH Cloud sync failed: %s", type(error).__name__)
-        await asyncio.sleep(60)
+        await asyncio.sleep(retry_delay)

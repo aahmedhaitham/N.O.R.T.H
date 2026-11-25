@@ -52,6 +52,14 @@ CREATE TABLE IF NOT EXISTS cloud_source_owners (
 );
 CREATE INDEX IF NOT EXISTS cloud_source_owners_account ON cloud_source_owners (account_id);
 
+CREATE TABLE IF NOT EXISTS cloud_usage_limits (
+    account_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    window_start INTEGER NOT NULL,
+    used INTEGER NOT NULL,
+    PRIMARY KEY (account_id, operation)
+);
+
 INSERT OR IGNORE INTO cloud_sources (id, label, network, updated_at)
 SELECT 'legacy', 'Earlier collector', json_extract(payload, '$.network'), updated_at FROM snapshots;
 

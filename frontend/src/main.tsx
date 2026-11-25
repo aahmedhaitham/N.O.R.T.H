@@ -210,7 +210,7 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
       const body = await response.json();
       if (!response.ok) throw new Error(body.detail || 'Draft request failed.');
       setClaims(body.claims);
-      setDraftProvider(body.provider ?? '');
+      setDraftProvider(body.reason === 'ai_limit' ? 'ai_limit' : body.provider ?? '');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Draft request failed.');
     } finally {
@@ -306,7 +306,9 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
           'Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.'}</p>
         <button type="button" disabled={busy} onClick={requestDraft}>{busy ? 'Drafting…' : 'Generate draft'}</button>
       </>}
-      {draftProvider && <p role="status">{draftProvider === 'cloud-ai' ? 'Prioritized by cloud AI' : 'Generated from recorded evidence'}</p>}
+      {draftProvider && <p role="status">{draftProvider === 'cloud-ai' ? 'Prioritized by cloud AI' :
+        draftProvider === 'ai_limit' ? 'The workspace reached its hourly AI limit. This brief uses recorded evidence.' :
+          'Generated from recorded evidence'}</p>}
       {message && <p role="status">{message}</p>}
       {claims.length > 0 && <ul>{claims.map((claim, index) => (
         <li key={index}>{claim.text}{' '}{claim.evidence_ids.map((id, position) => (

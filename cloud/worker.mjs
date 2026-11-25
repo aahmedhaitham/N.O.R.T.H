@@ -16,6 +16,20 @@ function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), { status, headers: { ...headers, ...extra } });
 }
 
+async function useQuota(db, account, operation, limit, windowSeconds) {
+  const now = Math.floor(Date.now() / 1000);
+  const start = now - now % windowSeconds;
+  const used = await db.prepare(`
+    INSERT INTO cloud_usage_limits (account_id, operation, window_start, used) VALUES (?, ?, ?, 1)
+    ON CONFLICT(account_id, operation) DO UPDATE SET
+      used = CASE WHEN window_start < excluded.window_start THEN 1 ELSE used + 1 END,
+      window_start = excluded.window_start
+    WHERE window_start < excluded.window_start OR (window_start = excluded.window_start AND used < ?)
+    RETURNING used
+  `).bind(account, operation, start, limit).first();
+  return used ? 0 : start + windowSeconds - now;
+}
+
 async function signature(secret, value) {
   const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const hash = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(value)));
@@ -238,7 +252,7 @@ const observations = new Map([
   [1002, 'A sudo command was recorded.'],
 ]);
 
-async function caseDraft(env, source, caseId) {
+async function caseDraft(env, source, caseId, account) {
   const stored = await env.DB.prepare('SELECT payload FROM cloud_cases WHERE source_id = ? AND id = ?')
     .bind(source, caseId).first();
   if (!stored) return json({ detail: 'Case not found' }, 404);
@@ -257,8 +271,9 @@ async function caseDraft(env, source, caseId) {
     return { text: [observations.get(event.kind), host && 'Host: ' + host, detail && 'Observed value: ' + detail]
       .filter(Boolean).join(' · '), evidence_ids: [event.id] };
   };
-  const fallback = () => json({ claims: findings.slice(0, 3).map(claim), provider: 'evidence' });
+  const fallback = (reason) => json({ claims: findings.slice(0, 3).map(claim), provider: 'evidence', reason });
   if (!env.AI) return fallback();
+  if (await useQuota(env.DB, account, 'ai-brief', 20, 3600)) return fallback('ai_limit');
   try {
     const answer = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
       messages: [{
@@ -301,7 +316,7 @@ export default {
       if (!token) return json({ detail: 'Unauthorized' }, 401);
       const legacyKey = equal(token, env.NORTH_INGEST_KEY);
       const paired = legacyKey ? null : await env.DB.prepare(
-        `SELECT p.source_id, p.label, p.revoked_at FROM cloud_pairings p
+        `SELECT p.source_id, p.label, p.revoked_at, o.account_id FROM cloud_pairings p
          LEFT JOIN cloud_source_owners o ON o.source_id = p.source_id
          LEFT JOIN cloud_accounts a ON a.id = o.account_id
          WHERE p.token_hash = ? AND (o.account_id IS NULL OR (a.id IS NOT NULL AND a.disabled_at IS NULL))`,
@@ -315,6 +330,10 @@ export default {
         if (paired && body.source?.id !== paired.source_id) return json({ detail: 'Pairing belongs to another collector.' }, 403);
         if (legacyKey && /^collector-[0-9a-f]{20}$/.test(body.source?.id ?? '')) return json({ detail: 'A collector pairing is required.' }, 403);
         if (paired) body.source = { id: paired.source_id, label: paired.label };
+        const retry = await useQuota(env.DB, paired?.account_id ?? 'legacy', 'snapshot', 600, 3600);
+        if (retry) return json({ detail: 'The workspace has reached its hourly upload limit.' }, 429, {
+          'Retry-After': String(retry),
+        });
         const now = new Date().toISOString();
         if (!await saveSnapshot(env.DB, body, now)) return json({ detail: 'Invalid collector identity' }, 422);
         return json({ updated_at: now });
@@ -404,7 +423,7 @@ export default {
       WHERE coalesce(o.account_id, 'legacy') = ? AND (? IS NULL OR s.id = ?)
       ORDER BY s.updated_at DESC, s.id LIMIT 1`).bind(account, sourceId, sourceId).first();
     if (sourceId && !source) return json({ detail: 'Collector not found' }, 404);
-    if (draftId) return source ? caseDraft(env, source.id, draftId) : json({ detail: 'Case not found' }, 404);
+    if (draftId) return source ? caseDraft(env, source.id, draftId, account) : json({ detail: 'Case not found' }, 404);
     if (path === '/api/cases') {
       if (!source) return json([]);
       const { results } = await env.DB.prepare(
