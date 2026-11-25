@@ -5,15 +5,36 @@ type Packet = { time: string; source: string; destination: string; protocol: str
   sourcePort?: number; destinationPort?: number };
 const protocols: Record<number, string> = { 1: 'ICMP', 6: 'TCP', 17: 'UDP', 58: 'ICMPv6' };
 const sectionHeader = 0x0a0d0d0a;
+const linkTypes = new Map([
+  [1, { label: 'Ethernet', headerLength: 14, typeOffset: 12 }],
+  [101, { label: 'Raw IP', headerLength: 0, typeOffset: null }],
+  [113, { label: 'Linux cooked', headerLength: 16, typeOffset: 14 }],
+  [276, { label: 'Linux cooked v2', headerLength: 20, typeOffset: 0 }],
+]);
 
-function ethernetPacket(data: DataView, start: number, end: number, time: string, bytes: number): Packet {
-  const packet: Packet = { time, source: '—', destination: '—', protocol: 'Ethernet', bytes };
-  if (end - start < 14) return packet;
+function ipv6Address(data: DataView, offset: number) {
+  const words = Array.from({ length: 8 }, (_, index) => data.getUint16(offset + 2 * index).toString(16));
+  let start = 0, length = 1;
+  for (let index = 0; index < words.length;) {
+    if (words[index] !== '0') { index++; continue; }
+    const first = index;
+    while (words[index] === '0') index++;
+    if (index - first > length) { start = first; length = index - first; }
+  }
+  return length > 1 ? words.slice(0, start).join(':') + '::' + words.slice(start + length).join(':') : words.join(':');
+}
+
+function parsePacket(data: DataView, start: number, end: number, time: string, bytes: number,
+  link: NonNullable<ReturnType<typeof linkTypes.get>>): Packet {
+  const packet: Packet = { time, source: '—', destination: '—', protocol: link.label, bytes };
+  if (end <= start || end - start < link.headerLength) return packet;
   const ip = (offset: number, version: 4 | 6) => version === 4 ?
     Array.from({ length: 4 }, (_, index) => data.getUint8(offset + index)).join('.') :
-    Array.from({ length: 8 }, (_, index) => data.getUint16(offset + 2 * index).toString(16)).join(':');
-  let type = data.getUint16(start + 12);
-  let header = start + 14;
+    ipv6Address(data, offset);
+  const version = data.getUint8(start) >> 4;
+  let type = link.typeOffset === null ? (version === 4 ? 0x0800 : version === 6 ? 0x86dd : 0) :
+    data.getUint16(start + link.typeOffset);
+  let header = start + link.headerLength;
   while ((type === 0x8100 || type === 0x88a8) && header + 4 <= end) {
     type = data.getUint16(header + 2);
     header += 4;
@@ -31,9 +52,25 @@ function ethernetPacket(data: DataView, start: number, end: number, time: string
   } else if (type === 0x86dd && header + 40 <= end && data.getUint8(header) >> 4 === 6) {
     packet.source = ip(header + 8, 6);
     packet.destination = ip(header + 24, 6);
-    packet.protocol = protocols[data.getUint8(header + 6)] ?? 'IPv6';
     transport = header + 40;
     ipEnd = Math.min(end, transport + data.getUint16(header + 4));
+    let next = data.getUint8(header + 6);
+    while (transport + 2 <= ipEnd && (next === 0 || next === 43 || next === 44 || next === 60)) {
+      const following = data.getUint8(transport);
+      if (next === 44) {
+        if (transport + 8 > ipEnd) break;
+        if (data.getUint16(transport + 2) & 0xfff8) {
+          transport = end;
+          next = following;
+          break;
+        }
+        transport += 8;
+      } else {
+        transport += (data.getUint8(transport + 1) + 1) * 8;
+      }
+      next = following;
+    }
+    packet.protocol = protocols[next] ?? 'IPv6';
   } else if (type === 0x0806) {
     packet.protocol = 'ARP';
   }
@@ -49,8 +86,9 @@ function readClassic(data: DataView) {
   const little = magic === 0xd4c3b2a1 || magic === 0x4d3cb2a1;
   const nanos = magic === 0x4d3cb2a1 || magic === 0xa1b23c4d;
   if (!little && magic !== 0xa1b2c3d4 && !nanos) throw new Error('This viewer supports PCAP and PCAPNG files.');
-  if (data.getUint16(4, little) !== 2 || data.getUint16(6, little) !== 4 || (data.getUint32(20, little) & 0xffff) !== 1) {
-    throw new Error('Choose a classic PCAP 2.4 capture with Ethernet headers.');
+  const link = linkTypes.get(data.getUint32(20, little) & 0xffff);
+  if (data.getUint16(4, little) !== 2 || data.getUint16(6, little) !== 4 || !link) {
+    throw new Error('Choose a PCAP 2.4 file with Ethernet, raw IP, or Linux cooked headers.');
   }
 
   const packets: Packet[] = [];
@@ -67,7 +105,7 @@ function readClassic(data: DataView) {
       throw new Error('The file contains an invalid packet record.');
     }
     const time = new Date(u32(offset) * 1000 + fraction / (nanos ? 1e6 : 1e3)).toISOString();
-    packets.push(ethernetPacket(data, start, end, time, bytes));
+    packets.push(parsePacket(data, start, end, time, bytes, link));
     offset = end;
   }
   return { packets, limited: offset < data.byteLength, skipped: 0 };
@@ -123,11 +161,12 @@ function readNextGeneration(data: DataView) {
       if (!entry || start + Math.ceil(captured / 4) * 4 > end || captured > bytes) {
         throw new Error('The file contains an invalid PCAPNG packet record.');
       }
-      if (entry.linkType === 1) {
+      const link = linkTypes.get(entry.linkType);
+      if (link) {
         const ticks = data.getUint32(offset + 12, little) * 2 ** 32 + data.getUint32(offset + 16, little);
         const date = new Date((entry.offsetSeconds + ticks / entry.ticksPerSecond) * 1000);
         if (!Number.isFinite(date.getTime())) throw new Error('The PCAPNG timestamp is out of range.');
-        packets.push(ethernetPacket(data, start, start + captured, date.toISOString(), bytes));
+        packets.push(parsePacket(data, start, start + captured, date.toISOString(), bytes, link));
       } else {
         skipped++;
       }

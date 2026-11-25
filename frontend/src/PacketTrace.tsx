@@ -21,6 +21,7 @@ export function PacketTrace() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [protocol, setProtocol] = useState('');
+  const [port, setPort] = useState('');
   const [pair, setPair] = useState<Conversation | null>(null);
   const [adapters, setAdapters] = useState<Adapter[]>([]);
   const [adapter, setAdapter] = useState('');
@@ -48,8 +49,11 @@ export function PacketTrace() {
     return { bytes, protocols: [...protocols].sort(), conversations };
   }, [trace]);
   const query = search.trim().toLowerCase();
+  const portQuery = port.trim();
+  const invalidPort = Boolean(portQuery) && (!/^\d{1,5}$/.test(portQuery) || Number(portQuery) > 65535);
   const matching = (trace?.packets ?? []).filter((packet) => {
     if (protocol && packet.protocol !== protocol) return false;
+    if (portQuery && (invalidPort || (packet.sourcePort !== Number(portQuery) && packet.destinationPort !== Number(portQuery)))) return false;
     if (query && !packet.source.includes(query) && !packet.destination.includes(query)) return false;
     if (!pair) return true;
     const [a, b] = endpoints(packet.source, packet.destination);
@@ -71,6 +75,7 @@ export function PacketTrace() {
     setPage(0);
     setSearch('');
     setProtocol('');
+    setPort('');
     setPair(null);
     setMessage('Reading packet headers…');
     try {
@@ -128,7 +133,7 @@ export function PacketTrace() {
 
   return <details className="panel">
     <summary>Inspect a packet trace</summary>
-    <p>Open an Ethernet PCAP or PCAPNG from an authorized network. NORTH displays packet headers and keeps the file in this window.</p>
+    <p>Open a PCAP or PCAPNG from an authorized network. NORTH reads Ethernet, raw IP, and Linux cooked headers and keeps the file in this window.</p>
     {desktop ? <details>
       <summary>Capture on this computer</summary>
       <p>Record a short trace on an authorized local adapter. Packet prefixes can contain payload bytes and stay in this app window.</p>
@@ -171,6 +176,7 @@ export function PacketTrace() {
             setPair(pair === item ? null : item);
             setSearch('');
             setProtocol('');
+            setPort('');
             setPage(0);
           }}><span>{item.a} ↔ {item.b}</span><small>{item.packets} packets · {formatTraffic(item.bytes)}</small></button>
         </li>)}</ul>
@@ -183,11 +189,14 @@ export function PacketTrace() {
           <option value="">All protocols</option>
           {overview.protocols.map((name) => <option key={name}>{name}</option>)}
         </select></label>
-        {(search || protocol || pair) && <button type="button" onClick={() => {
-          setSearch(''); setProtocol(''); setPair(null); setPage(0);
+        <label>TCP or UDP port<input type="text" inputMode="numeric" value={port} maxLength={5}
+          aria-invalid={invalidPort || undefined} onChange={(event) => { setPort(event.target.value); setPage(0); }} /></label>
+        {(search || protocol || port || pair) && <button type="button" onClick={() => {
+          setSearch(''); setProtocol(''); setPort(''); setPair(null); setPage(0);
         }}>Clear filters</button>}
       </div>
-      <p role="status">{matching.length.toLocaleString()} of {trace.packets.length.toLocaleString()} packets match</p>
+      <p role="status">{invalidPort ? 'Enter a port between 0 and 65535.' :
+        `${matching.length.toLocaleString()} of ${trace.packets.length.toLocaleString()} packets match`}</p>
       {matching.length > 1 && latest > earliest && <section className="trace-volume">
         <h3>Matched traffic over time</h3>
         <div className="atlas-usage-chart" role="list" aria-label="Packet bytes by time interval">
