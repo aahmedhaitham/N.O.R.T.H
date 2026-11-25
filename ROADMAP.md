@@ -44,7 +44,7 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | FastAPI and WebSockets | Demo verified by user | The browser showed a connected live feed and downloaded the report. The draft citation test passed. The automated API integration test remains unverified. |
 | ATLAS and ECHO console | Build and replay verified | The TypeScript check and Vite production build passed. The user confirmed the ECHO replay advanced through all three events. |
 | Wazuh and Sysmon | Fixture format verified | The importer accepts JSON and JSON Lines. Verify a sanitized export from the authorized lab. |
-| Ollama | Observation ranking tested with fixture | IRIS derives findings from Sysmon events and rejects unsupported model selections. A live local model response remains to be verified. |
+| Ollama | Live fixture benchmark verified by user | Qwen2.5-Coder returned six valid drafts with a 0.61-second warm median. Two reported timed Qwen3 attempts were rejected. The README records the comparison. |
 | Docker and PostgreSQL | Configured | Docker is unavailable on the audited host. Run the build and check persistence once available. |
 | Portfolio | Core demo verified by user | Capture the walkthrough for the portfolio. Docker, live lab ingestion, and a real Ollama draft are tracked above. |
 

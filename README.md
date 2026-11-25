@@ -40,6 +40,12 @@ With Docker and Compose available, run `docker compose up --build` at the reposi
 
 The console binds to localhost in the documented setups. Its API has no user authentication and is intended for a single analyst in a local lab.
 
+### Local model benchmark
+
+With Ollama running, execute `.\.venv\Scripts\python.exe compare_models.py` from `backend`. The script calls the NORTH draft endpoint in-process against the bundled case and a version with the network event removed.
+
+On the development laptop, `qwen2.5-coder:7b` returned six valid drafts out of six, ranked file creation first in all six, and took a median of **0.61 seconds** after warm-up. The reported `huihui_ai/qwen3-abliterated:8b-v2` run was partial. Its warm-up and first two timed runs returned HTTP 502 because the endpoint could not verify the model selection. The two timed attempts took **6.20 seconds** and **6.57 seconds**. These observations support keeping Qwen2.5-Coder as the default for the current IRIS configuration.
+
 ## Test and explain
 
 Run `.\.venv\Scripts\python.exe -m pytest tests` from `backend`, and `npm.cmd run build` from `frontend`. For a standard-library-only core check, run `python -m unittest discover -s tests -p test_core.py` from `backend`.
