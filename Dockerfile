@@ -11,7 +11,7 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/main.py backend/north.py ./
-COPY backend/fixtures/demo.json ./fixtures/demo.json
+COPY backend/fixtures/demo.json backend/fixtures/linux-ssh-demo.jsonl ./fixtures/
 COPY --from=frontend /src/dist ./web
 ENV NORTH_PUBLIC_DEMO=1 NORTH_SEED_DEMO=1 NORTH_DB_PATH=/tmp/north.sqlite3 NORTH_WEB_ROOT=/app/web
 USER 65534

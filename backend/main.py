@@ -19,6 +19,15 @@ class Batch(BaseModel):
     alerts: list[dict] = Field(min_length=1, max_length=1000)
 
 
+def demo_alerts(include_linux=False):
+    fixtures = Path(__file__).with_name("fixtures")
+    alerts = json.loads((fixtures / "demo.json").read_text(encoding="utf-8"))
+    if include_linux:
+        records = (fixtures / "linux-ssh-demo.jsonl").read_text(encoding="utf-8").splitlines()
+        alerts.extend({"source": "journalctl", "entry": json.loads(record)} for record in records)
+    return alerts
+
+
 def make_app(store=None):
     store = store if store is not None else configured_store()
     public_demo = os.getenv("NORTH_PUBLIC_DEMO") == "1"
@@ -27,8 +36,7 @@ def make_app(store=None):
     async def lifespan(_app):
         store.initialize()
         if os.getenv("NORTH_SEED_DEMO", "1") == "1":
-            fixture = Path(__file__).with_name("fixtures") / "demo.json"
-            store.ingest(json.loads(fixture.read_text(encoding="utf-8")))
+            store.ingest(demo_alerts(include_linux=public_demo))
         yield
 
     app = FastAPI(

@@ -24,18 +24,28 @@ def verify(base, read_only=False):
     with urlopen(base, timeout=10) as response:
         assert b"NORTH" in response.read(), "Frontend index did not contain the NORTH title"
     assert read_json(base + "/api/health") == {"status": "ok"}
-    case, = read_json(base + "/api/cases")
+    cases = read_json(base + "/api/cases")
+    case, = [item for item in cases if item["host"] == "WIN-LAB-01"]
     assert [item["kind"] for item in case["evidence"]] == [1, 3, 11]
     assert case["links"][0]["evidence_id"] == case["evidence"][1]["id"]
+    checked = [case]
+    if read_only:
+        linux, = [item for item in cases if item["host"] == "KALI-DEMO"]
+        assert len(cases) == 2, "The public demo should contain only the bundled cases"
+        assert len(linux["evidence"]) == 3
+        assert all(item["raw"]["_COMM"] == "sshd" for item in linux["evidence"])
+        assert linux["links"][0]["direction"] == "inbound"
+        checked.append(linux)
 
     for _ in range(2):
         with connect(websocket_url, origin=base, open_timeout=10, close_timeout=5) as socket:
-            assert json.loads(socket.recv(timeout=10)) == [case]
+            assert json.loads(socket.recv(timeout=10)) == cases
 
-    with urlopen(base + f"/api/cases/{case['id']}/report", timeout=10) as response:
-        report = response.read().decode()
-        assert "attachment" in response.headers["Content-Disposition"]
-        assert all(item["id"] in report for item in case["evidence"])
+    for investigation in checked:
+        with urlopen(base + f"/api/cases/{investigation['id']}/report", timeout=10) as response:
+            report = response.read().decode()
+            assert "attachment" in response.headers["Content-Disposition"]
+            assert all(item["id"] in report for item in investigation["evidence"])
 
     fixture = Path(__file__).with_name("fixtures") / "demo.json"
     alerts = json.loads(fixture.read_text(encoding="utf-8"))

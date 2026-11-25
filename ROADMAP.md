@@ -44,11 +44,11 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | FastAPI and WebSockets | Browser and CI verified | The browser showed a connected live feed and downloaded the report. The hosted API suite passed. |
 | ATLAS and ECHO console | Build and replay verified | The TypeScript check and Vite production build passed. The user confirmed the ECHO replay advanced through all three events. |
 | Wazuh and Sysmon | Export importer verified with fixtures | Dry run and import coverage include JSON arrays, JSON Lines and indexer search hits. A real capture from an isolated Windows guest remains pending. |
-| Kali and Linux | SSH journal fixture verified | A shared database can reconstruct both Windows and Linux cases. A journal capture from the user's Kali system remains pending. |
+| Kali and Linux | Browser fixture verified | The user confirmed both cases appeared in the local console. A journal capture from the user's Kali system remains pending. |
 | Ollama | Live fixture benchmark verified by user | Qwen2.5-Coder returned six valid drafts with a 0.61-second warm median. Two reported timed Qwen3 attempts were rejected. The README records the comparison. |
 | Docker and PostgreSQL | Hosted check passed | GitHub Actions verified the gateway and PostgreSQL persistence after restarting with seeding disabled. [Passing run](https://github.com/aahmedhaitham/N.O.R.T.H/actions/runs/45588172311) |
 | Portfolio | Core demo verified by user | Capture the walkthrough for the portfolio. Docker, live lab ingestion, and a real Ollama draft are tracked above. |
-| Public hosting | Ready for deployment | The Render Blueprint runs the live console against a bundled synthetic case. The public URL and hosted smoke check are pending. |
+| Public hosting | Prepared | The hosted image seeds synthetic Windows and Kali cases. The public URL and hosted smoke check are pending. |
 
 ## Progress log
 

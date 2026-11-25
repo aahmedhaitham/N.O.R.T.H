@@ -95,3 +95,16 @@ def test_public_demo_blocks_write_routes(tmp_path, monkeypatch):
         endpoints["/api/cases/{case_id}/draft"]("example")
     assert ingest_error.value.status_code == draft_error.value.status_code == 403
     assert store.events() == []
+
+
+def test_public_demo_seed_contains_both_platforms(tmp_path):
+    store = Store(path=tmp_path / "demo.sqlite3")
+    store.initialize()
+    alerts = main.demo_alerts(include_linux=True)
+    assert store.ingest(alerts) == 6
+    assert store.ingest(alerts) == 0
+    windows, linux = build_cases(store.events())
+    assert windows["host"] == "WIN-LAB-01"
+    assert linux["host"] == "KALI-DEMO"
+    claim, = main.observed_findings(linux)
+    assert claim["evidence_ids"] == [event["id"] for event in linux["evidence"]]
