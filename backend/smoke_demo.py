@@ -24,6 +24,8 @@ def verify(base, read_only=False):
     with urlopen(base, timeout=10) as response:
         assert b"NORTH" in response.read(), "Frontend index did not contain the NORTH title"
     assert read_json(base + "/api/health") == {"status": "ok"}
+    inventory = read_json(base + "/api/network")
+    assert any(asset["host"] == "WIN-LAB-01" for asset in inventory["assets"])
     cases = read_json(base + "/api/cases")
     case, = [item for item in cases if item["host"] == "WIN-LAB-01"]
     assert [item["kind"] for item in case["evidence"]] == [1, 3, 11]
@@ -35,6 +37,7 @@ def verify(base, read_only=False):
         assert len(linux["evidence"]) == 3
         assert all(item["raw"]["_COMM"] == "sshd" for item in linux["evidence"])
         assert linux["links"][0]["direction"] == "inbound"
+        assert any(asset["host"] == "KALI-DEMO" for asset in inventory["assets"])
         checked.append(linux)
 
     for _ in range(2):

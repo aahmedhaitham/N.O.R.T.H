@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Background, Controls, ReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './style.css';
+import { Network } from './Network';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
@@ -22,6 +23,7 @@ const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
 
 function App() {
+  const [view, setView] = useState<'cases' | 'network'>('cases');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
   const [online, setOnline] = useState(false);
@@ -73,12 +75,19 @@ function App() {
     <div className="shell">
       <header className="topbar">
         <a className="brand" href="/">NORTH</a>
-        <span>Investigation console</span>
+        <nav className="console-nav" aria-label="Console">
+          <button type="button" aria-pressed={view === 'cases'} onClick={() => setView('cases')}>Investigations</button>
+          <button type="button" aria-pressed={view === 'network'} onClick={() => setView('network')}>Network</button>
+        </nav>
         <span role="status" className={online ? 'status online' : 'status'}>
           {portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
         </span>
       </header>
-      <div className="workspace">
+      <div hidden={view !== 'network'}>
+        <Network endpoint={view === 'network' ? (portfolio ? '/demo/network.json' : '/api/network') : ''}
+          openCase={(id) => { setSelected(id); setView('cases'); }} />
+      </div>
+      {view === 'cases' && <div className="workspace">
         <aside aria-label="Investigations">
           <h2>Investigations</h2>
           {cases.map((item) => (
@@ -93,7 +102,7 @@ function App() {
           {incident ? <Investigation key={incident.id} incident={incident} /> :
             <section className="panel"><h1>{loadError ? 'Demo cases could not load' : loaded ? 'No investigations' : 'Waiting for telemetry'}</h1></section>}
         </main>
-      </div>
+      </div>}
     </div>
   );
 }

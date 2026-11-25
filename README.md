@@ -53,6 +53,12 @@ For a static portfolio build, run `npm run build -- --mode portfolio` from `fron
 
 ## Add lab data or use local AI
 
+### View your network
+
+Open **Network** to see reporting devices and observed inbound and outbound connections. Select a linked investigation to review its evidence. The list is derived from collected events.
+
+For a point-in-time view of other devices, run `tools/Export-NorthNeighbors.ps1` from PowerShell on Windows, or `ip -j neigh > linux-neighbors.json` on Linux. Import the output under **Network**. You can also import a router inventory converted to a JSON array with fields `address`, optional `name` and `mac`. The collector reads the existing neighbor cache without sending probes. The browser keeps imported records in memory and clears them when the page reloads.
+
 - **Wazuh and Sysmon.** Preview a sanitized export from an authorized, isolated lab with `python backend/ingest.py path/to/alerts.json --check`. NORTH accepts a JSON array, JSON Lines, or indexer search hits containing `_source`. It selects Sysmon event IDs 1, 3, and 11 and reports how many cases the export can reconstruct. Omit `--check` to import into a running local backend. For Docker, add `--base-url http://127.0.0.1:8080`. Start with a fresh database and set `NORTH_SEED_DEMO=0` to evaluate lab events independently of the bundled case. Wazuh alerts can omit telemetry below the alert threshold, so consult the [Wazuh alert documentation](https://documentation.wazuh.com/current/user-manual/manager/alert-management.html) if expected events are missing.
 - **Linux OpenSSH.** If OpenSSH already writes to your Linux journal, export your own service's existing records with `journalctl -u ssh.service -u sshd.service --since today --no-pager -o json > ssh-journal.jsonl`. Preview with `python3 backend/ingest.py ssh-journal.jsonl --format journal --check`. Omit `--check` to import to your local NORTH instance. IRIS flags groups of three failures from the same source on the same host within five minutes, ATLAS maps the inbound address, and ECHO lists the original events. Keep real exports local.
 - **Ollama.** With a local server running and `qwen2.5-coder:7b` available, click **Generate draft** in IRIS. Override the server or model with `OLLAMA_URL` or `OLLAMA_MODEL` as needed. NORTH derives observations and their citations from Sysmon event types. Ollama ranks those observations, and NORTH accepts only selections drawn from the current case. Analysts can open the cited raw events in ECHO. The rule-based report works independently.

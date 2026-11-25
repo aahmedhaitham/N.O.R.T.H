@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from north import SSH_FAILURE, SUDO_COMMAND, build_cases, configured_store, report
+from network import snapshot
 
 
 class Batch(BaseModel):
@@ -59,6 +60,10 @@ def make_app(store=None):
     @app.get("/api/cases")
     def cases():
         return build_cases(store.events())
+
+    @app.get("/api/network")
+    def network():
+        return snapshot(store.events())
 
     @app.post("/api/ingest")
     def ingest(batch: Batch):

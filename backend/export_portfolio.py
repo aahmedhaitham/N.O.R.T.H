@@ -5,13 +5,16 @@ import json
 from pathlib import Path
 
 from main import demo_alerts
+from network import snapshot
 from north import build_cases, normalize, report
 
 
 def export(directory: Path):
-    cases = build_cases([normalize(alert) for alert in demo_alerts(include_linux=True)])
+    events = [normalize(alert) for alert in demo_alerts(include_linux=True)]
+    cases = build_cases(events)
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
+    (directory / "network.json").write_text(json.dumps(snapshot(events)), encoding="utf-8")
     for case in cases:
         (directory / f"{case['id']}.md").write_text(report(case), encoding="utf-8")
 

@@ -26,6 +26,15 @@ button:disabled { opacity: .65; cursor: wait; }
 .brand { color: #fff; font-weight: 800; letter-spacing: .25em; text-decoration: none; }
 .status { margin-left: auto; font-size: .86rem; }
 .online { color: var(--accent); }
+.console-nav { display: flex; gap: .4rem; }
+.console-nav button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.network-search { display: grid; gap: .45rem; font-size: .88rem; }
+.network-search input { font: inherit; padding: .65rem; color: inherit; background: #0c1018; border: 1px solid var(--line); border-radius: .4rem; }
+.network-list { list-style: none; padding: 0; margin: .6rem 0 0; }
+.network-list li { padding: .65rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.network-list small { display: block; color: var(--muted); margin-top: .3rem; }
+.case-links { display: flex; flex-wrap: wrap; gap: .4rem; }
+.network-case { font-size: .78rem; margin-top: .5rem; }
 .workspace { display: grid; grid-template-columns: minmax(220px, 265px) minmax(0, 1fr); }
 aside { padding: 1.4rem; border-right: 1px solid var(--line); }
 aside h2 { font-size: 1rem; }
