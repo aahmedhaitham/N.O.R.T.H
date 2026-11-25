@@ -17,16 +17,30 @@ type Claim = { text: string; evidence_ids: string[] };
 const eventNames: Record<number, string> = {
   1: 'Process created', 3: 'Network connection observed', 11: 'File created', 1001: 'SSH authentication failed',
 };
-const publicDemo = import.meta.env.MODE === 'hosted';
+const portfolio = import.meta.env.MODE === 'portfolio';
+const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
 
 function App() {
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
   const [online, setOnline] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const incident = cases.find((item) => item.id === selected) ?? cases[0];
 
   useEffect(() => {
+    if (portfolio) {
+      const controller = new AbortController();
+      fetch('/demo/cases.json', { signal: controller.signal })
+        .then((response) => {
+          if (!response.ok) throw new Error('Demo case data unavailable');
+          return response.json() as Promise<Case[]>;
+        })
+        .then((items) => { setCases(items); setLoaded(true); })
+        .catch(() => { if (!controller.signal.aborted) setLoadError(true); });
+      return () => controller.abort();
+    }
+
     let disposed = false;
     let socket: WebSocket | undefined;
     let retry: number | undefined;
@@ -60,7 +74,7 @@ function App() {
         <a className="brand" href="/">NORTH</a>
         <span>Investigation console</span>
         <span role="status" className={online ? 'status online' : 'status'}>
-          {online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
+          {portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
         </span>
       </header>
       <div className="workspace">
@@ -76,7 +90,7 @@ function App() {
         </aside>
         <main>
           {incident ? <Investigation key={incident.id} incident={incident} /> :
-            <section className="panel"><h1>{loaded ? 'No investigations' : 'Waiting for telemetry'}</h1></section>}
+            <section className="panel"><h1>{loadError ? 'Demo cases could not load' : loaded ? 'No investigations' : 'Waiting for telemetry'}</h1></section>}
         </main>
       </div>
     </div>
@@ -140,7 +154,8 @@ function Investigation({ incident }: { incident: Case }) {
         <h1>{incident.title}</h1>
         <p>{incident.summary}</p>
       </div>
-      <a className="button" href={'/api/cases/' + incident.id + '/report'}>Export report</a>
+      <a className="button" download={portfolio ? 'north-' + incident.id + '.md' : undefined}
+        href={portfolio ? '/demo/' + incident.id + '.md' : '/api/cases/' + incident.id + '/report'}>Export report</a>
     </section>
     <div className="columns">
       <section className="panel">

@@ -47,6 +47,8 @@ Create a [Render Blueprint](https://render.com/docs/infrastructure-as-code) conn
 
 After deployment, run the smoke check against the assigned URL with `python backend/smoke_demo.py https://YOUR-SERVICE.onrender.com --read-only` from a Python environment with the backend requirements installed.
 
+For a static portfolio build, run `npm run build -- --mode portfolio` from `frontend`, then run `python backend/export_portfolio.py frontend/dist/demo` from the repository root using the backend environment. Upload the contents of `frontend/dist` to a static host such as [Cloudflare Pages](https://developers.cloudflare.com/pages/get-started/direct-upload/). This version replays the two bundled synthetic cases in the browser and provides their reports as downloads. It does not connect to the local NORTH database.
+
 ## Add lab data or use local AI
 
 - **Wazuh and Sysmon.** Preview a sanitized export from an authorized, isolated lab with `python backend/ingest.py path/to/alerts.json --check`. NORTH accepts a JSON array, JSON Lines, or indexer search hits containing `_source`. It selects Sysmon event IDs 1, 3, and 11 and reports how many cases the export can reconstruct. Omit `--check` to import into a running local backend. For Docker, add `--base-url http://127.0.0.1:8080`. Start with a fresh database and set `NORTH_SEED_DEMO=0` to evaluate lab events independently of the bundled case. Wazuh alerts can omit telemetry below the alert threshold, so consult the [Wazuh alert documentation](https://documentation.wazuh.com/current/user-manual/manager/alert-management.html) if expected events are missing.
