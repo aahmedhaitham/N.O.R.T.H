@@ -63,6 +63,8 @@ On the development laptop, `qwen2.5-coder:7b` returned six valid drafts out of s
 
 ## Test and explain
 
+For a live Windows capture without a Wazuh server, use [Microsoft Sysmon](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon) with `tools/sysmon-demo.xml` on a machine where Sysmon is not already configured. Run `tools/Capture-NorthTelemetry.ps1` in PowerShell with access to the Sysmon log. It creates a comment-only file and exports its process and file-creation events to the Git-ignored `raw-logs` folder. Preview the resulting JSON with `python backend/ingest.py <capture.json> --check`, then omit `--check` to import it into a running local backend. This direct capture checks Sysmon and NORTH ingestion. Checking Wazuh forwarding requires a Wazuh deployment.
+
 Run `.\.venv\Scripts\python.exe -m pytest tests` from `backend`, and `npm.cmd run build` from `frontend`. For a standard-library-only core check, run `python -m unittest discover -s tests -p test_core.py` from `backend`.
 
 The repository's **Verify NORTH** GitHub Actions workflow runs the backend suite and frontend build. A separate job starts Docker Compose, checks the console and evidence through its HTTP and WebSocket gateway, then restarts with seeding disabled to check PostgreSQL persistence. To run the smoke check against your local Windows demo, use `.\.venv\Scripts\python.exe smoke_demo.py http://127.0.0.1:5173` from `backend` while both servers are running.
