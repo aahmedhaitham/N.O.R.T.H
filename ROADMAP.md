@@ -6,7 +6,8 @@ NORTH stands for **Network Operations, Reconnaissance, Threat Hunting**. The por
 
 - [x] Read-only Windows and development environment audit.
 - [x] Establish the planning workspace and save this tracker.
-- [ ] Confirm pinned project dependency compatibility with the installed Python and Node versions.
+- [x] Check Python 3.14 and Node 26 against published FastAPI, Pytest, and Vite requirements.
+- [ ] Resolve the project's dependencies and run the backend smoke test and frontend build. Package resolution from this session was blocked.
 - [ ] Verify WSL2 and Docker after setup is authorized, and measure memory and free disk before enabling concurrent services.
 - [ ] Verify VMware guest boot and isolation before live lab work. Confirm Ollama model serving and measure inference latency and memory use.
 
@@ -14,7 +15,7 @@ The machine-specific environment audit is stored locally.
 
 ## Weekly milestones
 
-Mark a week complete when its acceptance check passes and a commit, test result, or demo recording is linked in Evidence. The weeks are relative to the start of implementation.
+These milestones preserve the original roadmap. The build proceeds by dependency and validation, with no weekly waiting period.
 
 | Week | Status | Deliverable and acceptance check | Interview question | Evidence |
 | --- | --- | --- | --- | --- |
@@ -35,8 +36,22 @@ Mark a week complete when its acceptance check passes and a commit, test result,
 
 Start with a repeatable fixture and a single case. Measure the core app, model and telemetry lab independently before running them together. The final walkthrough opens an alert, traces the affected asset, replays the timeline and exports a report with evidence references. Use only authorized isolated labs and benign or synthetic telemetry. Ollama drafts are advisory and require analyst review.
 
+## Implementation and verification
+
+| Area | Status | Evidence or remaining check |
+| --- | --- | --- |
+| Event storage and IRIS correlation | Core verified with SQLite | Tests cover replay, duplicates, near misses, malformed batches and linked evidence. |
+| FastAPI and WebSockets | Implemented | API tests cover health, report, reconnect and offline drafts. Running them requires package access. |
+| ATLAS and ECHO console | Implemented | TypeScript syntax check passed. Package installation, full bundle build and browser walkthrough remain open. |
+| Wazuh and Sysmon | Fixture format verified | The importer accepts JSON and JSON Lines. Verify a sanitized export from the authorized lab. |
+| Ollama | Implemented | Verify a real local draft and review its evidence references. |
+| Docker and PostgreSQL | Configured | Docker is unavailable on the audited host. Run the build and check persistence once available. |
+| Portfolio | Walkthrough documented | Record the demo and add measured outcomes after end-to-end verification. |
+
 ## Progress log
 
 | Date | Update | Next action |
 | --- | --- | --- |
 | 2026-11-25 | Read-only audit recorded. No installers, services or VM settings changed. | Check project runtime compatibility and agree on the first setup change before making it. |
+| 2026-11-25 | Published requirements support the initial Python and Node choices. | Validate the resolved dependencies with the Week 1 scaffold. |
+| 2026-11-25 | Implemented the console, ingest path, case analysis, topology, replay and report export. | Install project dependencies to run the API tests and browser walkthrough. |
