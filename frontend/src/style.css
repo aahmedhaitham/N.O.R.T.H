@@ -248,6 +248,16 @@ button:disabled { opacity: .65; cursor: wait; }
 .router-traffic-track { display: flex; min-width: 4rem; margin-top: .25rem; height: .3rem; border-radius: 1rem; background: var(--line); overflow: hidden; }
 .router-traffic-track span { background: var(--accent); }
 .router-traffic-track span + span { background: var(--chart-blue); }
+.trace-conversations ul { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0; list-style: none; }
+.trace-conversations button { display: grid; gap: .25rem; text-align: left; overflow-wrap: anywhere; max-width: 100%; font-size: .84rem; }
+.trace-conversations li { min-width: 0; max-width: 100%; }
+.trace-conversations button[aria-pressed="true"] { border-color: var(--accent); background: var(--selection); }
+.trace-conversations small, .health-summary dt, .health-summary small { color: var(--muted); font-size: .8rem; }
+.health-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; }
+.health-summary > div { padding: .55rem; border: 1px solid var(--line); background: var(--canvas); }
+.health-summary dd { margin: .25rem 0 0; font-weight: 600; }
+.health-summary small { margin-inline-start: .45rem; font-weight: 400; }
+.router-wifi-filter { display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; }
 @media (max-width: 850px) {
   .atlas-layout { grid-template-columns: 1fr; }
   .atlas-device-detail { border-inline-start: 0; border-top: 1px solid var(--line); }

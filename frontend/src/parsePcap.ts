@@ -1,12 +1,13 @@
 export const maxTraceBytes = 8 * 1024 * 1024;
 const maxPackets = 5000;
 
-type Packet = { time: string; source: string; destination: string; protocol: string; bytes: number };
+type Packet = { time: string; source: string; destination: string; protocol: string; bytes: number;
+  sourcePort?: number; destinationPort?: number };
 const protocols: Record<number, string> = { 1: 'ICMP', 6: 'TCP', 17: 'UDP', 58: 'ICMPv6' };
 const sectionHeader = 0x0a0d0d0a;
 
 function ethernetPacket(data: DataView, start: number, end: number, time: string, bytes: number): Packet {
-  const packet = { time, source: '—', destination: '—', protocol: 'Ethernet', bytes };
+  const packet: Packet = { time, source: '—', destination: '—', protocol: 'Ethernet', bytes };
   if (end - start < 14) return packet;
   const ip = (offset: number, version: 4 | 6) => version === 4 ?
     Array.from({ length: 4 }, (_, index) => data.getUint8(offset + index)).join('.') :
@@ -17,16 +18,28 @@ function ethernetPacket(data: DataView, start: number, end: number, time: string
     type = data.getUint16(header + 2);
     header += 4;
   }
+  let transport = end;
+  let ipEnd = end;
   if (type === 0x0800 && header + 20 <= end && data.getUint8(header) >> 4 === 4) {
     packet.source = ip(header + 12, 4);
     packet.destination = ip(header + 16, 4);
     packet.protocol = protocols[data.getUint8(header + 9)] ?? 'IPv4';
+    const headerLength = (data.getUint8(header) & 15) * 4;
+    const firstFragment = (data.getUint16(header + 6) & 0x1fff) === 0;
+    if (headerLength >= 20 && firstFragment) transport = header + headerLength;
+    ipEnd = Math.min(end, header + data.getUint16(header + 2));
   } else if (type === 0x86dd && header + 40 <= end && data.getUint8(header) >> 4 === 6) {
     packet.source = ip(header + 8, 6);
     packet.destination = ip(header + 24, 6);
     packet.protocol = protocols[data.getUint8(header + 6)] ?? 'IPv6';
+    transport = header + 40;
+    ipEnd = Math.min(end, transport + data.getUint16(header + 4));
   } else if (type === 0x0806) {
     packet.protocol = 'ARP';
+  }
+  if ((packet.protocol === 'TCP' || packet.protocol === 'UDP') && transport + 4 <= ipEnd) {
+    packet.sourcePort = data.getUint16(transport);
+    packet.destinationPort = data.getUint16(transport + 2);
   }
   return packet;
 }

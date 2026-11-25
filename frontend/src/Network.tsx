@@ -124,6 +124,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
   const [fileMessage, setFileMessage] = useState('');
   const [search, setSearch] = useState('');
+  const [wifiOnly, setWifiOnly] = useState(false);
   const [reviewing, setReviewing] = useState('');
   const [reviewError, setReviewError] = useState(false);
   const hasInventory = Boolean(inventory);
@@ -154,6 +155,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const matchingLinks = inventory?.links.filter((link) => fits(link.address, hosts.get(link.asset_id) ?? '')) ?? [];
   const collector = inventory?.neighbors;
   const windowsEvents = inventory?.sysmon;
+  const latestHealth = Array.isArray(inventory?.internet_health) ? inventory.internet_health.at(-1) : undefined;
   const matchesDevice = ([, records]: [string, Neighbor[]]) => records.some((record) =>
     fits(record.address, record.name, record.mac, record.network));
   const liveDevices = groupNeighbors(collector?.records ?? []);
@@ -177,8 +179,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       ...device, observations, name: names.size === 1 ? [...names][0] : '',
       total: device.download_bytes + device.upload_bytes,
     };
-  }).filter((device) => fits(device.mac, device.router_name ?? '') ||
-    device.observations.some((record) => fits(record.name, record.address, record.network)))
+  }).filter((device) => (!wifiOnly || device.wifi_associated === true) &&
+    (fits(device.mac, device.router_name ?? '') ||
+      device.observations.some((record) => fits(record.name, record.address, record.network))))
     .sort((a, b) => b.total - a.total || a.mac.localeCompare(b.mac));
   const largestTrafficTotal = Math.max(1, routerDevices[0]?.total ?? 0);
   const mapDevices = liveDevices.filter(matchesDevice).map(([id, records]) => {
@@ -264,8 +267,19 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     {Array.isArray(inventory?.internet_health) && <section className="panel">
       <h2>Internet health from the collector</h2>
       <p>Default IPv4 gateway response, plus DNS lookup and HTTPS response time for NORTH Cloud. Some gateways block ping replies.</p>
+      {latestHealth && <>
+        <p className="reference">Last checked <time dateTime={latestHealth.checked_at}>{new Date(latestHealth.checked_at).toLocaleString()}</time></p>
+        <dl className="health-summary">
+          <div><dt>Gateway</dt><dd>{latestHealth.gateway === 'responded' ? 'Replied' : latestHealth.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</dd></div>
+          <div><dt>DNS lookup</dt><dd>{latestHealth.dns_ms === null ? 'Failed' : latestHealth.dns_ms + ' ms'}</dd></div>
+          <div><dt>HTTPS response</dt><dd>{latestHealth.https_ms === null ? 'No response' : latestHealth.https_ms + ' ms'}
+            {latestHealth.http_status !== null && <small>HTTP {latestHealth.http_status}</small>}</dd></div>
+        </dl>
+      </>}
       {!inventory.internet_health.length && <p>Waiting for the first check.</p>}
-      {inventory.internet_health.length > 0 && <div className="router-traffic-table-wrap">
+      {inventory.internet_health.length > 0 && <details>
+        <summary>Recent check history</summary>
+        <div className="router-traffic-table-wrap">
         <table className="investigation-table router-traffic-table" aria-label="Collector internet checks">
           <thead><tr><th scope="col">Checked</th><th scope="col">Gateway</th><th scope="col">DNS</th><th scope="col">HTTPS</th><th scope="col">Response</th></tr></thead>
           <tbody>{inventory.internet_health.slice(-12).reverse().map((sample) => <tr key={sample.checked_at}>
@@ -276,7 +290,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
             <td>{sample.http_status ?? '—'}</td>
           </tr>)}</tbody>
         </table>
-      </div>}
+        </div>
+      </details>}
     </section>}
     {(inventory?.local_device || Array.isArray(inventory?.app_connections)) && <section className="panel">
       <h2>App network activity</h2>
@@ -367,6 +382,10 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     {router && <section className="panel">
       <h2>Router traffic by device</h2>
       <p>OpenWrt accounting-period totals, sorted by combined traffic.</p>
+      {router.devices.length > 0 && <label className="router-wifi-filter">
+        <input type="checkbox" checked={wifiOnly} onChange={(event) => setWifiOnly(event.target.checked)} />
+        Only devices seen on router Wi-Fi
+      </label>}
       {router.state === 'unavailable' && <p role="status">Router data is unavailable. Any figures below are from the last successful refresh.</p>}
       {router.state === 'starting' && <p>Waiting for the first router update…</p>}
       {router.updated_at && <p className="reference">Last updated {new Date(router.updated_at).toLocaleString()}</p>}

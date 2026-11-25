@@ -30,8 +30,15 @@ def export(directory: Path):
         json.dumps({
             **snapshot(events), "device_findings": findings,
             "neighbors": {"state": "ready", "updated_at": sample_time, "records": records},
+            "internet_health": [
+                {"checked_at": sample_time, "gateway": "responded", "dns_ms": 19, "https_ms": 72, "http_status": 200},
+                {"checked_at": findings["items"][0]["first_seen"], "gateway": "responded",
+                 "dns_ms": 26, "https_ms": 83, "http_status": 200},
+            ],
             "router_usage": {"state": "ready", "updated_at": sample_time, "devices": [
                 {"mac": records[0]["mac"], "download_bytes": 128_000_000, "upload_bytes": 24_000_000},
+                {"mac": records[2]["mac"], "download_bytes": 32_000_000, "upload_bytes": 8_000_000,
+                 "wifi_associated": True},
             ]},
         }), encoding="utf-8",
     )
