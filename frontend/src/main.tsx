@@ -23,6 +23,7 @@ type Case = {
 };
 type Claim = { text: string; evidence_ids: string[] };
 type RelatedEvent = { id: string; source_id: string; timestamp: string; kind: number; collector: string; host: string; address: string };
+const evidenceAnchor = '#event-';
 
 const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
@@ -111,6 +112,7 @@ function App({ source = null, openCollectors, controls, panel }: {
     const saved = readWorkspacePreference('view');
     return navigation.find((item) => item.id === saved)?.id ?? 'dashboard';
   });
+  const handledCitation = useRef('');
   const viewContent = useRef<HTMLDivElement>(null);
   const [eventSearch, setEventSearch] = useState('');
   const [cases, setCases] = useState<Case[]>([]);
@@ -145,6 +147,25 @@ function App({ source = null, openCollectors, controls, panel }: {
     setSelected(id);
     setView('cases');
   }
+
+  useEffect(() => {
+    function openLinkedCase() {
+      const hash = location.hash;
+      if (!hash.startsWith(evidenceAnchor)) {
+        handledCitation.current = '';
+        return;
+      }
+      if (hash === handledCitation.current) return;
+      const linkedId = hash.slice(evidenceAnchor.length);
+      const linkedCase = [incident, ...cases].find((item) => item?.evidence.some((event) => event.id === linkedId));
+      if (!linkedCase) return;
+      handledCitation.current = hash;
+      openCase(linkedCase.id);
+    }
+    if (!panel) openLinkedCase();
+    window.addEventListener('hashchange', openLinkedCase);
+    return () => window.removeEventListener('hashchange', openLinkedCase);
+  }, [cases, incident, panel]);
 
   useEffect(() => {
     if (cloud || desktopLocal) {
@@ -250,7 +271,7 @@ function App({ source = null, openCollectors, controls, panel }: {
           ))}
         </aside>
         <main className="echo-workspace">
-          {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery}
+          {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery} visible={!panel}
             openEvents={(search) => { setEventSearch(search); setView('events'); }} /> :
             <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations yet' : 'Waiting for telemetry'}</h1>
               {loaded && !loadError && <p>Investigations appear when NORTH links related events. You can inspect individual events in IRIS.</p>}
@@ -265,8 +286,8 @@ function App({ source = null, openCollectors, controls, panel }: {
   );
 }
 
-function Investigation({ incident, sourceQuery, openEvents }: {
-  incident: Case; sourceQuery: string; openEvents: (search: string) => void;
+function Investigation({ incident, sourceQuery, openEvents, visible }: {
+  incident: Case; sourceQuery: string; openEvents: (search: string) => void; visible: boolean;
 }) {
   const [cursor, setCursor] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -277,12 +298,53 @@ function Investigation({ incident, sourceQuery, openEvents }: {
   const [related, setRelated] = useState<RelatedEvent[] | null>(null);
   const [relatedError, setRelatedError] = useState(false);
   const [draftProvider, setDraftProvider] = useState('');
+  const revealedCitation = useRef('');
   const last = incident.evidence.length - 1;
   const active = Math.min(cursor ?? last, last);
 
   function seek(index: number) {
     setPlaying(false);
     setCursor(index);
+  }
+
+  function revealEvidence(id: string) {
+    const index = incident.evidence.findIndex((item) => item.id === id);
+    const row = document.getElementById('event-' + id);
+    const raw = row?.querySelector('details');
+    if (index < 0 || !row || !raw) return;
+    seek(index);
+    raw.open = true;
+    window.requestAnimationFrame(() => {
+      row.scrollIntoView({ block: 'nearest' });
+      raw.querySelector('summary')?.focus({ preventScroll: true });
+    });
+  }
+
+  useEffect(() => {
+    if (!visible) return;
+    function openCitation() {
+      const hash = location.hash;
+      if (!hash.startsWith(evidenceAnchor)) {
+        revealedCitation.current = '';
+        return;
+      }
+      if (revealedCitation.current === hash) return;
+      const id = hash.slice(evidenceAnchor.length);
+      if (!incident.evidence.some((event) => event.id === id)) return;
+      revealedCitation.current = hash;
+      revealEvidence(id);
+    }
+    openCitation();
+    window.addEventListener('hashchange', openCitation);
+    return () => window.removeEventListener('hashchange', openCitation);
+  }, [incident.evidence, visible]);
+
+  function reopenCitation(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
+    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+    if (location.hash === evidenceAnchor + id) {
+      event.preventDefault();
+      revealEvidence(id);
+    }
   }
 
   useEffect(() => {
@@ -397,7 +459,8 @@ function Investigation({ incident, sourceQuery, openEvents }: {
           </ReactFlow>
         </div>}
         {incident.links.map((link) => <p key={link.evidence_id} className="reference">
-          {link.destination}{' '}<a href={'#event-' + link.evidence_id}>View evidence</a>
+          {link.destination}{' '}<a href={evidenceAnchor + link.evidence_id}
+            onClick={(event) => reopenCitation(event, link.evidence_id)}>View evidence</a>
         </p>)}
         {incident.links.length === 0 && <p>No connection events for this case.</p>}
       </section>
@@ -434,7 +497,8 @@ function Investigation({ incident, sourceQuery, openEvents }: {
       {message && <p role="status">{message}</p>}
       {claims.length > 0 && <ul>{claims.map((claim, index) => (
         <li key={index}>{claim.text}{' '}{claim.evidence_ids.map((id, position) => (
-          <a className="citation" key={id + position} href={'#event-' + id}>{id.slice(0, 8)}</a>
+          <a className="citation" key={id + position} href={evidenceAnchor + id}
+            onClick={(event) => reopenCitation(event, id)}>{id.slice(0, 8)}</a>
         ))}</li>
       ))}</ul>}
     </section>
