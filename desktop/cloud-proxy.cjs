@@ -1,5 +1,8 @@
+const { createHash, randomBytes } = require('node:crypto');
+
 function makeCloudProxy(origin, fetcher = fetch) {
   let sessionCookie = '';
+  let desktopRequest;
 
   return async (request) => {
     const { pathname, search } = new URL(request.url);
@@ -17,11 +20,27 @@ function makeCloudProxy(origin, fetcher = fetch) {
       if (body.length > 4096) return Response.json({ detail: 'Request too large.' }, { status: 413 });
     }
     try {
+      let started;
+      if (pathname === '/api/cloud/desktop/start' && request.method === 'POST') {
+        const verifier = randomBytes(32).toString('hex');
+        started = desktopRequest = { verifier };
+        body = JSON.stringify({ challenge: createHash('sha256').update(verifier).digest('hex') });
+      }
+      if (pathname === '/api/cloud/desktop/exchange' && request.method === 'POST') {
+        if (!desktopRequest?.ticket) return Response.json({ detail: 'Start sign-in again.' }, { status: 410 });
+        body = JSON.stringify(desktopRequest);
+      }
       const upstream = await fetcher(origin + pathname + search, {
         method: request.method, headers, body, redirect: 'error', signal: AbortSignal.timeout(12000),
       });
       const setCookie = upstream.headers.get('Set-Cookie');
-      if (upstream.ok && pathname === '/api/cloud/login') {
+      if (upstream.ok && started && started === desktopRequest) {
+        const result = await upstream.clone().json();
+        if (typeof result.ticket === 'string') started.ticket = result.ticket;
+      }
+      const exchanged = pathname === '/api/cloud/desktop/exchange' && upstream.status === 200;
+      if ((upstream.ok && pathname === '/api/cloud/login') || exchanged) {
+        desktopRequest = undefined;
         sessionCookie = setCookie?.match(/^(__Host-north_session=[^;]+)/)?.[1] ?? '';
         if (!sessionCookie || sessionCookie.endsWith('=')) {
           return Response.json({ detail: 'Cloud sign-in did not return a session.' }, { status: 502 });

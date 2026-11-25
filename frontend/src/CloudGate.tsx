@@ -2,6 +2,13 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CollectorSetup } from './CollectorSetup';
 
 type Source = { id: string; label: string; updated_at: string };
+type DesktopRequest = { ticket: string; expires: number };
+const desktop = location.protocol === 'north:';
+const ticketPattern = /^[a-f0-9]{32}\.[a-f0-9]{64}\.\d{10}\.[a-f0-9]{64}$/;
+const desktopCode = (ticket: string) => ticket.slice(0, 8).toUpperCase();
+const desktopPost = (operation: string, payload: object, signal?: AbortSignal) => fetch('/api/cloud/desktop/' + operation, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal,
+});
 
 export function CloudGate({ children }: {
   children: (source: string | null, openCollectors: () => void, controls: ReactNode) => ReactNode;
@@ -14,10 +21,16 @@ export function CloudGate({ children }: {
   const [active, setActive] = useState('');
   const [setup, setSetup] = useState(false);
   const [google, setGoogle] = useState(false);
+  const [desktopRequest, setDesktopRequest] = useState<DesktopRequest | null>(null);
+  const [approval, setApproval] = useState(() => {
+    if (desktop) return '';
+    const ticket = new URLSearchParams(location.search).get('desktop_sign_in') ?? sessionStorage.getItem('north-desktop-sign-in') ?? '';
+    return ticketPattern.test(ticket) ? ticket : '';
+  });
   const source = sources.find((item) => item.id === active) ?? sources[0];
 
   useEffect(() => {
-    if (location.protocol !== 'https:') return;
+    if (!desktop && location.protocol !== 'https:') return;
     const controller = new AbortController();
     void fetch('/api/cloud/auth/options', { signal: controller.signal }).then(async (response) => {
       if (!response.ok) return;
@@ -26,6 +39,71 @@ export function CloudGate({ children }: {
     }).catch(() => {});
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (desktop || !approval) return;
+    sessionStorage.setItem('north-desktop-sign-in', approval);
+    const url = new URL(location.href);
+    if (url.searchParams.has('desktop_sign_in')) {
+      url.searchParams.delete('desktop_sign_in');
+      history.replaceState(null, '', url);
+    }
+  }, [approval]);
+
+  useEffect(() => {
+    if (!desktopRequest) return;
+    const expires = desktopRequest.expires;
+    const controller = new AbortController();
+    let timer: number | undefined;
+    async function poll() {
+      try {
+        if (Date.now() / 1000 >= expires) throw new Error('Desktop sign-in expired. Try again.');
+        const response = await desktopPost('exchange', {}, controller.signal);
+        if (controller.signal.aborted) return;
+        if (response.status === 202) { timer = window.setTimeout(poll, 2500); return; }
+        if (!response.ok) throw new Error('Desktop sign-in could not be completed. Try again.');
+        setDesktopRequest(null);
+        setSignedIn(true);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setDesktopRequest(null);
+        setMessage(error instanceof Error ? error.message : 'Desktop sign-in failed.');
+      }
+    }
+    timer = window.setTimeout(poll, 2500);
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [desktopRequest]);
+
+  async function startDesktopSignIn() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const response = await desktopPost('start', {});
+      if (!response.ok) throw new Error('Could not start browser sign-in.');
+      const data = await response.json();
+      if (!ticketPattern.test(data.ticket) || !Number.isFinite(data.expires)) throw new Error('Invalid sign-in request.');
+      setDesktopRequest(data);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not start browser sign-in.');
+    } finally { setBusy(false); }
+  }
+
+  async function approveDesktop() {
+    setBusy(true);
+    try {
+      const response = await desktopPost('approve', { ticket: approval });
+      const result = await response.json();
+      setMessage(response.ok ? 'Desktop access approved. You can return to NORTH.' : result.detail);
+      if (response.ok || response.status === 410 || response.status === 409) clearApproval();
+    } catch {
+      setMessage('Desktop approval failed. Try again.');
+    } finally { setBusy(false); }
+  }
+
+  function clearApproval() {
+    sessionStorage.removeItem('north-desktop-sign-in');
+    setApproval('');
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -102,6 +180,16 @@ export function CloudGate({ children }: {
         <button onClick={() => void signOut()}>Sign out</button>
       </div>
     </div>;
+    if (approval) return <main className="cloud-sign-in"><section className="panel">
+      <h1>Approve NORTH Desktop</h1>
+      <p>Approve only if this code matches the one displayed in the desktop app.</p>
+      <p><strong>{desktopCode(approval)}</strong></p>
+      {message && <p role="status">{message}</p>}
+      <div className="cloud-actions">
+        <button onClick={() => void approveDesktop()} disabled={busy}>Approve desktop access</button>
+        <button onClick={clearApproval}>Cancel</button>
+      </div>
+    </section></main>;
     return setup ? <>{controls}<CollectorSetup back={() => setSetup(false)} /></> :
       children(source?.id ?? null, () => setSetup(true), controls);
   }
@@ -109,7 +197,12 @@ export function CloudGate({ children }: {
   return <main className="cloud-sign-in">
     <section className="panel">
       <h1>NORTH Cloud</h1>
-      {signedIn === false && google && <p><a className="button primary-action" href="/api/cloud/auth/google">Continue with Google</a></p>}
+      {signedIn === false && google && (desktop ? desktopRequest ? <div>
+        <p>Confirm this code in your browser <strong>{desktopCode(desktopRequest.ticket)}</strong></p>
+        <a className="button primary-action" target="_blank" rel="noopener" href={'/desktop-approve/' + desktopRequest.ticket}>Open browser</a>
+        <button onClick={() => setDesktopRequest(null)}>Cancel</button>
+      </div> : <p><button className="primary-action" disabled={busy} onClick={() => void startDesktopSignIn()}>Sign in through browser</button></p> :
+        <p><a className="button primary-action" href="/api/cloud/auth/google">Continue with Google</a></p>)}
       {signedIn === null ? <p>Checking your session…</p> : <form className="event-filters" onSubmit={(event) => {
         event.preventDefault(); void signIn();
       }}>

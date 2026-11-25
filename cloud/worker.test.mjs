@@ -70,6 +70,22 @@ test('Google sign-in creates an isolated workspace after state and PKCE checks',
   const session = signedIn.headers.getSetCookie().find((value) => value.startsWith('__Host-north_session=')).split(';')[0];
   assert.deepEqual(await (await call('/api/cloud/status', { Cookie: session })).json(), { signed_in: true, sources: [] });
   assert.equal(sqlite.prepare('SELECT count(*) AS count FROM cloud_accounts').get().count, 1);
+  const desktopPost = (operation, payload, cookie) => worker.fetch(new Request(root + '/api/cloud/desktop/' + operation, {
+    method: 'POST', headers: { Origin: root, ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(payload),
+  }), env);
+  const verifier = 'e'.repeat(64);
+  const challenge = createHash('sha256').update(verifier).digest('hex');
+  const { ticket } = await (await desktopPost('start', { challenge })).json();
+  assert.equal((await desktopPost('approve', { ticket })).status, 401);
+  assert.equal((await desktopPost('exchange', { ticket, verifier })).status, 202);
+  assert.equal((await desktopPost('approve', { ticket }, session)).status, 200);
+  assert.equal((await desktopPost('exchange', { ticket, verifier: 'f'.repeat(64) })).status, 403);
+  const exchange = await desktopPost('exchange', { ticket, verifier });
+  assert.equal(exchange.status, 200);
+  const desktopCookie = exchange.headers.get('Set-Cookie').split(';')[0];
+  assert.equal((await call('/api/cloud/status', { Cookie: desktopCookie })).status, 200);
+  assert.equal((await desktopPost('approve', { ticket }, session)).status, 409);
+  assert.equal((await desktopPost('exchange', { ticket, verifier })).status, 202);
 });
 
 test('cloud sources keep independent event and investigation history', async (t) => {

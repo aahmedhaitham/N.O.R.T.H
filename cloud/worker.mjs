@@ -109,6 +109,50 @@ async function sessionCookie(secret, account) {
 
 const googleEnabled = (env) => Boolean(env.NORTH_GOOGLE_CLIENT_ID && env.NORTH_GOOGLE_CLIENT_SECRET);
 
+async function desktopTicket(secret, ticket) {
+  const parts = /^([a-f0-9]{32})\.([a-f0-9]{64})\.(\d{10})\.([a-f0-9]{64})$/.exec(ticket ?? '');
+  if (!parts || Number(parts[3]) <= Date.now() / 1000 ||
+    !equal(parts[4], await signature(secret, 'desktop:' + parts.slice(1, 4).join('.')))) return null;
+  return { nonce: parts[1], challenge: parts[2], expires: Number(parts[3]) };
+}
+
+async function desktopAuth(request, url, env) {
+  if (request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+  if (!googleEnabled(env)) return json({ detail: 'Browser sign-in is unavailable.' }, 404);
+  let data;
+  try { data = await readBody(request, 1024); }
+  catch { return json({ detail: 'Invalid desktop request.' }, 400); }
+  if (!data || typeof data !== 'object') return json({ detail: 'Invalid desktop request.' }, 400);
+  if (url.pathname.endsWith('/start')) {
+    if (typeof data.challenge !== 'string' || !/^[a-f0-9]{64}$/.test(data.challenge)) {
+      return json({ detail: 'Invalid desktop challenge.' }, 422);
+    }
+    const nonce = randomHex().slice(0, 32);
+    const expires = Math.floor(Date.now() / 1000) + 300;
+    const value = `${nonce}.${data.challenge}.${expires}`;
+    return json({ ticket: value + '.' + await signature(env.NORTH_SESSION_SECRET, 'desktop:' + value), expires });
+  }
+  if (typeof data.ticket !== 'string') return json({ detail: 'Desktop request has expired.' }, 410);
+  const ticket = await desktopTicket(env.NORTH_SESSION_SECRET, data.ticket);
+  if (!ticket) return json({ detail: 'Desktop request has expired.' }, 410);
+  if (url.pathname.endsWith('/approve')) {
+    const account = await sessionValid(request, env.NORTH_SESSION_SECRET);
+    if (!account || account === 'legacy') return json({ detail: 'Sign in with your individual account first.' }, 401);
+    const grant = await env.DB.prepare(`INSERT INTO cloud_desktop_grants (nonce, account_id, expires_at)
+      SELECT ?, id, ? FROM cloud_accounts WHERE id = ? AND disabled_at IS NULL
+      ON CONFLICT(nonce) DO NOTHING RETURNING nonce`).bind(ticket.nonce, ticket.expires, account).first();
+    return grant ? json({ approved: true }) : json({ detail: 'This request is unavailable or already approved.' }, 409);
+  }
+  if (typeof data.verifier !== 'string' || !/^[a-f0-9]{64}$/.test(data.verifier) ||
+    !equal(ticket.challenge, await fingerprint(data.verifier))) return json({ detail: 'Invalid desktop verifier.' }, 403);
+  const grant = await env.DB.prepare(`UPDATE cloud_desktop_grants SET used = 1
+    WHERE nonce = ? AND expires_at > ? AND used = 0 AND EXISTS (
+      SELECT 1 FROM cloud_accounts a WHERE a.id = account_id AND a.disabled_at IS NULL
+    ) RETURNING account_id`).bind(ticket.nonce, Math.floor(Date.now() / 1000)).first();
+  if (!grant) return json({ approved: false }, 202);
+  return json({ signed_in: true }, 200, { 'Set-Cookie': await sessionCookie(env.NORTH_SESSION_SECRET, grant.account_id) });
+}
+
 function authRedirect(location, cookies = []) {
   const response = new Response(null, { status: 303, headers: {
     Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
@@ -334,6 +378,9 @@ async function caseDraft(env, source, caseId, account) {
 
 export default {
   async scheduled(controller, env) {
+    await env.DB.prepare(`DELETE FROM cloud_desktop_grants WHERE nonce IN (
+      SELECT nonce FROM cloud_desktop_grants WHERE expires_at <= ? ORDER BY expires_at LIMIT 1000
+    )`).bind(Math.floor(controller.scheduledTime / 1000)).run();
     const cutoff = retentionCutoff(env, controller.scheduledTime);
     if (cutoff) await pruneHostedData(env.DB, cutoff);
   },
@@ -350,6 +397,9 @@ export default {
     }
     if (request.method === 'GET' && [googleCallback, '/api/cloud/auth/google'].includes(path)) {
       return googleAuth(request, url, env);
+    }
+    if (request.method === 'POST' && /^\/api\/cloud\/desktop\/(start|approve|exchange)$/.test(path)) {
+      return desktopAuth(request, url, env);
     }
 
     if (request.method === 'POST' && path === '/api/cloud/snapshot') {

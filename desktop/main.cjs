@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -90,7 +90,15 @@ async function openWorkspace(nextOrigin, remember = false) {
     },
   });
   const contents = window.webContents;
-  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  contents.setWindowOpenHandler(({ url }) => {
+    const ticket = /^north:\/\/app\/desktop-approve\/([a-f0-9]{32}\.[a-f0-9]{64}\.\d{10}\.[a-f0-9]{64})$/.exec(url)?.[1];
+    if (connected && ticket) {
+      const approval = new URL('/', nextOrigin);
+      approval.searchParams.set('desktop_sign_in', ticket);
+      void shell.openExternal(approval.href).catch(() => {});
+    }
+    return { action: 'deny' };
+  });
   contents.session.setPermissionRequestHandler((_contents, _permission, done) => done(false));
   contents.session.setPermissionCheckHandler(() => false);
   const guard = (event) => {

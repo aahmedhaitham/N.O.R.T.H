@@ -59,6 +59,13 @@ CREATE TABLE IF NOT EXISTS cloud_usage_limits (
     used INTEGER NOT NULL,
     PRIMARY KEY (account_id, operation)
 );
+CREATE TABLE IF NOT EXISTS cloud_desktop_grants (
+    nonce TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL REFERENCES cloud_accounts(id),
+    expires_at INTEGER NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS cloud_desktop_grants_expiry ON cloud_desktop_grants (expires_at);
 
 INSERT OR IGNORE INTO cloud_sources (id, label, network, updated_at)
 SELECT 'legacy', 'Earlier collector', json_extract(payload, '$.network'), updated_at FROM snapshots;
