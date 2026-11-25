@@ -8,4 +8,9 @@ function workspaceOrigin(value) {
   return url.origin;
 }
 
-module.exports = { workspaceOrigin };
+function desktopStartup(configuration = {}) {
+  if (!configuration.cloudOnly) return { cloudOnly: false };
+  return { cloudOnly: true, origin: workspaceOrigin(configuration.origin) };
+}
+
+module.exports = { desktopStartup, workspaceOrigin };

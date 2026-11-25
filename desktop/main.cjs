@@ -2,7 +2,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session } = re
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { workspaceOrigin } = require('./workspace.cjs');
+const { desktopStartup, workspaceOrigin } = require('./workspace.cjs');
 const { makeCloudProxy } = require('./cloud-proxy.cjs');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
 const { deviceHistory } = require('./device-history.cjs');
@@ -11,6 +11,7 @@ let activeWindow;
 let setupWindow;
 let startupComplete = false;
 let cloudProxy;
+let hostedOrigin;
 const icon = path.join(__dirname, 'icons', 'north.ico');
 const localAddress = 'north://app/';
 const cloudPartition = 'persist:north-cloud';
@@ -124,7 +125,7 @@ async function openSavedWorkspace() {
 }
 
 ipcMain.handle('north:connect', async (event, value) => {
-  if (!setupWindow || event.sender !== setupWindow.webContents) return 'Workspace setup is unavailable.';
+  if (hostedOrigin || !setupWindow || event.sender !== setupWindow.webContents) return 'Workspace setup is unavailable.';
   try {
     const nextOrigin = workspaceOrigin(value);
     await openWorkspace(nextOrigin, true);
@@ -142,24 +143,38 @@ if (!app.requestSingleInstanceLock()) {
     activeWindow?.focus();
   });
   app.whenReady().then(async () => {
-    session.fromPartition(localPartition).protocol.handle('north', (request) => handleLocalRequest(request, localWorkspace));
+    const config = await fs.readFile(path.join(ui, 'workspace-default.json'), 'utf8')
+      .then(JSON.parse, (error) => {
+        if (error.code === 'ENOENT') return {};
+        throw error;
+      });
+    const startup = desktopStartup(config);
+    hostedOrigin = startup.origin;
+    if (!startup.cloudOnly) {
+      session.fromPartition(localPartition).protocol.handle('north', (request) => handleLocalRequest(request, localWorkspace));
+    }
     session.fromPartition(cloudPartition).protocol.handle('north', (request) => handleLocalRequest(request, cloudProxy));
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'Workspace', submenu: [
-        { label: 'This computer', click: () => void openWorkspace().catch(showStartupError) },
-        { label: 'Open cloud workspace', click: openSavedWorkspace },
-        { label: 'Connect to a different workspace…', click: configureWindow },
+        ...(startup.cloudOnly ? [] : [
+          { label: 'This computer', click: () => void openWorkspace().catch(showStartupError) },
+          { label: 'Open cloud workspace', click: openSavedWorkspace },
+          { label: 'Connect to a different workspace…', click: configureWindow },
+        ]),
         { label: 'Reload', accelerator: 'Ctrl+R', click: () => activeWindow?.reload() },
         { role: 'quit' },
       ] },
       { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
     ]));
-    await openWorkspace().catch(showStartupError);
+    await openWorkspace(hostedOrigin);
     startupComplete = true;
+  }).catch(() => {
+    showStartupError();
+    app.quit();
   });
   app.on('window-all-closed', () => { if (startupComplete) app.quit(); });
 }
 
 function showStartupError() {
-  dialog.showErrorBox('NORTH', 'The local dashboard could not open.');
+  dialog.showErrorBox('NORTH', 'The dashboard could not open.');
 }
