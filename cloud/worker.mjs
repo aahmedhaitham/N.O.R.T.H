@@ -606,13 +606,24 @@ export default {
         }
       }
     }
-    const revoke = /^\/api\/cloud\/pairings\/(collector-[0-9a-f]{20})\/revoke$/.exec(path);
-    if (request.method === 'POST' && revoke) {
+    const pairingAction = /^\/api\/cloud\/pairings\/(collector-[0-9a-f]{20})\/(revoke|replace-key)$/.exec(path);
+    if (request.method === 'POST' && pairingAction) {
       if (request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+      const [, pairingId, action] = pairingAction;
+      if (action === 'replace-key') {
+        const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join('');
+        const issuedAt = new Date().toISOString();
+        const pairing = await env.DB.prepare(
+          `UPDATE cloud_pairings SET token_hash = ? WHERE source_id = ? AND revoked_at IS NULL
+           AND coalesce((SELECT account_id FROM cloud_source_owners WHERE source_id = cloud_pairings.source_id), 'legacy') = ?
+           RETURNING source_id, label`,
+        ).bind(await fingerprint(token), pairingId, account).first();
+        return pairing ? json({ ...pairing, token, issued_at: issuedAt }) : json({ detail: 'Active collector not found.' }, 404);
+      }
       const result = await env.DB.prepare(
         `UPDATE cloud_pairings SET revoked_at = coalesce(revoked_at, ?) WHERE source_id = ?
          AND coalesce((SELECT account_id FROM cloud_source_owners WHERE source_id = cloud_pairings.source_id), 'legacy') = ?`,
-      ).bind(new Date().toISOString(), revoke[1], account).run();
+      ).bind(new Date().toISOString(), pairingId, account).run();
       return result.meta.changes ? json({ revoked: true }) : json({ detail: 'Collector not found.' }, 404);
     }
     const draftId = request.method === 'POST' && /^\/api\/cases\/([0-9a-f]{24})\/draft$/.exec(path)?.[1];

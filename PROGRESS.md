@@ -44,6 +44,7 @@ The first batch adds collector gateway, DNS, and HTTPS checks with 12 recent sam
 
 ### UX backlog
 
+- Collector details can replace a lost pairing key after confirmation. The source ID and history stay with the collector, and the old key stops authorizing uploads.
 - Existing collector rows open inline details with the source ID and a copyable restart command. Synced, active collectors can be selected directly from their details.
 - Overview attention items jump directly to the relevant ATLAS device review or collection status section.
 - ATLAS ranks router traffic by device and shows download, upload, and combined totals. A collector-reported name appears when observations for that MAC agree.

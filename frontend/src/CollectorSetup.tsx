@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { pollVisible } from './pollVisible';
 
 type Pairing = { source_id: string; label: string; revoked_at: string | null; updated_at: string | null };
-type Created = { source_id: string; label: string; token: string };
+type Created = { source_id: string; label: string; token: string; issued_at?: string };
 
 export function CollectorSetup({ back, availableSources, useCollector }: {
   back: () => void; availableSources: string[]; useCollector: (id: string) => void;
@@ -15,6 +15,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
   const [listError, setListError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState('');
+  const [confirmReplace, setConfirmReplace] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
   const [opened, setOpened] = useState('');
   const [detailsCopyStatus, setDetailsCopyStatus] = useState('');
@@ -25,6 +26,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
     return "& '.\\Start NORTH Collector.cmd' -Source " + id + (workspace ? ' -Workspace ' + workspace : '');
   }
   const command = created ? startCommand(created.source_id) : '';
+  const synced = paired?.updated_at && (!created?.issued_at || paired.updated_at >= created.issued_at);
 
   async function update(signal?: AbortSignal) {
     const response = await fetch('/api/cloud/pairings', { signal });
@@ -67,6 +69,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
         setCopyStatus('');
       }
       setConfirm('');
+      setConfirmReplace(false);
       await update().catch(() => setListError(true));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Cloud request failed.');
@@ -74,6 +77,26 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
       setBusy(false);
     }
   }
+
+  const keyPanel = created && <div className="pairing-secret">
+        <h3>{created.issued_at ? 'Reconnect ' : 'Connect '}{created.label}</h3>
+        <ol>
+          <li>{created.issued_at ? 'Stop the current collector with Ctrl+C and keep its existing folder.' :
+            'Extract the collector ZIP on the Windows PC you want to monitor.'}</li>
+          <li>Open PowerShell in the extracted folder and run this command.</li>
+          <li>{workspace ? 'Paste' : 'Enter the workspace address and paste'} the pairing key when prompted. Leave the collector window open during setup.</li>
+        </ol>
+        <pre>{command}</pre>
+        <button onClick={() => void copy(command, 'Command')}>Copy command</button>
+        <label>Pairing key <input readOnly value={created.token} onFocus={(event) => event.currentTarget.select()} /></label>
+        <div className="case-links">
+          <button onClick={() => void copy(created.token, 'Pairing key')}>Copy pairing key</button>
+          <button onClick={() => { setCreated(null); setCopyStatus(''); }}>Hide key</button>
+        </div>
+        <p role="status">{paired?.revoked_at ? 'Pairing revoked.' : synced ?
+          'NORTH received a sync.' : created.issued_at ? 'Waiting for a sync with the replacement key…' :
+          'Waiting for the first sync…'}{copyStatus && ' ' + copyStatus}</p>
+      </div>;
 
   return <main className="collector-settings collector-workspace">
     <header className="collector-heading dashboard-heading">
@@ -92,23 +115,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
           onChange={(event) => setLabel(event.target.value)} /></label>
         <button className="primary-action" type="submit" disabled={busy || !label.trim()}>Create pairing</button>
       </form>
-      {created && <div className="pairing-secret">
-        <h3>Connect {created.label}</h3>
-        <ol>
-          <li>Extract the collector ZIP on the Windows PC you want to monitor.</li>
-          <li>Open PowerShell in the extracted folder and run this command.</li>
-          <li>{workspace ? 'Paste' : 'Enter the workspace address and paste'} the pairing key when prompted. Leave the collector window open during setup.</li>
-        </ol>
-        <pre>{command}</pre>
-        <button onClick={() => void copy(command, 'Command')}>Copy command</button>
-        <label>Pairing key <input readOnly value={created.token} onFocus={(event) => event.currentTarget.select()} /></label>
-        <div className="case-links">
-          <button onClick={() => void copy(created.token, 'Pairing key')}>Copy pairing key</button>
-          <button onClick={() => { setCreated(null); setCopyStatus(''); }}>Hide key</button>
-        </div>
-        <p role="status">{paired?.revoked_at ? 'Pairing revoked.' : paired?.updated_at ?
-          'Connected. NORTH received the first sync.' : 'Waiting for the first sync…'}{copyStatus && ' ' + copyStatus}</p>
-      </div>}
+      {!created?.issued_at && keyPanel}
     </section>
     <section className="panel">
       <h2>Paired collectors</h2>
@@ -126,6 +133,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
               onClick={() => {
                 setOpened(opened === item.source_id ? '' : item.source_id);
                 setDetailsCopyStatus('');
+                setConfirmReplace(false);
               }}>{item.label}</button></th>
             <td><span className="collector-state" data-state={item.revoked_at ? 'revoked' : item.updated_at ? 'synced' : 'waiting'}>
               {item.revoked_at ? 'Revoked' : item.updated_at ? 'Has synced' : 'Waiting for first sync'}
@@ -159,6 +167,16 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
                     <pre>{startCommand(item.source_id)}</pre>
                     <button type="button" onClick={() => void copy(startCommand(item.source_id), 'Setup command', setDetailsCopyStatus)}>Copy setup command</button>
                   </details>
+                  {confirmReplace ? <div className="case-links">
+                    <p>The old key will stop working immediately. NORTH keeps this collector and its history.</p>
+                    <button type="button" disabled={busy}
+                      onClick={() => void mutate('/api/cloud/pairings/' + item.source_id + '/replace-key', {}, true)}>
+                      Confirm replace key
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => setConfirmReplace(false)}>Cancel</button>
+                  </div> : <button type="button" disabled={busy || Boolean(created?.issued_at && created.source_id === item.source_id)}
+                    onClick={() => setConfirmReplace(true)}>Replace pairing key</button>}
+                  {created?.issued_at && created.source_id === item.source_id && keyPanel}
                   {detailsCopyStatus && <p role="status">{detailsCopyStatus}</p>}
                 </>}
               </section>
