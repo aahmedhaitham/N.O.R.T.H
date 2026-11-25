@@ -20,7 +20,7 @@
     "appId": "app.north.console",
     "productName": "NORTH",
     "artifactName": "NORTH-Desktop-Windows-x64.exe",
-    "files": ["main.cjs", "workspace.cjs", "cloud-proxy.cjs", "local-workspace.cjs", "device-history.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
+    "files": ["main.cjs", "workspace.cjs", "cloud-proxy.cjs", "local-workspace.cjs", "device-history.cjs", "packet-capture.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
     "extraResources": [
       {"from": "ui", "to": "north-ui"},
       {"from": "../tools", "to": "north-tools", "filter": ["Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "SysmonFormat.ps1"]}

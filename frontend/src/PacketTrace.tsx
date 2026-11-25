@@ -4,6 +4,7 @@ import { formatTraffic } from './formatTraffic';
 
 const pageSize = 50;
 type Conversation = { a: string; b: string; packets: number; bytes: number };
+type Adapter = { id: number; label: string };
 
 function endpoints(source: string, destination: string) {
   return source < destination ? [source, destination] : [destination, source];
@@ -21,6 +22,12 @@ export function PacketTrace() {
   const [search, setSearch] = useState('');
   const [protocol, setProtocol] = useState('');
   const [pair, setPair] = useState<Conversation | null>(null);
+  const [adapters, setAdapters] = useState<Adapter[]>([]);
+  const [adapter, setAdapter] = useState('');
+  const [seconds, setSeconds] = useState(15);
+  const [captureStatus, setCaptureStatus] = useState('');
+  const [captureBusy, setCaptureBusy] = useState(false);
+  const desktop = location.protocol === 'north:';
   const load = useRef(0);
   const overview = useMemo(() => {
     const groups = new Map<string, Conversation>();
@@ -58,7 +65,7 @@ export function PacketTrace() {
   }
   const peak = Math.max(1, ...volume);
 
-  async function open(file: File) {
+  async function openCapture(read: () => Promise<ArrayBuffer>) {
     const request = ++load.current;
     setTrace(null);
     setPage(0);
@@ -67,8 +74,7 @@ export function PacketTrace() {
     setPair(null);
     setMessage('Reading packet headers…');
     try {
-      if (file.size > maxTraceBytes) throw new Error('Choose a capture up to 8 MiB.');
-      const result = readPacketTrace(await file.arrayBuffer());
+      const result = readPacketTrace(await read());
       if (request !== load.current) return;
       setTrace(result);
       setMessage((result.limited ? 'Showing the first 5,000 supported packets.' : `${result.packets.length} packets loaded.`) +
@@ -78,18 +84,80 @@ export function PacketTrace() {
     }
   }
 
+  async function listAdapters() {
+    setCaptureBusy(true);
+    setCaptureStatus('');
+    try {
+      const response = await fetch('/api/desktop/capture/interfaces');
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail);
+      const items: Adapter[] = body.interfaces;
+      setAdapters(items);
+      setAdapter('');
+      if (items.length === 0) setCaptureStatus('No eligible capture adapters were found.');
+    } catch (error) {
+      setAdapters([]);
+      setAdapter('');
+      setCaptureStatus(error instanceof Error ? error.message : 'Adapters could not be listed.');
+    } finally {
+      setCaptureBusy(false);
+    }
+  }
+
+  async function startCapture() {
+    setCaptureBusy(true);
+    setCaptureStatus('Waiting for capture confirmation and completion…');
+    try {
+      const response = await fetch('/api/desktop/capture/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: Number(adapter), seconds }),
+      });
+      if (response.status === 204) {
+        setCaptureStatus('Capture cancelled.');
+        return;
+      }
+      if (!response.ok) throw new Error((await response.json()).detail);
+      await openCapture(() => response.arrayBuffer());
+      setCaptureStatus('');
+    } catch (error) {
+      setCaptureStatus(error instanceof Error ? error.message : 'Capture could not finish.');
+    } finally {
+      setCaptureBusy(false);
+    }
+  }
+
   return <details className="panel">
     <summary>Inspect a packet trace</summary>
     <p>Open an Ethernet PCAP or PCAPNG from an authorized network. NORTH displays packet headers and keeps the file in this window.</p>
-    <details>
+    {desktop ? <details>
+      <summary>Capture on this computer</summary>
+      <p>Record a short trace on an authorized local adapter. Packet prefixes can contain payload bytes and stay in this app window.</p>
+      <div className="event-filters">
+        <button type="button" disabled={captureBusy} onClick={() => void listAdapters()}>Find adapters</button>
+        {adapters.length > 0 && <>
+          <label>Adapter <select value={adapter} disabled={captureBusy} onChange={(event) => setAdapter(event.target.value)}>
+            <option value="">Select an adapter</option>
+            {adapters.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select></label>
+          <label>Duration <select value={seconds} disabled={captureBusy} onChange={(event) => setSeconds(Number(event.target.value))}>
+            {[10, 15, 30].map((duration) => <option key={duration} value={duration}>{duration} seconds</option>)}
+          </select></label>
+          <button type="button" disabled={captureBusy || !adapter} onClick={() => void startCapture()}>Start capture</button>
+        </>}
+      </div>
+      {captureStatus && <p role="status">{captureStatus}</p>}
+    </details> : <details>
       <summary>Capture on this computer</summary>
       <p>The collector bundle includes a short capture tool for computers with Dumpcap and a working capture driver. Capture only on interfaces you’re authorized to monitor.</p>
       <pre>{'python tools/capture_north.py --list\npython tools/capture_north.py --interface 1 --seconds 15'}</pre>
       <p>Use the interface number from the list. The capture stops automatically and saves a local PCAPNG you can open here. Packet prefixes can contain payload bytes.</p>
-    </details>
-    <input type="file" accept=".pcap,.pcapng" aria-label="Open local packet capture" onChange={(event) => {
+    </details>}
+    <input type="file" accept=".pcap,.pcapng" aria-label="Open local packet capture" disabled={captureBusy} onChange={(event) => {
       const file = event.currentTarget.files?.[0];
-      if (file) void open(file);
+      if (file) void openCapture(() => {
+        if (file.size > maxTraceBytes) throw new Error('Choose a capture up to 8 MiB.');
+        return file.arrayBuffer();
+      });
       event.currentTarget.value = '';
     }} />
     {message && <p role="status">{message}</p>}

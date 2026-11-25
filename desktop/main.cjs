@@ -6,6 +6,7 @@ const { desktopStartup, workspaceOrigin } = require('./workspace.cjs');
 const { makeCloudProxy } = require('./cloud-proxy.cjs');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
 const { deviceHistory } = require('./device-history.cjs');
+const { makePacketCapture } = require('./packet-capture.cjs');
 
 let activeWindow;
 let setupWindow;
@@ -19,6 +20,17 @@ const localPartition = 'persist:north-local';
 const ui = app.isPackaged ? path.join(process.resourcesPath, 'north-ui') : path.join(__dirname, 'ui');
 const scripts = app.isPackaged ? path.join(process.resourcesPath, 'north-tools') : path.join(__dirname, '..', 'tools');
 const localWorkspace = makeLocalWorkspace(scripts, undefined, deviceHistory(path.join(app.getPath('userData'), 'device-history.json')));
+const packetCapture = makePacketCapture({
+  async confirm(adapter, seconds) {
+    if (!activeWindow || activeWindow.isDestroyed()) return false;
+    const { response } = await dialog.showMessageBox(activeWindow, {
+      type: 'question', title: 'NORTH packet capture', message: `Capture on ${adapter} for up to ${seconds} seconds?`,
+      detail: 'Capture only on a network you’re authorized to monitor. The trace stays in this app window.',
+      buttons: ['Cancel', 'Start capture'], defaultId: 0, cancelId: 0,
+    });
+    return response === 1;
+  },
+});
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'north', privileges: {
   standard: true, secure: true, supportFetchAPI: true,
@@ -27,6 +39,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'north', privileges: {
 async function handleLocalRequest(request, api) {
   const url = new URL(request.url);
   if (url.hostname !== 'app') return new Response(null, { status: 404 });
+  if (url.pathname.startsWith('/api/desktop/capture/')) return packetCapture(request);
   if (url.pathname.startsWith('/api/')) {
     return api ? api(request) : Response.json({ detail: 'No workspace selected.' }, { status: 503 });
   }

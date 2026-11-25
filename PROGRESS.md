@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+- Windows desktop ATLAS can list local capture adapters and start a short capture after native confirmation. Dumpcap streams the bounded trace directly to the inspector without saving or uploading it. Driver and installed-app verification are pending.
 - The collector bundle includes a manually started, bounded Ethernet capture command for an existing Dumpcap installation. Capture files stay local. The trace viewer charts filtered traffic and can clear the loaded capture from the window.
 - ATLAS separates Devices, Traffic, Diagnostics, and Packet traces into focused views. Router usage intervals have a per-device chart, and the app connections table links directly to an IRIS process search.
 - Local packet analysis includes IP and protocol filters, visible TCP and UDP ports where available, and selectable address pairs ranked by original packet bytes. Internet health shows the latest gateway, DNS, and HTTPS results above recent history. Router traffic can be filtered to devices observed on Wi-Fi.
