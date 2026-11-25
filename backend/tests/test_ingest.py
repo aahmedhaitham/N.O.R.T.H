@@ -45,12 +45,8 @@ def test_invalid_supported_event_is_reported_before_import():
 
 
 def test_windows_and_linux_cases_share_one_store(tmp_path):
-    journal = [
-        {"_HOSTNAME": "KALI-LAB", "_MACHINE_ID": "synthetic-kali", "_COMM": "sshd",
-         "__CURSOR": f"demo-{index}", "__REALTIME_TIMESTAMP": str(1_768_471_200_000_000 + index * 1_000_000),
-         "MESSAGE": "Failed password for demo from 192.0.2.42 port 54321 ssh2"}
-        for index in range(3)
-    ]
+    source = Path(__file__).parents[1] / "fixtures" / "linux-ssh-demo.jsonl"
+    journal = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines()]
     unrelated = {**journal[0], "MESSAGE": "Accepted publickey for demo from 192.0.2.42 port 54321 ssh2"}
     alerts, events, skipped = prepare(
         "\n".join(json.dumps(entry) for entry in [unrelated, *reversed(journal)]), "journal",

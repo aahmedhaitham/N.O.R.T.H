@@ -37,6 +37,8 @@ With Docker and Compose available, run `docker compose up --build` at the reposi
 
 Use the Docker Compose command above, or run the same two services natively with Python 3.14 and Node 26. From `backend`, use `python3 -m venv .venv`, `.venv/bin/python -m pip install -r requirements-dev.txt`, then `.venv/bin/python -m uvicorn main:app`. In a second terminal from `frontend`, use `npm ci` and `npm run dev`.
 
+To try a Linux case with the backend running, run `python ingest.py fixtures/linux-ssh-demo.jsonl --format journal` from `backend` on Windows, or use `python3` on Kali. The fixture contains three synthetic OpenSSH failures and requires no SSH service.
+
 ## Deploy the public portfolio demo
 
 Create a [Render Blueprint](https://render.com/docs/infrastructure-as-code) connected to this repository. The included `render.yaml` deploys a single Docker web service. It serves the React console and the FastAPI routes from the same HTTPS origin, including the live WebSocket, timeline replay and report export. Visitors can use the bundled synthetic case without an account. Ingestion and live model calls are disabled on the public instance. The demo uses an ephemeral SQLite database seeded at startup. The PostgreSQL configuration remains available through Docker Compose.
