@@ -13,7 +13,8 @@ function cursor(event: Event) {
   return event.timestamp + '|' + event.id;
 }
 
-type Filter = { search: string; kind: string; before: string | null };
+type Criteria = { search: string; kind: string };
+type Filter = Criteria & { before: string | null };
 
 function staticPage(events: Event[], filter: Filter): Page {
   const needle = filter.search.toLowerCase();
@@ -33,13 +34,17 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
 }) {
   const [search, setSearch] = useState(initialSearch);
   const [kind, setKind] = useState('');
-  const [filter, setFilter] = useState<Filter>({ search: initialSearch, kind: '', before: null });
+  const [criteria, setCriteria] = useState<Criteria>({ search: initialSearch, kind: '' });
+  const [cursors, setCursors] = useState<string[]>([]);
+  const [attempt, setAttempt] = useState(0);
+  const before = cursors.at(-1) ?? null;
   const [page, setPage] = useState<Page | null>(null);
   const [error, setError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = page?.events.find((item) => item.id === selectedId) ?? page?.events[0];
 
   useEffect(() => {
+    const filter = { ...criteria, before };
     const controller = new AbortController();
     let timer: number | undefined;
     async function load() {
@@ -71,19 +76,25 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [filter, portfolio, source]);
+  }, [criteria, before, attempt, portfolio, source]);
 
-  function changeFilter(next: Filter) {
+  function resetResults() {
     setPage(null);
     setError(false);
     setSelectedId(null);
-    setFilter(next);
+  }
+
+  function goToPage(next: string[]) {
+    resetResults();
+    setCursors(next);
   }
 
   function applyCriteria(query: string, eventType: string) {
     setSearch(query);
     setKind(eventType);
-    changeFilter({ search: query, kind: eventType, before: null });
+    resetResults();
+    setCursors([]);
+    setCriteria({ search: query, kind: eventType });
   }
 
   function pivot(value: string) {
@@ -97,7 +108,7 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
     <section className="panel iris-filters">
       <form className="event-filters" aria-label="Filter events" onSubmit={(event) => {
         event.preventDefault();
-        changeFilter({ search: search.trim(), kind, before: null });
+        applyCriteria(search.trim(), kind);
       }}>
         <label>Search event data
           <input type="search" placeholder="Hostname, process, IP address, or keyword"
@@ -112,7 +123,7 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
         <button type="submit">Apply filters</button>
       </form>
     </section>
-    {canSave && <SavedSearches query={filter.search} kind={filter.kind} apply={(item) => applyCriteria(item.query, item.kind)} />}
+    {canSave && <SavedSearches query={criteria.search} kind={criteria.kind} apply={(item) => applyCriteria(item.query, item.kind)} />}
     <section className="panel" aria-labelledby="event-results">
       <header className="event-results-heading">
         <h2 id="event-results">Event results</h2>
@@ -120,19 +131,22 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
           {page.events.length} {page.events.length === 1 ? 'event' : 'events'} shown
         </span>}
       </header>
-      {(filter.search || filter.kind) && <div className="event-active-filters" aria-label="Applied filters" role="group">
-        {filter.search && <button type="button" aria-label={`Remove search filter: ${filter.search}`}
-          onClick={() => applyCriteria('', filter.kind)}>{filter.search} <span aria-hidden="true">×</span></button>}
-        {filter.kind && <button type="button" aria-label="Remove event type filter"
-          onClick={() => applyCriteria(filter.search, '')}>{eventNames[Number(filter.kind)] ?? 'Event ' + filter.kind} <span aria-hidden="true">×</span></button>}
+      {(criteria.search || criteria.kind) && <div className="event-active-filters" aria-label="Applied filters" role="group">
+        {criteria.search && <button type="button" aria-label={`Remove search filter: ${criteria.search}`}
+          onClick={() => applyCriteria('', criteria.kind)}>{criteria.search} <span aria-hidden="true">×</span></button>}
+        {criteria.kind && <button type="button" aria-label="Remove event type filter"
+          onClick={() => applyCriteria(criteria.search, '')}>{eventNames[Number(criteria.kind)] ?? 'Event ' + criteria.kind} <span aria-hidden="true">×</span></button>}
       </div>}
-      {error && <p role="status">The event feed is temporarily unavailable.</p>}
+      {error && <div className="event-pagination">
+        <p role="status">The event feed is temporarily unavailable.</p>
+        <button type="button" onClick={() => { setError(false); setAttempt((value) => value + 1); }}>Retry</button>
+      </div>}
       {!error && !page && <p role="status">Loading events…</p>}
       {page?.coverage === 'sysmon_unavailable' ? <div>
         <h2>Windows events are unavailable</h2>
         <p>NORTH needs a readable Sysmon event log. The network view is still available.</p>
         <button onClick={openNetwork}>Open ATLAS network inventory</button>
-      </div> : page?.events.length === 0 && <p>{filter.kind || filter.search ? 'No events match these filters.' : 'No events are available yet.'}</p>}
+      </div> : page?.events.length === 0 && <p>{criteria.kind || criteria.search ? 'No events match these filters.' : 'No events are available yet.'}</p>}
       {selected && <div className="iris-split">
         <ul className="event-list" aria-label="Collected events">{page?.events.map((event) => {
           const observed = event.target || event.destination || event.source_ip || event.process;
@@ -163,10 +177,13 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
           <pre tabIndex={0}>{JSON.stringify(selected.raw, null, 2)}</pre>
         </section>
       </div>}
-      <div className="event-pagination">
-        {filter.before && <button onClick={() => changeFilter({ ...filter, before: null })}>Back to newest</button>}
-        {page?.next && <button onClick={() => changeFilter({ ...filter, before: page.next })}>Older events</button>}
-      </div>
+      {(before || page?.next) && <nav className="event-pagination" aria-label="Event pages">
+        <button type="button" disabled={!before} onClick={() => goToPage(cursors.slice(0, -1))}>Newer events</button>
+        <span className="reference" aria-live="polite">Page {cursors.length + 1}</span>
+        <button type="button" disabled={!page?.next}
+          onClick={() => { if (page?.next) goToPage([...cursors, page.next]); }}>Older events</button>
+        {cursors.length > 1 && <button type="button" onClick={() => goToPage([])}>Back to newest</button>}
+      </nav>}
     </section>
   </main>;
 }
