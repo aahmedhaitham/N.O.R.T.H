@@ -11,6 +11,7 @@ import { InstallApp } from './InstallApp';
 import { CloudGate } from './CloudGate';
 import { CaseReview } from './CaseReview';
 import { Appearance } from './Appearance';
+import { readWorkspacePreference, writeWorkspacePreference } from './workspaceSession';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
@@ -105,11 +106,18 @@ function App({ source = null, openCollectors, controls }: {
   openCollectors?: () => void;
   controls?: import('react').ReactNode;
 }) {
-  const [view, setView] = useState<View>('dashboard');
+  const [view, updateView] = useState<View>(() => {
+    const saved = readWorkspacePreference('view');
+    return navigation.find((item) => item.id === saved)?.id ?? 'dashboard';
+  });
   const viewContent = useRef<HTMLDivElement>(null);
   const [eventSearch, setEventSearch] = useState('');
   const [cases, setCases] = useState<Case[]>([]);
-  const [selected, setSelected] = useState('');
+  const [selected, updateSelected] = useState(() => {
+    const saved = readWorkspacePreference('case');
+    const prefix = (source ?? '') + ':';
+    return saved.startsWith(prefix) ? saved.slice(prefix.length) : '';
+  });
   const [online, setOnline] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -120,6 +128,16 @@ function App({ source = null, openCollectors, controls }: {
   useEffect(() => {
     if (viewContent.current) viewContent.current.scrollTop = 0;
   }, [view]);
+
+  function setView(next: View) {
+    updateView(next);
+    writeWorkspacePreference('view', next);
+  }
+
+  function setSelected(id: string) {
+    updateSelected(id);
+    writeWorkspacePreference('case', (source ?? '') + ':' + id);
+  }
 
   function openCase(id: string) {
     setSelected(id);

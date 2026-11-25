@@ -2,9 +2,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CollectorSetup } from './CollectorSetup';
 import { pollVisible } from './pollVisible';
 import { WorkspaceSettings } from './WorkspaceSettings';
+import { clearWorkspacePreferences, readWorkspacePreference, writeWorkspacePreference } from './workspaceSession';
 
 type Source = { id: string; label: string; updated_at: string };
 type DesktopRequest = { ticket: string; expires: number };
+type WorkspaceSection = 'dashboard' | 'collectors' | 'settings';
 const desktop = location.protocol === 'north:';
 const ticketPattern = /^[a-f0-9]{32}\.[a-f0-9]{64}\.\d{10}\.[a-f0-9]{64}$/;
 const desktopCode = (ticket: string) => ticket.slice(0, 8).toUpperCase();
@@ -29,8 +31,11 @@ export function CloudGate({ children }: {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [sources, setSources] = useState<Source[]>([]);
-  const [active, setActive] = useState('');
-  const [section, setSection] = useState<'dashboard' | 'collectors' | 'settings'>('dashboard');
+  const [active, setActive] = useState(() => readWorkspacePreference('collector'));
+  const [section, updateSection] = useState<WorkspaceSection>(() => {
+    const saved = readWorkspacePreference('section');
+    return saved === 'collectors' || saved === 'settings' ? saved : 'dashboard';
+  });
   const [google, setGoogle] = useState(false);
   const [desktopRequest, setDesktopRequest] = useState<DesktopRequest | null>(null);
   const [approval, setApproval] = useState(() => {
@@ -40,6 +45,16 @@ export function CloudGate({ children }: {
   });
   const source = sources.find((item) => item.id === active) ?? sources[0];
   const hasSource = Boolean(source);
+
+  function setSection(next: WorkspaceSection) {
+    updateSection(next);
+    writeWorkspacePreference('section', next);
+  }
+
+  function selectCollector(id: string) {
+    setActive(id);
+    writeWorkspacePreference('collector', id);
+  }
 
   useEffect(() => {
     if (!desktop && location.protocol !== 'https:') return;
@@ -128,6 +143,10 @@ export function CloudGate({ children }: {
           setSources(data.sources);
           setSignedIn(true);
         } else if (response.status === 401) {
+          clearWorkspacePreferences();
+          setSources([]);
+          setActive('');
+          updateSection('dashboard');
           setSignedIn(false);
         } else {
           setSignedIn(false);
@@ -168,7 +187,8 @@ export function CloudGate({ children }: {
       setSignedIn(false);
       setSources([]);
       setActive('');
-      setSection('dashboard');
+      updateSection('dashboard');
+      clearWorkspacePreferences();
       setMessage('');
     } catch {
       setMessage('Sign-out could not be completed.');
@@ -179,7 +199,7 @@ export function CloudGate({ children }: {
     const controls = <div className="cloud-banner">
       <div className="cloud-context">
       {source ? <label><span>Collector</span>
-        <select value={source.id} onChange={(event) => setActive(event.target.value)}>
+        <select value={source.id} onChange={(event) => selectCollector(event.target.value)}>
           {sources.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label> : <span>No collector connected</span>}
