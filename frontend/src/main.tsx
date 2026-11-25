@@ -210,7 +210,7 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
       const body = await response.json();
       if (!response.ok) throw new Error(body.detail || 'Draft request failed.');
       setClaims(body.claims);
-      setDraftProvider(body.reason === 'ai_limit' ? 'ai_limit' : body.provider ?? '');
+      setDraftProvider(body.reason ?? body.provider ?? '');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Draft request failed.');
     } finally {
@@ -308,6 +308,7 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
       </>}
       {draftProvider && <p role="status">{draftProvider === 'cloud-ai' ? 'Prioritized by cloud AI' :
         draftProvider === 'ai_limit' ? 'The workspace reached its hourly AI limit. This brief uses recorded evidence.' :
+          draftProvider === 'ai_capacity' ? 'Cloud AI is at capacity. This brief uses recorded evidence.' :
           'Generated from recorded evidence'}</p>}
       {message && <p role="status">{message}</p>}
       {claims.length > 0 && <ul>{claims.map((claim, index) => (

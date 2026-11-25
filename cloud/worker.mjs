@@ -11,6 +11,43 @@ const googleCallback = '/api/cloud/auth/google/callback';
 const oauthCookie = '__Host-north_oauth';
 const randomHex = () => Array.from(crypto.getRandomValues(new Uint8Array(32)),
   (byte) => byte.toString(16).padStart(2, '0')).join('');
+const utcTimestamp = (ms) => new Date(ms).toISOString().replace('Z', '000+00:00');
+
+function retentionCutoff(env, now) {
+  const days = String(env.NORTH_HOSTED_RETENTION_DAYS ?? '');
+  if (!/^[1-9]\d{0,2}$/.test(days) || Number(days) > 365) return null;
+  return utcTimestamp(now - Number(days) * 86400000);
+}
+
+function filterRetainedSnapshot(body, cutoff, now) {
+  const earliest = Date.parse(cutoff);
+  const latest = now + 300000;
+  const retained = (timestamp) => {
+    if (typeof timestamp !== 'string') return false;
+    const time = Date.parse(timestamp);
+    return time >= earliest && time <= latest;
+  };
+  body.events = body.events.filter((event) => retained(event.timestamp));
+  body.cases = body.cases.filter((item) => item.evidence.length &&
+    item.evidence.every((event) => retained(event?.timestamp)));
+  body.reports = Object.fromEntries(body.cases.map((item) => [item.id, body.reports[item.id]]));
+}
+
+async function pruneHostedData(db, cutoff) {
+  await db.batch([
+    db.prepare(`DELETE FROM cloud_events WHERE rowid IN (
+      SELECT e.rowid FROM cloud_events e JOIN cloud_source_owners o ON o.source_id = e.source_id
+      WHERE e.timestamp < ? ORDER BY e.timestamp LIMIT 1000
+    )`).bind(cutoff),
+    db.prepare(`DELETE FROM cloud_cases WHERE rowid IN (
+      SELECT c.rowid FROM cloud_cases c JOIN cloud_source_owners o ON o.source_id = c.source_id
+      WHERE julianday(c.timestamp) < julianday(?) OR EXISTS (
+        SELECT 1 FROM json_each(c.payload, '$.evidence') AS e
+        WHERE julianday(json_extract(e.value, '$.timestamp')) < julianday(?)
+      ) ORDER BY c.timestamp LIMIT 500
+    )`).bind(cutoff, cutoff),
+  ]);
+}
 
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), { status, headers: { ...headers, ...extra } });
@@ -229,7 +266,6 @@ async function relatedEvidence(db, source, caseId, account) {
   const latest = evidence.reduce((time, event) => Math.max(time, Date.parse(event?.timestamp) || 0), 0);
   if (!addresses.length || !latest) return [];
   const window = 5 * 60 * 1000;
-  const utc = (ms) => new Date(ms).toISOString().replace('Z', '000+00:00');
   const { results } = await db.prepare(`
     SELECT e.id, e.timestamp, e.kind, e.source_id, s.label AS collector,
       json_extract(e.payload, '$.host') AS host, refs.value AS address
@@ -239,7 +275,7 @@ async function relatedEvidence(db, source, caseId, account) {
       json_extract(e.payload, '$.destination'))
     WHERE e.timestamp BETWEEN ? AND ? AND e.source_id <> ? AND coalesce(o.account_id, 'legacy') = ?
     ORDER BY e.timestamp DESC, e.source_id, e.id, refs.value LIMIT 50
-  `).bind(JSON.stringify(addresses), utc(latest - window), utc(latest + window), source, account).all();
+  `).bind(JSON.stringify(addresses), utcTimestamp(latest - window), utcTimestamp(latest + window), source, account).all();
   return results;
 }
 
@@ -274,6 +310,7 @@ async function caseDraft(env, source, caseId, account) {
   const fallback = (reason) => json({ claims: findings.slice(0, 3).map(claim), provider: 'evidence', reason });
   if (!env.AI) return fallback();
   if (await useQuota(env.DB, account, 'ai-brief', 20, 3600)) return fallback('ai_limit');
+  if (await useQuota(env.DB, ':service', 'ai-brief', 200, 3600)) return fallback('ai_capacity');
   try {
     const answer = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
       messages: [{
@@ -296,6 +333,10 @@ async function caseDraft(env, source, caseId, account) {
 }
 
 export default {
+  async scheduled(controller, env) {
+    const cutoff = retentionCutoff(env, controller.scheduledTime);
+    if (cutoff) await pruneHostedData(env.DB, cutoff);
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -334,8 +375,10 @@ export default {
         if (retry) return json({ detail: 'The workspace has reached its hourly upload limit.' }, 429, {
           'Retry-After': String(retry),
         });
-        const now = new Date().toISOString();
-        if (!await saveSnapshot(env.DB, body, now)) return json({ detail: 'Invalid collector identity' }, 422);
+        const now = Date.now();
+        const cutoff = paired?.account_id && retentionCutoff(env, now);
+        if (cutoff) filterRetainedSnapshot(body, cutoff, now);
+        if (!await saveSnapshot(env.DB, body, new Date(now).toISOString())) return json({ detail: 'Invalid collector identity' }, 422);
         return json({ updated_at: now });
       } catch {
         return json({ detail: 'Could not store collector snapshot' }, 400);

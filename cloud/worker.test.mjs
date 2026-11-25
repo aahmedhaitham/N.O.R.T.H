@@ -224,6 +224,28 @@ test('cloud sources keep independent event and investigation history', async (t)
   env.AI = { run: async () => ({ response: { finding_ids: [1] } }) };
   assert.equal((await (await call('/api/cases/' + id + '/draft', post({}, accountHeaders))).json()).reason, 'ai_limit');
   assert.equal((await (await call(draft, post({}, operator))).json()).provider, 'cloud-ai');
+  quota.run(':service', 'ai-brief', hour, 200);
+  env.AI = { run: async () => assert.fail('The shared quota must prevent a model call') };
+  assert.equal((await (await call(draft, post({}, operator))).json()).reason, 'ai_capacity');
+  env.NORTH_HOSTED_RETENTION_DAYS = '30';
+  await worker.scheduled({ scheduledTime: Date.parse(connection.timestamp) + 31 * 86400000 }, env);
+  const ownQuery = '?source=' + ownPairing.source_id;
+  assert.equal((await (await call('/api/events' + ownQuery, { headers: accountHeaders })).json()).events.length, 0);
+  assert.deepEqual(await (await call('/api/cases' + ownQuery, { headers: accountHeaders })).json(), []);
+  assert.equal((await call('/api/cases/' + id + '/report' + ownQuery, { headers: accountHeaders })).status, 404);
+  assert.equal((await call('/api/cases/' + id + '/report?source=alpha', { headers })).status, 200);
+  const expired = { ...connection, timestamp: '2000-01-01T00:00:00.000000+00:00' };
+  assert.equal((await call('/api/cloud/snapshot', post({
+    ...ownSnapshot, events: [expired], cases: [{ id, evidence: [expired] }],
+  }, ownHeaders))).status, 200);
+  assert.equal((await (await call('/api/events' + ownQuery, { headers: accountHeaders })).json()).events.length, 0);
+  assert.deepEqual(await (await call('/api/cases' + ownQuery, { headers: accountHeaders })).json(), []);
+  const recent = { ...connection, timestamp: new Date().toISOString().replace('Z', '000+00:00') };
+  assert.equal((await call('/api/cloud/snapshot', post({
+    ...ownSnapshot, events: [recent], cases: [{ id, evidence: [recent] }],
+  }, ownHeaders))).status, 200);
+  assert.equal((await (await call('/api/events' + ownQuery, { headers: accountHeaders })).json()).events.length, 1);
+  assert.equal((await call('/api/cases/' + id + '/report' + ownQuery, { headers: accountHeaders })).status, 200);
   sqlite.prepare('UPDATE cloud_accounts SET disabled_at = ? WHERE id = ?').run(new Date().toISOString(), 'account-one');
   assert.equal((await call('/api/cloud/status', { headers: accountHeaders })).status, 401);
   assert.equal((await call('/api/cloud/snapshot', post(ownSnapshot, ownHeaders))).status, 401);
