@@ -21,6 +21,14 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### ATLAS network monitoring roadmap
+
+- Add internet health checks from the enrolled collector, including gateway reachability, DNS resolution, HTTPS connectivity, latency, and check history.
+- Improve device identity with source-labeled collector names and supported router client records. Display Wi-Fi association when the router or access point reports it.
+- Expand router and gateway integrations for per-device byte totals and time-series usage. Keep router traffic and collector-local traffic distinct.
+- Add per-app connections and usage for enrolled endpoints where the operating system reports process-level traffic. Router telemetry alone cannot associate another device's traffic with a process.
+- Add opt-in packet capture and trace inspection on authorized interfaces, with visible capture scope, size limits, and local handling of packet payloads.
+
 ### UX backlog
 
 - Overview attention items jump directly to the relevant ATLAS device review or collection status section.
