@@ -29,6 +29,7 @@ export function CloudGate({ children }: {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [key, setKey] = useState('');
   const [message, setMessage] = useState('');
+  const [connectionIssue, setConnectionIssue] = useState('');
   const [busy, setBusy] = useState(false);
   const [sources, setSources] = useState<Source[]>([]);
   const [active, setActive] = useState(() => readWorkspacePreference('collector'));
@@ -140,22 +141,25 @@ export function CloudGate({ children }: {
         if (controller.signal.aborted) return;
         if (response.ok) {
           const data = await response.json();
+          if (controller.signal.aborted) return;
           setSources(data.sources);
+          setConnectionIssue('');
           setSignedIn(true);
         } else if (response.status === 401) {
           clearWorkspacePreferences();
           setSources([]);
           setActive('');
           updateSection('dashboard');
+          setConnectionIssue('');
           setSignedIn(false);
         } else {
-          setSignedIn(false);
-          setMessage('The cloud service is not ready.');
+          setSignedIn((current) => current ?? false);
+          setConnectionIssue('NORTH Cloud is temporarily unavailable. Retrying…');
         }
       } catch {
         if (!controller.signal.aborted) {
-          setSignedIn(false);
-          setMessage('Could not connect to NORTH Cloud.');
+          setSignedIn((current) => current ?? false);
+          setConnectionIssue('Could not reach NORTH Cloud. Retrying…');
         }
       }
     }
@@ -190,6 +194,7 @@ export function CloudGate({ children }: {
       updateSection('dashboard');
       clearWorkspacePreferences();
       setMessage('');
+      setConnectionIssue('');
     } catch {
       setMessage('Sign-out could not be completed.');
     }
@@ -206,6 +211,7 @@ export function CloudGate({ children }: {
       {source && <span>Last sync {new Date(source.updated_at).toLocaleString()}</span>}
       </div>
       {message && <span role="alert">{message}</span>}
+      {connectionIssue && <span role="status">{connectionIssue}</span>}
       <div className="cloud-actions">
         <button onClick={() => setSection('collectors')} aria-pressed={section === 'collectors'}>Collectors</button>
         <button onClick={() => setSection('settings')} aria-pressed={section === 'settings'}>Settings</button>
@@ -251,6 +257,7 @@ export function CloudGate({ children }: {
         <details className="alternate-signin"><summary>Use a workspace key</summary>{keyForm}</details> :
         !desktopRequest && keyForm}
       {message && <p role="alert">{message}</p>}
+      {connectionIssue && <p role="status">{connectionIssue}</p>}
       {!message && signedIn === false && new URLSearchParams(location.search).has('sign_in_failed') &&
         <p role="alert">{signInErrors[new URLSearchParams(location.search).get('sign_in_failed') ?? ''] ??
           'Google sign-in could not be completed. Try again.'}</p>}
