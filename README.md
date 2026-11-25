@@ -59,6 +59,8 @@ The Cloudflare Worker serves the browser app and uses D1 for private collector d
 
 From the repository root:
 
+On Windows, after `npx wrangler login`, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Deploy-NorthCloud.ps1` to create or reuse the database, build the app, and configure the secrets. Run it with `-ShowAccessKey` to display the sign-in key on the same Windows account. The encrypted keys stay under the ignored `.north-launcher` directory. This command does not send local telemetry. The manual equivalents and collector setup follow.
+
 1. Authenticate with `npx wrangler login`, run `npx wrangler d1 create north-cloud`, and copy `cloud/wrangler.example.jsonc` to `cloud/wrangler.jsonc`. Set `database_id` to the ID returned by Wrangler.
 2. Run `npx wrangler d1 execute north-cloud --config cloud/wrangler.jsonc --remote --file cloud/schema.sql`, then `npm --prefix frontend run build -- --mode cloud` and `npx wrangler deploy --config cloud/wrangler.jsonc`.
 3. Generate three independent random secrets, each at least 32 characters. Run `npx wrangler secret put NORTH_ACCESS_KEY --config cloud/wrangler.jsonc` for the sign-in key, then repeat separately for `NORTH_INGEST_KEY` and `NORTH_SESSION_SECRET`. Keep those values private.
