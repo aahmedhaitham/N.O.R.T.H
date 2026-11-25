@@ -222,6 +222,10 @@ button:disabled { opacity: .65; cursor: wait; }
 .atlas-device-detail dt { color: var(--muted); font-size: .82rem; }
 .atlas-device-detail dd { margin: .2rem 0 .65rem; }
 .atlas-device-detail code { display: block; }
+.atlas-address-context { margin: .55rem 0 .8rem; border: 1px solid var(--line); padding: .55rem; background: var(--canvas); }
+.atlas-address-context summary { cursor: pointer; font-weight: 600; }
+.atlas-address-context div { margin-top: .65rem; }
+.atlas-address-context p { font-size: .78rem; margin: .3rem 0; }
 .atlas-traffic { border-top: 1px solid var(--line); padding-top: .9rem; }
 .atlas-traffic h4 { margin: 0; }
 .atlas-traffic p { margin: .35rem 0 .7rem; color: var(--muted); font-size: .82rem; }

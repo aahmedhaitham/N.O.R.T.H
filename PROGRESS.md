@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- The ATLAS inspector explains address scope and collector-reported names alongside the selected device. MAC address explanations distinguish locally assigned and group addresses.
 - Collectors and Settings open inside the console, preserving the sidebar, appearance controls, and the previous page state when the collector remains the same.
 - Collector management shows pairing status and last sync separately in a compact table. Temporary status failures keep the previous list visible and clear on recovery.
 - Temporary cloud status errors keep the signed-in workspace open and show a retry message. A confirmed expired session still returns to sign-in.

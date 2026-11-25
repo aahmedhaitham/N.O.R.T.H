@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Background, Controls, Position, ReactFlow, type Edge, type Node } from '@xyflow/react';
+import { explainAddress, explainMacAddress } from './deviceExplanation';
 
 export type AtlasDevice = {
   id: string;
   label: string;
+  observedName?: string;
   network: string;
   mac: string;
   addresses: string[];
@@ -68,6 +70,7 @@ export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; st
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   const selectedDevice = displayed.find((item) => 'device:' + item.id === selected) ?? displayed[0];
+  const macContext = selectedDevice ? explainMacAddress(selectedDevice.mac) : '';
   let offset = 0;
   for (const [name, group] of groups) {
     const interfaceId = 'interface:' + name;
@@ -128,6 +131,16 @@ export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; st
             selectedDevice.addresses.map((address) => <code key={address}>{address}</code>) : 'Unavailable'}</dd>
           <dt>Last observed state</dt><dd>{selectedDevice.states.join(' · ') || 'Unavailable'}</dd>
         </dl>
+        <details className="atlas-address-context" key={selectedDevice.id}>
+          <summary>Explain device evidence</summary>
+          {selectedDevice.observedName && <p>The collector reported the name <strong>{selectedDevice.observedName}</strong>.</p>}
+          {selectedDevice.addresses.map((address) => <div key={address}>
+            <code>{address}</code>
+            <p>{explainAddress(address)}</p>
+          </div>)}
+          {macContext && <p>{macContext}</p>}
+          <p>Device model and physical location require an inventory or another verified source.</p>
+        </details>
         <RouterTraffic traffic={selectedDevice.traffic} stale={staleTraffic} />
       </aside>}
       </div>

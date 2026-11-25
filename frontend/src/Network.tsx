@@ -147,9 +147,9 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
   const trafficByMac = new Map(router?.devices.map((device) => [macKey(device.mac), device]));
   const mapDevices = liveDevices.filter(matchesDevice).map(([id, records]) => {
     const first = records[0];
-    const label = records.find((record) => record.name)?.name ||
-      records.find((record) => !record.address.includes(':'))?.address || first.address;
-    return { id, label, network: first.network || 'Unknown interface', mac: first.mac,
+    const observedName = records.find((record) => record.name)?.name;
+    const label = observedName || records.find((record) => !record.address.includes(':'))?.address || first.address;
+    return { id, label, observedName, network: first.network || 'Unknown interface', mac: first.mac,
       addresses: records.map((record) => record.address), states: [...new Set(records.map((record) => record.state).filter(Boolean))],
       traffic: trafficByMac.get(macKey(first.mac)) };
   });

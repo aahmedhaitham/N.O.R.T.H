@@ -32,3 +32,12 @@ export function explainAddress(value: string) {
   }
   return 'IPv4 address. The address alone does not establish who owns it or where the device is.';
 }
+
+export function explainMacAddress(value: string) {
+  const compact = value.trim().replace(/[:-]/g, '');
+  if (!/^[a-f\d]{12}$/i.test(compact)) return '';
+  const firstOctet = Number.parseInt(compact.slice(0, 2), 16);
+  if (firstOctet & 1) return 'This MAC address is a group address and may represent multiple recipients.';
+  if (firstOctet & 2) return 'This MAC address is locally assigned. Private Wi-Fi addresses and virtual adapters can both use this format.';
+  return 'This MAC address can help match observations on the same interface.';
+}
