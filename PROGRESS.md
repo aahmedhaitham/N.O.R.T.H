@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- ATLAS uses a compact command bar and a shared map and device inspector. The portfolio preview includes labeled synthetic neighbor and router traffic records so the map can be explored immediately.
 - Reworked Overview into a flat console with a larger telemetry plot, a side pane for event types and attention items, and a full-width investigation table.
 - Kept the navigation and toolbars in place on wide layouts while the workspace scrolls independently. Consolidated Overview metrics into one compact strip, prioritized activity charts, and added a recent investigations table.
 - Added system, light, and dark appearance settings, a centered NORTH title, a translucent sidebar, and a native desktop View menu for zoom and fullscreen.

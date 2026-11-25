@@ -16,8 +16,24 @@ def export(directory: Path):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
     (directory / "events.json").write_text(json.dumps(events), encoding="utf-8")
+    findings = demo_findings()
+    sample_time = findings["baseline_at"]
+    records = [
+        {"address": "192.0.2.42", "mac": "02:00:00:00:00:42", "network": "Demo LAN",
+         "state": "Reachable", "name": "Demo workstation"},
+        {"address": "192.0.2.1", "mac": "02:00:00:00:00:01", "network": "Demo LAN",
+         "state": "Reachable", "name": "Demo gateway"},
+        {"address": "198.51.100.24", "mac": "02:00:00:00:00:24", "network": "Demo Wi-Fi",
+         "state": "Stale", "name": "Demo wireless device"},
+    ]
     (directory / "network.json").write_text(
-        json.dumps({**snapshot(events), "device_findings": demo_findings()}), encoding="utf-8",
+        json.dumps({
+            **snapshot(events), "device_findings": findings,
+            "neighbors": {"state": "ready", "updated_at": sample_time, "records": records},
+            "router_usage": {"state": "ready", "updated_at": sample_time, "devices": [
+                {"mac": records[0]["mac"], "download_bytes": 128_000_000, "upload_bytes": 24_000_000},
+            ]},
+        }), encoding="utf-8",
     )
     for case in cases:
         (directory / f"{case['id']}.md").write_text(report(case), encoding="utf-8")

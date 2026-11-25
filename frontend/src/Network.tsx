@@ -208,25 +208,21 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
     </>;
   }
 
-  return <main className="network">
-    <header className="overview page-heading">
-      <div>
-        <h1>ATLAS <span className="workspace-title">Network inventory</span></h1>
-        <p>Review devices that sent telemetry, their observed connections, and device records from your network.</p>
-      </div>
-      <label className="network-search">Find a host, IP address or MAC address
-        <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
-      </label>
+  return <main className="network atlas-workspace">
+    <header className="dashboard-heading">
+      <h1>ATLAS <span className="workspace-title">Network inventory</span></h1>
     </header>
     {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
     <section className="panel atlas-toolbar" aria-label="Network map controls">
+      <label className="network-search">Find device
+        <input type="search" placeholder="Host, IP or MAC address" value={search} onChange={(event) => setSearch(event.target.value)} />
+      </label>
       <button type="button" className="primary-action" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh observations'}</button>
       {endpoint.startsWith('/api/') && <label>Auto refresh <select value={interval} onChange={(event) => setInterval(Number(event.target.value))}>
         <option value={0}>Off</option><option value={15000}>Every 15 seconds</option>
         <option value={30000}>Every 30 seconds</option><option value={60000}>Every minute</option>
       </select></label>}
       {lastRefresh && <small>View updated {lastRefresh}</small>}
-      <small>Uses available observations from Windows or your collector.</small>
     </section>
     <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} />
     {inventory?.local_device && <section className="panel">

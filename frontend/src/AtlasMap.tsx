@@ -87,7 +87,7 @@ export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; st
   return <section className="panel atlas-map">
     <header className="atlas-map-heading">
       <div><h2>Network map</h2>
-        <p>Devices grouped by the interface that observed them. Lines show observations, and Wi-Fi labels come from interface names.</p></div>
+        <p>Devices grouped by the interface that observed them.</p></div>
       <label>Show <select value={filter} onChange={(event) => { setFilter(event.target.value); setPage(0); setSelected(''); }}>
         <option value="all">All interfaces</option><option value="wifi">Wi-Fi interfaces</option>
         <option value="virtual">Virtual adapters</option>
@@ -112,7 +112,10 @@ export function AtlasMap({ devices, staleTraffic }: { devices: AtlasDevice[]; st
         </ReactFlow>
       </div>
       {selectedDevice && <aside className="atlas-device-detail">
-        <h3>{selectedDevice.label}</h3>
+        <div className="atlas-device-heading">
+          <span>Device inspector</span>
+          <h3>{selectedDevice.label}</h3>
+        </div>
         <label>Observed device
           <select value={'device:' + selectedDevice.id} onChange={(event) => setSelected(event.target.value)}>
             {displayed.map((item) => <option key={item.id} value={'device:' + item.id}>{item.label} · {item.network}</option>)}
