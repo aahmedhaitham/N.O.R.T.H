@@ -4,6 +4,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { workspaceOrigin } = require('./workspace.cjs');
 const { makeCloudProxy } = require('./cloud-proxy.cjs');
+const { makeLocalWorkspace } = require('./local-workspace.cjs');
 
 let activeWindow;
 let setupWindow;
@@ -11,23 +12,26 @@ let startupComplete = false;
 let cloudProxy;
 const icon = path.join(__dirname, 'icons', 'north.ico');
 const localAddress = 'north://app/';
-const partition = 'persist:north-cloud';
+const cloudPartition = 'persist:north-cloud';
+const localPartition = 'persist:north-local';
 const ui = app.isPackaged ? path.join(process.resourcesPath, 'north-ui') : path.join(__dirname, 'ui');
+const scripts = app.isPackaged ? path.join(process.resourcesPath, 'north-tools') : path.join(__dirname, '..', 'tools');
+const localWorkspace = makeLocalWorkspace(scripts);
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'north', privileges: {
   standard: true, secure: true, supportFetchAPI: true,
 } }]);
 
-async function handleLocalRequest(request) {
+async function handleLocalRequest(request, api) {
   const url = new URL(request.url);
   if (url.hostname !== 'app') return new Response(null, { status: 404 });
   if (url.pathname.startsWith('/api/')) {
-    return cloudProxy ? cloudProxy(request) : Response.json({ detail: 'No workspace selected.' }, { status: 503 });
+    return api ? api(request) : Response.json({ detail: 'No workspace selected.' }, { status: 503 });
   }
   if (request.method !== 'GET') return new Response(null, { status: 405 });
   let filename;
   try {
-    const requested = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
+    const requested = decodeURIComponent(['/', '/cloud'].includes(url.pathname) ? '/index.html' : url.pathname);
     filename = path.resolve(ui, '.' + requested);
   } catch {
     return new Response(null, { status: 400 });
@@ -74,12 +78,13 @@ function configureWindow() {
 }
 
 async function openWorkspace(nextOrigin, remember = false) {
+  const connected = Boolean(nextOrigin);
   const window = new BrowserWindow({
     title: 'NORTH', icon, width: 1350, height: 850, minWidth: 375, minHeight: 500, show: false,
     backgroundColor: '#0c1018',
     webPreferences: {
       sandbox: true, contextIsolation: true, nodeIntegration: false,
-      partition,
+      partition: connected ? cloudPartition : localPartition,
     },
   });
   const contents = window.webContents;
@@ -92,9 +97,9 @@ async function openWorkspace(nextOrigin, remember = false) {
   contents.on('will-navigate', guard);
   contents.on('will-redirect', guard);
   const previousProxy = cloudProxy;
-  cloudProxy = makeCloudProxy(nextOrigin);
+  if (connected) cloudProxy = makeCloudProxy(nextOrigin);
   try {
-    await window.loadURL(localAddress);
+    await window.loadURL(localAddress + (connected ? 'cloud' : ''));
     if (remember) {
       await fs.writeFile(settingsPath(), JSON.stringify({ origin: nextOrigin }), 'utf8');
     }
@@ -105,6 +110,16 @@ async function openWorkspace(nextOrigin, remember = false) {
   }
   show(window);
   window.show();
+}
+
+async function openSavedWorkspace() {
+  try {
+    const settings = await fs.readFile(settingsPath(), 'utf8').catch(() =>
+      fs.readFile(path.join(ui, 'workspace-default.json'), 'utf8'));
+    await openWorkspace(workspaceOrigin(JSON.parse(settings).origin));
+  } catch {
+    configureWindow();
+  }
 }
 
 ipcMain.handle('north:connect', async (event, value) => {
@@ -126,23 +141,24 @@ if (!app.requestSingleInstanceLock()) {
     activeWindow?.focus();
   });
   app.whenReady().then(async () => {
-    session.fromPartition(partition).protocol.handle('north', handleLocalRequest);
+    session.fromPartition(localPartition).protocol.handle('north', (request) => handleLocalRequest(request, localWorkspace));
+    session.fromPartition(cloudPartition).protocol.handle('north', (request) => handleLocalRequest(request, cloudProxy));
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'Workspace', submenu: [
-        { label: 'Connect to workspace…', click: configureWindow },
+        { label: 'This computer', click: () => void openWorkspace().catch(showStartupError) },
+        { label: 'Open cloud workspace', click: openSavedWorkspace },
+        { label: 'Connect to a different workspace…', click: configureWindow },
         { label: 'Reload', accelerator: 'Ctrl+R', click: () => activeWindow?.reload() },
         { role: 'quit' },
       ] },
       { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
     ]));
-    try {
-      const settings = await fs.readFile(settingsPath(), 'utf8').catch(() =>
-        fs.readFile(path.join(ui, 'workspace-default.json'), 'utf8'));
-      await openWorkspace(workspaceOrigin(JSON.parse(settings).origin));
-    } catch {
-      configureWindow();
-    }
+    await openWorkspace().catch(showStartupError);
     startupComplete = true;
   });
   app.on('window-all-closed', () => { if (startupComplete) app.quit(); });
+}
+
+function showStartupError() {
+  dialog.showErrorBox('NORTH', 'The local dashboard could not open.');
 }

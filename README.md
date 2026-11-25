@@ -78,7 +78,11 @@ To remember the cloud connection in the Windows launcher, run `powershell.exe -N
 
 ### Windows desktop client
 
-The Windows x64 client bundles the dashboard interface and contacts the selected NORTH Cloud workspace for sign-in and data. It opens its own window without launching a browser, Python or the local collector. From the repository root, install dependencies with `npm.cmd --prefix frontend ci` and `npm.cmd --prefix desktop ci`, then run `npm.cmd --prefix desktop run package:windows`. The resulting portable file is `desktop/dist/NORTH-Desktop-Windows-x64.exe`. Set `NORTH_DESKTOP_DEFAULT_URL` at build time to preselect a workspace, or enter the HTTPS workspace origin on first launch. To change it later, use **Workspace → Connect to workspace**. The desktop sign-in session lasts until the app closes or the cloud session expires.
+The Windows x64 client opens directly on **This computer**. It displays local network interfaces, nearby devices from the Windows neighbor cache, and up to 200 recent Sysmon events if the account can read that log. It can link a PowerShell process to a script file creation for an evidence timeline. Local data is read on demand and stays on the computer. A browser, Python, server address and key are unnecessary for local use.
+
+Use **Workspace → Open cloud workspace** to open a saved or build-time workspace, or **Connect to a different workspace** to enter another HTTPS address. Cloud sign-in and collector pairing apply to that private workspace. The desktop cloud session lasts until the app closes or the cloud session expires.
+
+To build the portable client from the repository root, run `npm.cmd --prefix frontend ci`, `npm.cmd --prefix desktop ci`, and `npm.cmd --prefix desktop run package:windows`. The portable file is `desktop/dist/NORTH-Desktop-Windows-x64.exe`. Set `NORTH_DESKTOP_DEFAULT_URL` at build time to provide an optional cloud workspace.
 
 Run `npm.cmd --prefix desktop run package:installer` to build `desktop/dist/NORTH-Setup-Windows-x64.exe`. The manual **Build NORTH for Windows** GitHub workflow packages both Windows builds. Code signing requires a publisher certificate.
 

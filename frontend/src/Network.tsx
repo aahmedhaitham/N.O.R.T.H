@@ -12,10 +12,11 @@ type Finding = { id: string; first_seen: string; last_seen: string; reviewed_at:
   mac: string; interface: string; addresses: string[] };
 type Snapshot = {
   assets: Host[]; links: Connection[];
+  local_device?: { host: string; addresses: { interface: string; address: string }[] };
   activity?: { interval: 'minute' | 'hour' | 'day' | null; buckets: { start: string; count: number }[];
     types: { kind: number; count: number }[] };
   neighbors?: Collector & { records: Neighbor[] };
-  sysmon?: Collector & { session_events: number; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
+  sysmon?: Collector & { session_events: number; recent?: boolean; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
   device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
   router_usage?: Collector & { devices: { mac: string; download_bytes: number; upload_bytes: number }[] };
 };
@@ -46,7 +47,7 @@ function readNeighbors(value: unknown): Neighbor[] {
   });
 }
 
-function groupNeighbors(records: Neighbor[]) {
+export function groupNeighbors(records: Neighbor[]) {
   const devices = new Map<string, Neighbor[]>();
   for (const record of records) {
     const mac = record.mac.replace(/[:-]/g, '').toLowerCase();
@@ -186,6 +187,15 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
       </label>
     </header>
     {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
+    {inventory?.local_device && <section className="panel">
+      <h2>This computer</h2>
+      <strong>{inventory.local_device.host}</strong>
+      <ul className="network-list">{inventory.local_device.addresses
+        .filter((item) => fits(item.interface, item.address, inventory.local_device!.host))
+        .map((item) => <li key={item.interface + '/' + item.address}>
+          <strong>{item.interface}</strong><small>{item.address}</small>
+        </li>)}</ul>
+    </section>}
     {watch && (watch.baseline_at || collector?.state === 'starting') && <section className="panel">
       <h2>Newly observed devices</h2>
       <p>{watch.baseline_at ? `${watch.unreviewed} awaiting review · Baseline started ${new Date(watch.baseline_at).toLocaleString()}` :
@@ -212,7 +222,7 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
       <h2>Windows event collection</h2>
       <p role="status">{windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
         windowsEvents.state === 'unavailable' ? sysmonProblems[windowsEvents.problem ?? 'read_failed'] :
-        `Collecting automatically · ${windowsEvents.session_events} new events since launch · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
+        `${windowsEvents.session_events} ${windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
     </section>}
     {collector && collector.state !== 'disabled' && <section className="panel">
       <h2>Local network devices</h2>

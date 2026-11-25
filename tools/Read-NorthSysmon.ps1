@@ -1,4 +1,4 @@
-param([long]$After = 0)
+param([long]$After = 0, [switch]$Recent)
 
 $ErrorActionPreference = 'Stop'
 $channel = 'Microsoft-Windows-Sysmon/Operational'
@@ -17,7 +17,8 @@ $latest = Read-Events '*' 1
 $tail = if ($latest) { [long]$latest.RecordId } else { 0 }
 if ($tail -lt $After) { $After = 0 }
 $query = "*[System[(EventID=1 or EventID=3 or EventID=11) and EventRecordID > $After]]"
-$records = @(Read-Events $query 500 -Oldest)
+$records = if ($Recent) { @(Read-Events $query 200) } else { @(Read-Events $query 500 -Oldest) }
+$records = @($records | Where-Object { $null -ne $_ })
 $position = if ($records.Count) { [long]$records[-1].RecordId } else { $tail }
 $alerts = @(
     foreach ($event in $records) {

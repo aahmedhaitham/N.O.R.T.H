@@ -23,7 +23,9 @@ type RelatedEvent = { id: string; source_id: string; timestamp: string; kind: nu
 
 const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
-const cloud = import.meta.env.MODE === 'cloud';
+const desktop = location.protocol === 'north:';
+const desktopLocal = desktop && location.pathname === '/';
+const cloud = import.meta.env.MODE === 'cloud' && !desktopLocal;
 
 function App({ source = null, openCollectors, controls }: {
   source?: string | null;
@@ -46,7 +48,7 @@ function App({ source = null, openCollectors, controls }: {
   }
 
   useEffect(() => {
-    if (cloud) {
+    if (cloud || desktopLocal) {
       const controller = new AbortController();
       let timer: number | undefined;
       async function update() {
@@ -108,7 +110,9 @@ function App({ source = null, openCollectors, controls }: {
   return (
     <div className="shell">
       <nav className="console-nav" aria-label="Console">
-        <a className="brand" href="/"><img alt="" src="/icons/north-192.png" />NORTH</a>
+        <a className="brand" href={cloud && desktop ? '/cloud' : '/'} onClick={(event) => {
+          event.preventDefault(); setView('dashboard');
+        }}><img alt="" src="/icons/north-192.png" />NORTH</a>
         <button type="button" aria-current={view === 'dashboard' ? 'page' : undefined} onClick={() => setView('dashboard')}>
           <strong>Overview</strong><small>Security dashboard</small>
         </button>
@@ -128,14 +132,14 @@ function App({ source = null, openCollectors, controls }: {
         <span>{{ dashboard: 'Overview', network: 'ATLAS / Network', events: 'IRIS / Events', cases: 'ECHO / Investigations' }[view]}</span>
         <InstallApp />
         <span role="status" className={online ? 'status online' : 'status'}>
-          {cloud ? (online ? 'Cloud connection ready' : 'Connecting to cloud') :
+          {desktopLocal ? 'This computer · Local data' : cloud ? (online ? 'Cloud connection ready' : 'Connecting to cloud') :
             portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
         </span>
       </header>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
-        demo={publicDemo} open={setView} openCase={openCase} connect={cloud && !source ? openCollectors : undefined} />}
+        demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase} connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
-        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud} />
+        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud || desktopLocal} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} source={source} />}
       {view === 'cases' && <div className="workspace">
@@ -292,8 +296,9 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
     </section>}
     <section className="panel">
       <span className="module">IRIS / ANALYST REVIEW</span>
-      <h2>{publicDemo ? 'Review case evidence' : cloud ? 'Evidence brief' : 'Local AI draft'}</h2>
-      {publicDemo ? <p>This demo uses a bundled case. Open the original events in ECHO to verify the findings. Live AI drafts are available when running NORTH with Ollama.</p> : <>
+      <h2>{publicDemo || desktopLocal ? 'Review case evidence' : cloud ? 'Evidence brief' : 'Local AI draft'}</h2>
+      {desktopLocal ? <p>Open any event in the timeline to review the original record.</p> :
+        publicDemo ? <p>This demo uses a bundled case. Open the original events in ECHO to verify the findings. Live AI drafts are available when running NORTH with Ollama.</p> : <>
         <p>{cloud ? 'Summarize recorded activity and open the cited events to verify each observation.' :
           'Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.'}</p>
         <button type="button" disabled={busy} onClick={requestDraft}>{busy ? 'Drafting…' : 'Generate draft'}</button>

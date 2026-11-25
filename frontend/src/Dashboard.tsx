@@ -1,4 +1,4 @@
-import { useNetworkInventory } from './Network';
+import { groupNeighbors, useNetworkInventory } from './Network';
 import { eventNames } from './eventNames';
 
 type CaseSummary = { id: string; title: string; host: string; evidence: { timestamp: string }[] };
@@ -11,11 +11,12 @@ const collectorStatus = {
   disabled: 'Disabled',
 };
 
-export function Dashboard({ endpoint, cases, loaded, demo, open, openCase, connect }: {
+export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase, connect }: {
   endpoint: string;
   cases: CaseSummary[];
   loaded: boolean;
   demo: boolean;
+  local: boolean;
   open: (section: Section) => void;
   openCase: (id: string) => void;
   connect?: () => void;
@@ -23,7 +24,9 @@ export function Dashboard({ endpoint, cases, loaded, demo, open, openCase, conne
   const { inventory, fetchError } = useNetworkInventory(endpoint);
   const total = inventory?.assets.reduce((count, asset) => count + asset.events, 0);
   const metrics: { label: string; count?: number; section: Section }[] = [
-    { label: 'Reporting devices', count: inventory?.assets.length, section: 'network' },
+    { label: local ? 'Nearby devices' : 'Reporting devices',
+      count: local ? (inventory?.neighbors?.state === 'ready' ? groupNeighbors(inventory.neighbors.records).length : undefined) :
+        inventory?.assets.length, section: 'network' },
     { label: 'Collected events', count: total, section: 'events' },
     { label: 'Investigations', count: loaded ? cases.length : undefined, section: 'cases' },
     { label: 'Observed connections', count: inventory?.links.length, section: 'network' },
@@ -47,6 +50,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, open, openCase, conne
   return <main className="dashboard">
     <header className="dashboard-heading">
       <h1>Security overview</h1>
+      {local && <p>See the network devices and security events Windows has observed on this computer.</p>}
       {demo && <p>Explore sample telemetry and follow it into an investigation.</p>}
     </header>
     {connect && <section className="panel dashboard-connect">
@@ -101,7 +105,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, open, openCase, conne
         </li>)}</ul>
       </section>
       <section className="panel">
-        <h2>Collectors</h2>
+        <h2>{local ? 'Local data sources' : 'Collectors'}</h2>
         {demo && <p>This demo uses synthetic evidence.</p>}
         {!demo && !collectors.length && <p>{inventory ? 'No automatic collectors are active.' : 'Checking collector status…'}</p>}
         <ul className="network-list">{collectors.map(({ label, status }) => status && <li key={label}>
