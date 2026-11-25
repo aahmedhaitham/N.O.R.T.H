@@ -8,6 +8,7 @@ import { Events } from './Events';
 import { eventNames } from './eventNames';
 import { Dashboard } from './Dashboard';
 import { InstallApp } from './InstallApp';
+import { CloudGate } from './CloudGate';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
@@ -21,6 +22,7 @@ type Claim = { text: string; evidence_ids: string[] };
 
 const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
+const cloud = import.meta.env.MODE === 'cloud';
 
 function App() {
   const [view, setView] = useState<'dashboard' | 'cases' | 'network' | 'events'>('dashboard');
@@ -38,6 +40,26 @@ function App() {
   }
 
   useEffect(() => {
+    if (cloud) {
+      const controller = new AbortController();
+      let timer: number | undefined;
+      async function update() {
+        try {
+          const response = await fetch('/api/cases', { signal: controller.signal });
+          if (!response.ok) throw new Error('Cloud case feed unavailable');
+          const items: Case[] = await response.json();
+          if (!controller.signal.aborted) {
+            setCases(items); setLoaded(true); setOnline(true); setLoadError(false);
+          }
+        } catch {
+          if (!controller.signal.aborted) { setOnline(false); setLoadError(true); }
+        } finally {
+          if (!controller.signal.aborted) timer = window.setTimeout(update, 15000);
+        }
+      }
+      void update();
+      return () => { controller.abort(); window.clearTimeout(timer); };
+    }
     if (portfolio) {
       const controller = new AbortController();
       fetch('/demo/cases.json', { signal: controller.signal })
@@ -89,13 +111,14 @@ function App() {
         </nav>
         <InstallApp />
         <span role="status" className={online ? 'status online' : 'status'}>
-          {portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
+          {cloud ? (online ? 'Cloud connection ready' : 'Connecting to cloud') :
+            portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
         </span>
       </header>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} open={setView} openCase={openCase} />}
       <div hidden={view !== 'network'}>
-        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} />
+        <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} />}
       {view === 'cases' && <div className="workspace">
@@ -111,7 +134,7 @@ function App() {
         </aside>
         <main>
           {incident ? <Investigation key={incident.id} incident={incident} /> :
-            <section className="panel"><h1>{loadError ? 'Demo cases could not load' : loaded ? 'No investigations' : 'Waiting for telemetry'}</h1></section>}
+            <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations' : 'Waiting for telemetry'}</h1></section>}
         </main>
       </div>}
     </div>
@@ -221,8 +244,9 @@ function Investigation({ incident }: { incident: Case }) {
     </div>
     <section className="panel">
       <span className="module">IRIS / ANALYST REVIEW</span>
-      <h2>{publicDemo ? 'Review case evidence' : 'Local AI draft'}</h2>
-      {publicDemo ? <p>This demo uses a bundled case. Open the original events in ECHO to verify the findings. Live AI drafts are available when running NORTH with Ollama.</p> : <>
+      <h2>{publicDemo || cloud ? 'Review case evidence' : 'Local AI draft'}</h2>
+      {cloud ? <p>Open the source events in ECHO to verify these findings.</p> :
+        publicDemo ? <p>This demo uses a bundled case. Open the original events in ECHO to verify the findings. Live AI drafts are available when running NORTH with Ollama.</p> : <>
         <p>Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.</p>
         <button type="button" disabled={busy} onClick={requestDraft}>{busy ? 'Drafting…' : 'Generate draft'}</button>
       </>}
@@ -236,4 +260,4 @@ function Investigation({ incident }: { incident: Case }) {
   </>;
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(cloud ? <CloudGate><App /></CloudGate> : <App />);

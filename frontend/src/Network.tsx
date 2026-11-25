@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { explainAddress } from './deviceExplanation';
 
 type CaseReference = { id: string; title: string };
 type Host = { id: string; host: string; events: number; last_seen: string; cases: CaseReference[] };
@@ -92,7 +93,9 @@ export function useNetworkInventory(endpoint: string) {
   return { inventory, fetchError, refresh: () => setRevision((value) => value + 1) };
 }
 
-export function Network({ endpoint, openCase, demo }: { endpoint: string; openCase: (id: string) => void; demo: boolean }) {
+export function Network({ endpoint, openCase, demo, readOnly }: {
+  endpoint: string; openCase: (id: string) => void; demo: boolean; readOnly: boolean;
+}) {
   const { inventory, fetchError, refresh } = useNetworkInventory(endpoint);
   const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
   const [fileMessage, setFileMessage] = useState('');
@@ -154,6 +157,12 @@ export function Network({ endpoint, openCase, demo }: { endpoint: string; openCa
           <strong>{name || address}</strong>
           <small>{[mac, network, /VMware|VirtualBox|vEthernet/i.test(network) && 'Virtual adapter'].filter(Boolean).join(' · ')}</small>
           <small>{records.map((record) => [record.address, record.state].filter(Boolean).join(' · ')).join(' / ')}</small>
+          <details className="device-explanation">
+            <summary>Explain this device</summary>
+            <p>{name ? 'The source supplied the label “' + name + '”.' : 'The available records do not identify the device model.'}
+              {' '}Addresses here were grouped by interface and hardware address when both were available.</p>
+            {records.map((record) => <p key={record.address}><strong>{record.address}</strong> · {explainAddress(record.address)}</p>)}
+          </details>
         </li>;
       })}</ul>
       {devices.length > 0 && !matching.length && <p>No devices match this search.</p>}
@@ -183,7 +192,12 @@ export function Network({ endpoint, openCase, demo }: { endpoint: string; openCa
           <strong>{item.addresses.join(', ')}</strong>
           <small>{item.mac} · {item.interface} · First seen {new Date(item.first_seen).toLocaleString()}</small>
           <small>{item.reviewed_at ? 'Reviewed' : 'Needs review'} · Last seen {new Date(item.last_seen).toLocaleString()}</small>
-          {!demo && !item.reviewed_at && <button className="network-case" disabled={Boolean(reviewing)}
+          <details className="device-explanation">
+            <summary>Why did this appear?</summary>
+            <p>NORTH saw this hardware address on this interface after the first snapshot. A new device or a randomized hardware address can produce this finding.</p>
+            {item.addresses.map((address) => <p key={address}><strong>{address}</strong> · {explainAddress(address)}</p>)}
+          </details>
+          {!readOnly && !item.reviewed_at && <button className="network-case" disabled={Boolean(reviewing)}
             onClick={() => void review(item.id)}>{reviewing === item.id ? 'Saving…' : 'Mark reviewed'}</button>}
         </li>
       ))}</ul>
@@ -217,6 +231,10 @@ export function Network({ endpoint, openCase, demo }: { endpoint: string; openCa
         <ul className="network-list">{matchingLinks.map((link) => <li key={link.asset_id + link.address + link.direction}>
           <strong>{link.address}</strong>
           <small>{link.direction === 'inbound' ? 'Inbound to' : 'Outbound from'} {hosts.get(link.asset_id)} · {link.source} · {link.events} {link.events === 1 ? 'event' : 'events'}</small>
+          <details className="device-explanation">
+            <summary>Explain this address</summary>
+            <p>{explainAddress(link.address)}</p>
+          </details>
           <div className="case-links">{caseButtons(link.cases)}</div>
         </li>)}</ul>
         {!matchingLinks.length && <p>{inventory ? 'No observed connections match.' : 'Loading connections…'}</p>}

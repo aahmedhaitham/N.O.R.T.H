@@ -56,6 +56,8 @@ button:disabled { opacity: .65; cursor: wait; }
 .dashboard-metric strong { font-size: clamp(1.8rem, 4vw, 2.75rem); color: var(--accent); }
 .dashboard-metric small { color: var(--muted); }
 .dashboard-recent button { text-align: left; }
+.cloud-sign-in { width: min(100%, 39rem); margin: 10vh auto; }
+.cloud-banner { padding: .5rem 1rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; color: var(--muted); border-bottom: 1px solid var(--line); }
 .workspace { display: grid; grid-template-columns: minmax(220px, 265px) minmax(0, 1fr); }
 aside { padding: 1.4rem; border-right: 1px solid var(--line); }
 aside h2 { font-size: 1rem; }

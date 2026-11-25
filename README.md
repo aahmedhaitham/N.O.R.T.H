@@ -53,6 +53,19 @@ After deployment, run the smoke check against the assigned URL with `python back
 
 For a static portfolio build, run `npm run build -- --mode portfolio` from `frontend`, then run `python backend/export_portfolio.py frontend/dist/demo` from the repository root using the backend environment. Upload the contents of `frontend/dist` to a static host such as [Cloudflare Pages](https://developers.cloudflare.com/pages/get-started/direct-upload/). This version replays the two bundled synthetic cases in the browser and provides their reports as downloads. It does not connect to the local NORTH database.
 
+## Run a private NORTH Cloud workspace
+
+The Cloudflare Worker serves the browser app and uses D1 for the latest private collector snapshot. The console remains available when the collector is off and displays its last sync time. New telemetry arrives while the collector runs. The current implementation supports one workspace and one collector feed. It keeps the latest snapshot, with up to 100 events and 25 investigations, rather than an independent archive.
+
+From the repository root:
+
+1. Authenticate with `npx wrangler login`, run `npx wrangler d1 create north-cloud`, and copy `cloud/wrangler.example.jsonc` to `cloud/wrangler.jsonc`. Set `database_id` to the ID returned by Wrangler.
+2. Run `npx wrangler d1 execute north-cloud --config cloud/wrangler.jsonc --remote --file cloud/schema.sql`, then `npm --prefix frontend run build -- --mode cloud` and `npx wrangler deploy --config cloud/wrangler.jsonc`.
+3. Generate three independent random secrets, each at least 32 characters. Run `npx wrangler secret put NORTH_ACCESS_KEY --config cloud/wrangler.jsonc` for the sign-in key, then repeat separately for `NORTH_INGEST_KEY` and `NORTH_SESSION_SECRET`. Keep those values private.
+4. To opt in to uploading your actual local telemetry, set `NORTH_CLOUD_URL` and `NORTH_CLOUD_INGEST_KEY` in the terminal used to start NORTH. On Windows, start it in that same terminal with `& '.\Start NORTH.cmd'`. The collector sends a bounded snapshot, including source event fields and network observations, to the HTTPS workspace. Leave the variables unset to keep telemetry local.
+
+Use the sign-in key from a phone or computer at the deployed HTTPS URL. Cloud browsing is read-only and local Ollama drafting stays in the private desktop setup.
+
 ## Add lab data or use local AI
 
 ### View your network

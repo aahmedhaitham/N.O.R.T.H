@@ -4,6 +4,9 @@
 !.env.example
 LOCAL-AUDIT.md
 .north-launcher/
+cloud/wrangler.jsonc
+cloud/.wrangler/
+cloud/.dev.vars
 
 # Dependencies and build output
 .venv/

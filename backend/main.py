@@ -20,6 +20,7 @@ from network import snapshot
 from neighbors import NeighborMonitor
 from sysmon import SysmonMonitor
 from device_watch import demo_findings, findings, mark_reviewed
+from cloud_sync import sync_loop
 
 
 class Batch(BaseModel):
@@ -56,6 +57,9 @@ def make_app(store=None):
             asyncio.create_task(monitor.run())
             for enabled, monitor in ((watch_neighbors, neighbors), (watch_sysmon, sysmon)) if enabled
         ]
+        cloud_url, cloud_key = os.getenv("NORTH_CLOUD_URL"), os.getenv("NORTH_CLOUD_INGEST_KEY")
+        if not public_demo and cloud_url and cloud_key:
+            tasks.append(asyncio.create_task(sync_loop(store, neighbors, sysmon, cloud_url, cloud_key)))
         try:
             yield
         finally:
