@@ -43,7 +43,7 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | Event storage and IRIS correlation | Core verified with SQLite | Tests cover replay, duplicates, near misses, malformed batches and linked evidence. |
 | FastAPI and WebSockets | Browser and CI verified | The browser showed a connected live feed and downloaded the report. The hosted API suite passed. |
 | ATLAS and ECHO console | Build and replay verified | The TypeScript check and Vite production build passed. The user confirmed the ECHO replay advanced through all three events. |
-| Wazuh and Sysmon | Fixture format verified | The importer accepts JSON and JSON Lines. Verify a sanitized export from the authorized lab. |
+| Wazuh and Sysmon | Export importer verified with fixtures | Dry run and import coverage include JSON arrays, JSON Lines and indexer search hits. A real capture from an isolated Windows guest remains pending. |
 | Ollama | Live fixture benchmark verified by user | Qwen2.5-Coder returned six valid drafts with a 0.61-second warm median. Two reported timed Qwen3 attempts were rejected. The README records the comparison. |
 | Docker and PostgreSQL | Hosted check passed | GitHub Actions verified the gateway and PostgreSQL persistence after restarting with seeding disabled. [Passing run](https://github.com/aahmedhaitham/N.O.R.T.H/actions/runs/45588172311) |
 | Portfolio | Core demo verified by user | Capture the walkthrough for the portfolio. Docker, live lab ingestion, and a real Ollama draft are tracked above. |
