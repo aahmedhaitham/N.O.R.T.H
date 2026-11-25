@@ -36,6 +36,8 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
   const [filter, setFilter] = useState<Filter>({ search: initialSearch, kind: '', before: null });
   const [page, setPage] = useState<Page | null>(null);
   const [error, setError] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = page?.events.find((item) => item.id === selectedId) ?? page?.events[0];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -74,6 +76,7 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
   function changeFilter(next: Filter) {
     setPage(null);
     setError(false);
+    setSelectedId(null);
     setFilter(next);
   }
 
@@ -88,10 +91,11 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
   }
 
   return <main className="event-explorer">
-    <section className="panel iris-filters">
+    <header className="dashboard-heading">
       <h1>IRIS <span className="workspace-title">Event explorer</span></h1>
-      <p>Search collected telemetry and inspect the original records behind alerts.</p>
-      <form className="event-filters" onSubmit={(event) => {
+    </header>
+    <section className="panel iris-filters">
+      <form className="event-filters" aria-label="Filter events" onSubmit={(event) => {
         event.preventDefault();
         changeFilter({ search: search.trim(), kind, before: null });
       }}>
@@ -129,32 +133,36 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
         <p>NORTH needs a readable Sysmon event log. The network view is still available.</p>
         <button onClick={openNetwork}>Open ATLAS network inventory</button>
       </div> : page?.events.length === 0 && <p>{filter.kind || filter.search ? 'No events match these filters.' : 'No events are available yet.'}</p>}
-      <ul className="event-list">{page?.events.map((event) => {
-        const observed = event.target || event.destination || event.source_ip || event.process;
-        return (
-        <li key={event.id}>
-          <details>
-            <summary>
-              <span className="event-row">
-                <span><strong>{eventNames[event.kind] ?? 'Event ' + event.kind}</strong>
-                  {observed && <span className="event-observation" title={observed}>{observed}</span>}
-                </span>
-                <span className="event-host">{event.host}</span>
-                <time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time>
+      {selected && <div className="iris-split">
+        <ul className="event-list" aria-label="Collected events">{page?.events.map((event) => {
+          const observed = event.target || event.destination || event.source_ip || event.process;
+          return <li key={event.id}>
+            <button type="button" className="event-row" aria-pressed={selected.id === event.id}
+              aria-controls="iris-evidence" onClick={() => setSelectedId(event.id)}>
+              <span><strong>{eventNames[event.kind] ?? 'Event ' + event.kind}</strong>
+                {observed && <span className="event-observation" title={observed}>{observed}</span>}
               </span>
-            </summary>
-            {observed && <p>{observed}</p>}
-            <div className="case-links" aria-label="Find related events">
-              {event.host && <button onClick={() => pivot(event.host)}>Find host events</button>}
-              {event.process && <button onClick={() => pivot(event.process)}>Find this process</button>}
-              {(event.destination || event.source_ip) && <button onClick={() => pivot(event.destination || event.source_ip || '')}>Find this address</button>}
-            </div>
-            <pre>{JSON.stringify(event.raw, null, 2)}</pre>
-            <small>Evidence ID {event.id}</small>
-          </details>
-        </li>
-        );
-      })}</ul>
+              <span className="event-host">{event.host}</span>
+              <time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time>
+            </button>
+          </li>;
+        })}</ul>
+        <section className="iris-evidence" id="iris-evidence" aria-labelledby="iris-evidence-title">
+          <h3 id="iris-evidence-title">{eventNames[selected.kind] ?? 'Event ' + selected.kind}</h3>
+          <dl>
+            <dt>Host</dt><dd>{selected.host || 'Unavailable'}</dd>
+            <dt>Observed value</dt><dd>{selected.target || selected.destination || selected.source_ip || selected.process || 'Unavailable'}</dd>
+            <dt>Evidence ID</dt><dd><code>{selected.id}</code></dd>
+          </dl>
+          <div className="case-links" aria-label="Find related events">
+            {selected.host && <button type="button" onClick={() => pivot(selected.host)}>Find host events</button>}
+            {selected.process && <button type="button" onClick={() => pivot(selected.process)}>Find this process</button>}
+            {(selected.destination || selected.source_ip) && <button type="button" onClick={() => pivot(selected.destination || selected.source_ip || '')}>Find this address</button>}
+          </div>
+          <h4>Raw evidence</h4>
+          <pre tabIndex={0}>{JSON.stringify(selected.raw, null, 2)}</pre>
+        </section>
+      </div>}
       <div className="event-pagination">
         {filter.before && <button onClick={() => changeFilter({ ...filter, before: null })}>Back to newest</button>}
         {page?.next && <button onClick={() => changeFilter({ ...filter, before: page.next })}>Older events</button>}
