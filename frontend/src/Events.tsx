@@ -77,11 +77,14 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
     setFilter(next);
   }
 
+  function applyCriteria(query: string, eventType: string) {
+    setSearch(query);
+    setKind(eventType);
+    changeFilter({ search: query, kind: eventType, before: null });
+  }
+
   function pivot(value: string) {
-    const search = value.slice(0, 200);
-    setSearch(search);
-    setKind('');
-    changeFilter({ search, kind: '', before: null });
+    applyCriteria(value.slice(0, 200), '');
   }
 
   return <main className="event-explorer">
@@ -105,10 +108,20 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
         <button type="submit">Apply filters</button>
       </form>
     </section>
-    {canSave && <SavedSearches query={filter.search} kind={filter.kind} apply={(item) => {
-      setSearch(item.query); setKind(item.kind); changeFilter({ search: item.query, kind: item.kind, before: null });
-    }} />}
-    <section className="panel" aria-label="Event results">
+    {canSave && <SavedSearches query={filter.search} kind={filter.kind} apply={(item) => applyCriteria(item.query, item.kind)} />}
+    <section className="panel" aria-labelledby="event-results">
+      <header className="event-results-heading">
+        <h2 id="event-results">Event results</h2>
+        {page && page.coverage !== 'sysmon_unavailable' && <span className="reference">
+          {page.events.length} {page.events.length === 1 ? 'event' : 'events'} shown
+        </span>}
+      </header>
+      {(filter.search || filter.kind) && <div className="event-active-filters" aria-label="Applied filters" role="group">
+        {filter.search && <button type="button" aria-label={`Remove search filter: ${filter.search}`}
+          onClick={() => applyCriteria('', filter.kind)}>{filter.search} <span aria-hidden="true">×</span></button>}
+        {filter.kind && <button type="button" aria-label="Remove event type filter"
+          onClick={() => applyCriteria(filter.search, '')}>{eventNames[Number(filter.kind)] ?? 'Event ' + filter.kind} <span aria-hidden="true">×</span></button>}
+      </div>}
       {error && <p role="status">The event feed is temporarily unavailable.</p>}
       {!error && !page && <p role="status">Loading events…</p>}
       {page?.coverage === 'sysmon_unavailable' ? <div>
@@ -116,15 +129,21 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
         <p>NORTH needs a readable Sysmon event log. The network view is still available.</p>
         <button onClick={openNetwork}>Open ATLAS network inventory</button>
       </div> : page?.events.length === 0 && <p>{filter.kind || filter.search ? 'No events match these filters.' : 'No events are available yet.'}</p>}
-      <ul className="event-list">{page?.events.map((event) => (
+      <ul className="event-list">{page?.events.map((event) => {
+        const observed = event.target || event.destination || event.source_ip || event.process;
+        return (
         <li key={event.id}>
           <details>
             <summary>
-              <strong>{eventNames[event.kind] ?? 'Event ' + event.kind}</strong>
-              <span>{event.host}</span>
-              <time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time>
+              <span className="event-row">
+                <span><strong>{eventNames[event.kind] ?? 'Event ' + event.kind}</strong>
+                  {observed && <span className="event-observation" title={observed}>{observed}</span>}
+                </span>
+                <span className="event-host">{event.host}</span>
+                <time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time>
+              </span>
             </summary>
-            <p>{event.target || event.destination || event.source_ip || event.process}</p>
+            {observed && <p>{observed}</p>}
             <div className="case-links" aria-label="Find related events">
               {event.host && <button onClick={() => pivot(event.host)}>Find host events</button>}
               {event.process && <button onClick={() => pivot(event.process)}>Find this process</button>}
@@ -134,7 +153,8 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
             <small>Evidence ID {event.id}</small>
           </details>
         </li>
-      ))}</ul>
+        );
+      })}</ul>
       <div className="event-pagination">
         {filter.before && <button onClick={() => changeFilter({ ...filter, before: null })}>Back to newest</button>}
         {page?.next && <button onClick={() => changeFilter({ ...filter, before: page.next })}>Older events</button>}

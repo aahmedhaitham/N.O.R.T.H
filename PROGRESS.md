@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- IRIS previews observed values in collapsed event rows, displays the number of results on the current page, and lets users remove applied filters individually.
 - ATLAS device details show separate router download and upload totals with relative bars and readable units. Missing or stale router data is labeled.
 - Added a searchable page switcher with Ctrl+K or Command+K for Overview, ATLAS, IRIS, and ECHO.
 - Polished workspace navigation, responsive Overview cards, and the ATLAS and IRIS page headings. Added reduced-motion-aware transitions, a simpler Google sign-in screen, and ECHO replay speed controls. Cloud and standard frontend builds pass. Visual review is queued for the combined staging pass.
