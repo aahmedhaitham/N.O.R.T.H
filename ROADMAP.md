@@ -41,12 +41,12 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | Area | Status | Evidence or remaining check |
 | --- | --- | --- |
 | Event storage and IRIS correlation | Core verified with SQLite | Tests cover replay, duplicates, near misses, malformed batches and linked evidence. |
-| FastAPI and WebSockets | Implemented | Draft citation test passed. The API integration test and live smoke run could not start their Windows socket loop in the restricted session. |
-| ATLAS and ECHO console | Build verified | The TypeScript check and Vite production build passed. Browser walkthrough remains open. |
+| FastAPI and WebSockets | Demo verified by user | The browser showed a connected live feed and downloaded the report. The draft citation test passed. The automated API integration test remains unverified. |
+| ATLAS and ECHO console | Build and replay verified | The TypeScript check and Vite production build passed. The user confirmed the ECHO replay advanced through all three events. |
 | Wazuh and Sysmon | Fixture format verified | The importer accepts JSON and JSON Lines. Verify a sanitized export from the authorized lab. |
-| Ollama | Implemented | Verify a real local draft and review its evidence references. |
+| Ollama | Observation ranking tested with fixture | IRIS derives findings from Sysmon events and rejects unsupported model selections. A live local model response remains to be verified. |
 | Docker and PostgreSQL | Configured | Docker is unavailable on the audited host. Run the build and check persistence once available. |
-| Portfolio | Walkthrough documented | Record the demo and add measured outcomes after end-to-end verification. |
+| Portfolio | Core demo verified by user | Capture the walkthrough for the portfolio. Docker, live lab ingestion, and a real Ollama draft are tracked above. |
 
 ## Progress log
 
@@ -56,3 +56,4 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | 2026-11-25 | Published requirements support the initial Python and Node choices. | Validate the resolved dependencies with the Week 1 scaffold. |
 | 2026-11-25 | Implemented the console, ingest path, case analysis, topology, replay and report export. | Install project dependencies to run the API tests and browser walkthrough. |
 | 2026-11-25 | Installed dependencies on the host, verified the frontend production build and four backend tests, and confirmed the demo commit reached GitHub. | Verify live HTTP, WebSockets and the browser walkthrough. |
+| 2026-11-25 | User verified the live feed, three-event playback and Markdown report download in the browser. | Capture the portfolio walkthrough and verify optional integrations. |

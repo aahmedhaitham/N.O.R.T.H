@@ -180,7 +180,7 @@ function Investigation({ incident }: { incident: Case }) {
     <section className="panel">
       <span className="module">IRIS / ANALYST REVIEW</span>
       <h2>Local AI draft</h2>
-      <p>Review draft claims against the cited evidence before using them in an investigation.</p>
+      <p>Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.</p>
       <button type="button" disabled={busy} onClick={requestDraft}>{busy ? 'Drafting…' : 'Generate draft'}</button>
       {message && <p role="status">{message}</p>}
       {claims.length > 0 && <ul>{claims.map((claim, index) => (

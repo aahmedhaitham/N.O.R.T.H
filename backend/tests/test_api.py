@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from urllib.error import URLError
 
 import pytest
@@ -6,7 +7,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import main
-from north import Store
+from north import Store, build_cases, normalize
 
 
 def test_seed_websocket_report_and_offline_draft(tmp_path, monkeypatch):
@@ -30,9 +31,53 @@ def test_seed_websocket_report_and_offline_draft(tmp_path, monkeypatch):
         assert client.post("/api/ingest", json={"alerts": [{}]}).status_code == 422
 
 
-def test_draft_requires_case_evidence():
-    payload = {"response": json.dumps({"claims": [{"text": "Observed activity", "evidence_ids": ["a"]}]})}
-    assert main.validated_draft(payload, {"a"})["claims"][0]["evidence_ids"] == ["a"]
+def test_draft_prioritizes_supported_observations():
+    raw = json.loads((Path(__file__).parents[1] / "fixtures" / "demo.json").read_text())
+    started, connected, wrote = [normalize(alert) for alert in raw]
+    case, = build_cases([started, connected, wrote])
+    findings = main.observed_findings(case)
+    payload = {"response": '{"finding_ids":[2,3,2]}'}
+    result = main.validated_draft(payload, findings)
+    assert [claim["evidence_ids"] for claim in result["claims"]] == [
+        [started["id"], wrote["id"]],
+        [started["id"], connected["id"]],
+    ]
+
+    # A missing connection provides no support for a network observation.
+    partial, = build_cases([started, wrote])
+    findings = main.observed_findings(partial)
+    assert len(findings) == 2
     with pytest.raises(HTTPException) as error:
-        main.validated_draft(payload, {"b"})
+        main.validated_draft(payload, findings)
+    assert error.value.status_code == 502
+
+
+def test_draft_endpoint_resolves_ranked_observations(tmp_path, monkeypatch):
+    store = Store(path=tmp_path / "test.sqlite3")
+    store.initialize()
+    store.ingest(json.loads((Path(__file__).parents[1] / "fixtures" / "demo.json").read_text()))
+    case, = build_cases(store.events())
+
+    def respond(request, timeout):
+        from io import BytesIO
+
+        options = json.loads(request.data)
+        assert options["format"]["properties"]["finding_ids"]["items"]["maximum"] == 3
+        return BytesIO(b'{"response":"{\\"finding_ids\\":[3]}"}')
+
+    monkeypatch.setattr(main, "urlopen", respond)
+    route = next(route for route in main.make_app(store).routes if route.path.endswith("/draft"))
+    claim, = route.endpoint(case["id"])["claims"]
+    assert claim["evidence_ids"][-1] == case["links"][0]["evidence_id"]
+
+
+@pytest.mark.parametrize("body", [
+    '{"finding_ids":[]}',
+    '{"finding_ids":[true]}',
+    '{"finding_ids":[0]}',
+    '{"claims":[{"text":"Malicious activity confirmed"}]}',
+])
+def test_draft_rejects_unverified_model_output(body):
+    with pytest.raises(HTTPException) as error:
+        main.validated_draft({"response": body}, [{"text": "Process started", "evidence_ids": ["a"]}])
     assert error.value.status_code == 502

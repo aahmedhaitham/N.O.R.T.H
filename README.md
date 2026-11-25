@@ -36,7 +36,7 @@ With Docker and Compose available, run `docker compose up --build` at the reposi
 ## Add lab data or use local AI
 
 - **Wazuh and Sysmon.** Import a sanitized JSON array or JSON Lines export from an authorized, isolated lab with `python backend/ingest.py path/to/alerts.json`. The importer expects Wazuh Windows event alerts for Sysmon IDs 1, 3, and 11. For Docker, add `--base-url http://127.0.0.1:8080`. Set `NORTH_SEED_DEMO=0` before booting with a fresh database to start without the bundled case.
-- **Ollama.** With a local server running and `qwen2.5-coder:7b` available, click **Generate draft** in IRIS. Override the server or model with `OLLAMA_URL` or `OLLAMA_MODEL` as needed. The draft must cite known evidence IDs. Analyst review is required to assess whether the claims are supported. The rule-based report works independently.
+- **Ollama.** With a local server running and `qwen2.5-coder:7b` available, click **Generate draft** in IRIS. Override the server or model with `OLLAMA_URL` or `OLLAMA_MODEL` as needed. NORTH derives observations and their citations from Sysmon event types. Ollama ranks those observations, and NORTH accepts only selections drawn from the current case. Analysts can open the cited raw events in ECHO. The rule-based report works independently.
 
 The console binds to localhost in the documented setups. Its API has no user authentication and is intended for a single analyst in a local lab.
 
