@@ -3,6 +3,7 @@
 import asyncio
 import csv
 import re
+import sqlite3
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -87,9 +88,22 @@ def read_totals(alias):
 
 
 class RouterUsage:
-    def __init__(self, alias):
+    def __init__(self, alias, store=None, scope=None):
         self.alias = alias
+        self.store = store
+        self.scope = scope
+        self._baseline_ready = False
         self.current = {"state": "starting", "updated_at": None, "devices": []}
+
+    async def restore(self):
+        if not self.store:
+            return
+        try:
+            saved = await run_in_threadpool(self.store.router_traffic, self.scope)
+            if saved:
+                self.current = {**saved, "state": "unavailable"}
+        except (OSError, ValueError, sqlite3.Error):
+            pass
 
     def record(self, devices, observed_at):
         previous = {item["mac"]: item for item in self.current["devices"]}
@@ -99,12 +113,16 @@ class RouterUsage:
                 continue
             downloaded = device["download_bytes"] - earlier["download_bytes"]
             uploaded = device["upload_bytes"] - earlier["upload_bytes"]
-            if downloaded >= 0 and uploaded >= 0:
-                device["recent_usage"] = [*earlier.get("recent_usage", [])[-11:], {
+            history = earlier.get("recent_usage", [])
+            if self._baseline_ready and downloaded >= 0 and uploaded >= 0:
+                history = [*history[-11:], {
                     "from": self.current["updated_at"], "to": observed_at,
                     "download_bytes": downloaded, "upload_bytes": uploaded,
                 }]
+            if history:
+                device["recent_usage"] = history
         self.current = {"state": "ready", "updated_at": observed_at, "devices": devices}
+        self._baseline_ready = True
 
     async def run(self):
         while True:
@@ -112,6 +130,12 @@ class RouterUsage:
                 devices = await run_in_threadpool(read_totals, self.alias)
             except (OSError, ValueError, subprocess.SubprocessError):
                 self.current = {**self.current, "state": "unavailable"}
+                self._baseline_ready = False
             else:
                 self.record(devices, datetime.now(timezone.utc).isoformat())
+                if self.store:
+                    try:
+                        await run_in_threadpool(self.store.record_router_traffic, self.scope, self.current)
+                    except (OSError, sqlite3.Error):
+                        pass
             await asyncio.sleep(60)

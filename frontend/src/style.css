@@ -207,6 +207,10 @@ button:disabled { opacity: .65; cursor: wait; }
 .atlas-address-context .atlas-usage-column { display: flex; flex: 1; flex-direction: column; justify-content: end; margin: 0; }
 .atlas-usage-column span { background: var(--chart-blue); }
 .atlas-usage-column span + span { background: var(--accent); }
+.adapter-rate-history { margin-top: .7rem; padding: .55rem; border: 1px solid var(--line); }
+.adapter-rate-history h3 { margin: 0; font-size: .9rem; }
+.adapter-rate-history .atlas-usage-column { display: flex; flex: 1; flex-direction: column; justify-content: end; }
+.router-traffic-table .atlas-address-button[aria-pressed="true"] { border-color: var(--selection-line); background: var(--selection); }
 .atlas-workspace .panel { border-radius: .2rem; background: var(--surface); }
 .atlas-workspace .atlas-toolbar, .atlas-workspace .atlas-map { padding: .65rem .8rem; }
 .atlas-toolbar .network-search input { padding: .45rem .55rem; }

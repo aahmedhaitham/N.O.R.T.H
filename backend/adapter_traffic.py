@@ -32,6 +32,7 @@ class AdapterTraffic:
     def record(self, rows, sampled_at, measured_at):
         counters = {}
         adapters = []
+        previous_history = {item["name"]: item.get("recent_rates", []) for item in self.current["adapters"]}
         elapsed = measured_at - self._sample_time if self._sample_time is not None else 0
         for row in rows:
             if not isinstance(row, dict):
@@ -46,10 +47,18 @@ class AdapterTraffic:
             rates = (None, None)
             if previous and elapsed > 0 and rx >= previous[0] and tx >= previous[1]:
                 rates = ((rx - previous[0]) / elapsed, (tx - previous[1]) / elapsed)
-            adapters.append({
+            adapter = {
                 "name": name, "received_bytes": rx, "sent_bytes": tx,
                 "receive_rate": rates[0], "send_rate": rates[1],
-            })
+            }
+            history = previous_history.get(name, [])
+            if rates[0] is not None:
+                history = [*history[-11:], {
+                    "sampled_at": sampled_at, "receive_rate": rates[0], "send_rate": rates[1],
+                }]
+            if history:
+                adapter["recent_rates"] = history
+            adapters.append(adapter)
             if len(adapters) >= 64:
                 break
         self.current = {

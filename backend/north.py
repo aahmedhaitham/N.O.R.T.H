@@ -169,6 +169,26 @@ class Store:
                     PRIMARY KEY (scope, checked_at)
                 )
                 """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS router_traffic_state (
+                    scope TEXT PRIMARY KEY, payload TEXT NOT NULL
+                )
+                """)
+
+    def router_traffic(self, scope):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            row = db.execute(f"SELECT payload FROM router_traffic_state WHERE scope = {marker}", (scope,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def record_router_traffic(self, scope, state):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            db.execute(
+                f"INSERT INTO router_traffic_state (scope, payload) VALUES ({marker}, {marker}) "
+                "ON CONFLICT (scope) DO UPDATE SET payload = excluded.payload",
+                (scope, json.dumps(state)),
+            )
 
     def internet_checks(self, scope):
         marker = "%s" if self.url else "?"

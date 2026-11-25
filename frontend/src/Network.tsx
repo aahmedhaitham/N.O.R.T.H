@@ -16,6 +16,7 @@ type Collector = { state: 'starting' | 'disabled' | 'ready' | 'unavailable'; upd
 type HealthSample = { checked_at: string; gateway?: 'responded' | 'no_reply' | 'unknown';
   dns_ms: number | null; https_ms: number | null; http_status: number | null;
   cloud_probe?: boolean; https_error?: 'tls' | 'timeout' | 'network' | null };
+type AdapterRate = { sampled_at: string; receive_rate: number; send_rate: number };
 type Finding = { id: string; first_seen: string; last_seen: string; reviewed_at: string | null;
   mac: string; interface: string; addresses: string[] };
 type Snapshot = {
@@ -31,7 +32,7 @@ type Snapshot = {
   } & TrafficTotals)[] };
   app_connections?: { process: string; events: number; destinations: number }[];
   adapter_traffic?: Collector & { adapters: { name: string; received_bytes: number; sent_bytes: number;
-    receive_rate: number | null; send_rate: number | null }[] };
+    receive_rate: number | null; send_rate: number | null; recent_rates?: AdapterRate[] }[] };
   internet_health?: HealthSample[];
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
@@ -159,6 +160,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const [search, setSearch] = useState('');
   const [wifiOnly, setWifiOnly] = useState(false);
   const [healthWindow, setHealthWindow] = useState(12);
+  const [adapterSelection, setAdapterSelection] = useState('');
   const [atlasView, setAtlasView] = useState<AtlasView>('devices');
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
   const activeView = target ? (target === 'atlas-windows-events' ? 'health' : 'devices') : atlasView;
@@ -230,6 +232,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const adapterRows = (adapterTraffic?.adapters ?? []).filter((item) => fits(item.name))
     .sort((a, b) => ((b.receive_rate ?? 0) + (b.send_rate ?? 0)) - ((a.receive_rate ?? 0) + (a.send_rate ?? 0)) ||
       a.name.localeCompare(b.name));
+  const selectedAdapter = adapterRows.find((item) => item.name === adapterSelection) ?? adapterRows[0];
+  const adapterRates = selectedAdapter?.recent_rates?.slice(-12) ?? [];
+  const maxAdapterRate = Math.max(1, ...adapterRates.map((sample) => sample.receive_rate + sample.send_rate));
   const matchesDevice = ([, records]: [string, Neighbor[]]) => records.some((record) =>
     fits(record.address, record.name, record.mac, record.network));
   const liveDevices = groupNeighbors(collector?.records ?? []);
@@ -531,7 +536,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         <table className="investigation-table router-traffic-table" aria-label="Windows adapter traffic">
           <thead><tr><th scope="col">Adapter</th><th scope="col">Receive rate</th><th scope="col">Send rate</th><th scope="col">Received total</th><th scope="col">Sent total</th></tr></thead>
           <tbody>{adapterRows.map((item) => <tr key={item.name}>
-            <th scope="row">{item.name}</th>
+            <th scope="row"><button type="button" className="atlas-address-button" aria-pressed={item.name === selectedAdapter?.name}
+              onClick={() => setAdapterSelection(item.name)}>{item.name}</button></th>
             <td>{item.receive_rate === null ? '—' : formatTraffic(item.receive_rate) + '/s'}</td>
             <td>{item.send_rate === null ? '—' : formatTraffic(item.send_rate) + '/s'}</td>
             <td>{formatTraffic(item.received_bytes)}</td><td>{formatTraffic(item.sent_bytes)}</td>
@@ -539,6 +545,21 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         </table>
         {adapterRows.some((item) => item.receive_rate === null) && <p className="reference">Rates appear after two successful samples with increasing or unchanged counters.</p>}
       </div>}
+      {selectedAdapter && <section className="adapter-rate-history" aria-label={`${selectedAdapter.name} rate history`}>
+        <h3>{selectedAdapter.name} rate history</h3>
+        {adapterRates.length === 0 ? <p>History appears after the adapter reports a measured rate.</p> : <>
+          <p className="reference">Received and sent per second between samples.</p>
+          <div className="atlas-usage-chart" role="list" aria-label="Adapter rates">
+            {adapterRates.map((sample) => {
+              const description = `${new Date(sample.sampled_at).toLocaleTimeString()} · ${formatTraffic(sample.receive_rate)}/s received · ${formatTraffic(sample.send_rate)}/s sent`;
+              return <div className="atlas-usage-column" role="listitem" aria-label={description} title={description} key={sample.sampled_at}>
+                <span style={{ height: `${sample.send_rate / maxAdapterRate * 100}%` }} />
+                <span style={{ height: `${sample.receive_rate / maxAdapterRate * 100}%` }} />
+              </div>;
+            })}
+          </div>
+        </>}
+      </section>}
     </section>}
     {router && <section className="panel">
       <h2>Router traffic by device</h2>

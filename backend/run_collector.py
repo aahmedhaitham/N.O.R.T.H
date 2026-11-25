@@ -20,11 +20,14 @@ async def collect():
     store.initialize()
     neighbors = NeighborMonitor(store, True)
     sysmon = SysmonMonitor(store, sys.platform == "win32")
-    alias = os.getenv("NORTH_OPENWRT_HOST")
-    router = RouterUsage(alias) if alias else None
     cloud_url = os.environ["NORTH_CLOUD_URL"]
-    health = InternetHealth(cloud_url, store, snapshot_target(cloud_url, collector_source(socket.gethostname())))
+    source = collector_source(socket.gethostname())
+    health = InternetHealth(cloud_url, store, snapshot_target(cloud_url, source))
     await health.restore()
+    alias = os.getenv("NORTH_OPENWRT_HOST")
+    router = RouterUsage(alias, store, snapshot_target(cloud_url, source + "|openwrt|" + alias)) if alias else None
+    if router:
+        await router.restore()
     traffic = AdapterTraffic() if sys.platform == "win32" else None
     async with asyncio.TaskGroup() as tasks:
         tasks.create_task(neighbors.run())

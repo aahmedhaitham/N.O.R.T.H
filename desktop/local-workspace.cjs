@@ -87,11 +87,14 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
   }, { events: [] });
   let previousCounters = new Map();
   let previousSample = 0;
+  let adapterHistory = new Map();
   const adapterTraffic = cachedReader(async () => {
     const rows = await read(path.join(scripts, 'Read-NorthAdapterTraffic.ps1'), []);
     const now = performance.now();
     const elapsed = (now - previousSample) / 1000;
     const counters = new Map();
+    const nextHistory = new Map();
+    const sampledAt = new Date().toISOString();
     const adapters = [];
     for (const { name, received, sent } of rows) {
       if (typeof name !== 'string' || !/^\d{1,20}$/.test(received) || !/^\d{1,20}$/.test(sent)) continue;
@@ -100,12 +103,20 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
       const previous = previousCounters.get(name);
       const validRate = previous && elapsed > 0 && rx >= previous.rx && tx >= previous.tx;
       counters.set(name, { rx, tx });
-      adapters.push({ name, received_bytes: Number(rx), sent_bytes: Number(tx),
+      const adapter = { name, received_bytes: Number(rx), sent_bytes: Number(tx),
         receive_rate: validRate ? Number(rx - previous.rx) / elapsed : null,
-        send_rate: validRate ? Number(tx - previous.tx) / elapsed : null });
+        send_rate: validRate ? Number(tx - previous.tx) / elapsed : null };
+      let history = adapterHistory.get(name) ?? [];
+      if (validRate) history = [...history.slice(-11), {
+        sampled_at: sampledAt, receive_rate: adapter.receive_rate, send_rate: adapter.send_rate,
+      }];
+      if (history.length) adapter.recent_rates = history;
+      nextHistory.set(name, history);
+      adapters.push(adapter);
     }
     previousCounters = counters;
     previousSample = now;
+    adapterHistory = nextHistory;
     return { adapters };
   }, { adapters: [] });
 
