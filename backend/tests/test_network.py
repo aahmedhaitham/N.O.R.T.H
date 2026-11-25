@@ -42,8 +42,10 @@ def test_linux_collector_reads_cache_without_probes(monkeypatch):
 
 def test_public_app_disables_automatic_local_collection(monkeypatch, tmp_path):
     monkeypatch.setenv("NORTH_NETWORK_AUTO", "1")
+    monkeypatch.setenv("NORTH_SYSMON_AUTO", "1")
     monkeypatch.setenv("NORTH_PUBLIC_DEMO", "1")
     store = Store(path=tmp_path / "public.sqlite3")
     store.initialize()
     route = next(route for route in main.make_app(store).routes if route.path == "/api/network")
     assert route.endpoint()["neighbors"] == {"state": "disabled", "updated_at": None, "records": []}
+    assert route.endpoint()["sysmon"]["state"] == "disabled"

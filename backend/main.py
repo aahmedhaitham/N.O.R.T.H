@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import sys
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from urllib.error import URLError
@@ -15,6 +16,7 @@ from starlette.concurrency import run_in_threadpool
 from north import SSH_FAILURE, SUDO_COMMAND, build_cases, configured_store, report
 from network import snapshot
 from neighbors import NeighborMonitor
+from sysmon import SysmonMonitor
 
 
 class Batch(BaseModel):
@@ -35,18 +37,24 @@ def make_app(store=None):
     public_demo = os.getenv("NORTH_PUBLIC_DEMO") == "1"
     watch_neighbors = not public_demo and os.getenv("NORTH_NETWORK_AUTO") == "1"
     neighbors = NeighborMonitor(watch_neighbors)
+    watch_sysmon = not public_demo and sys.platform == "win32" and os.getenv("NORTH_SYSMON_AUTO") == "1"
+    sysmon = SysmonMonitor(store, watch_sysmon)
 
     @asynccontextmanager
     async def lifespan(_app):
         store.initialize()
         if os.getenv("NORTH_SEED_DEMO", "1") == "1":
             store.ingest(demo_alerts(include_linux=public_demo))
-        task = asyncio.create_task(neighbors.run()) if watch_neighbors else None
+        tasks = [
+            asyncio.create_task(monitor.run())
+            for enabled, monitor in ((watch_neighbors, neighbors), (watch_sysmon, sysmon)) if enabled
+        ]
         try:
             yield
         finally:
-            if task is not None:
+            for task in tasks:
                 task.cancel()
+            for task in tasks:
                 with suppress(asyncio.CancelledError):
                     await task
 
@@ -73,7 +81,7 @@ def make_app(store=None):
 
     @app.get("/api/network")
     def network():
-        return {**snapshot(store.events()), "neighbors": neighbors.current}
+        return {**snapshot(store.events()), "neighbors": neighbors.current, "sysmon": sysmon.current}
 
     @app.post("/api/ingest")
     def ingest(batch: Batch):

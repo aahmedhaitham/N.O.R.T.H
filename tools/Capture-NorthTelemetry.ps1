@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $channel = 'Microsoft-Windows-Sysmon/Operational'
 $null = Get-WinEvent -ListLog $channel -ErrorAction Stop
+. (Join-Path $PSScriptRoot 'SysmonFormat.ps1')
 
 $output = Join-Path (Split-Path -Parent $PSScriptRoot) 'raw-logs'
 New-Item -Path $output -ItemType Directory -Force | Out-Null
@@ -14,36 +15,6 @@ $start = Get-Date
 & powershell.exe -NoProfile -NonInteractive -Command $command
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $marker)) {
     throw 'The test process did not create the marker file.'
-}
-
-function Read-SysmonFields($event) {
-    $xml = [xml]$event.ToXml()
-    $fields = @{}
-    foreach ($node in $xml.GetElementsByTagName('Data')) {
-        $fields[$node.GetAttribute('Name')] = $node.InnerText
-    }
-    return $fields
-}
-
-function Export-NorthEvent($record) {
-    $fields = $record.fields
-    return @{
-        agent = @{ id = 'sysmon-local-01'; name = 'WIN-PC' }
-        data = @{ win = @{
-            system = @{
-                channel = $channel
-                eventID = [string]$record.event.Id
-                eventRecordID = [string]$record.event.RecordId
-                systemTime = $record.event.TimeCreated.ToUniversalTime().ToString('o')
-            }
-            eventdata = @{
-                image = [IO.Path]::GetFileName([string]$fields.Image)
-                processGuid = [string]$fields.ProcessGuid
-                parentProcessGuid = [string]$fields.ParentProcessGuid
-                targetFilename = [IO.Path]::GetFileName([string]$fields.TargetFilename)
-            }
-        } }
-    }
 }
 
 $filter = @{ LogName = $channel; Id = 1, 11; StartTime = $start }

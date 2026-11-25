@@ -6,8 +6,12 @@ type Connection = {
   asset_id: string; address: string; direction: 'inbound' | 'outbound';
   events: number; last_seen: string; cases: CaseReference[]; source: string;
 };
-type Collector = { state: 'starting' | 'disabled' | 'ready' | 'unavailable'; updated_at: string | null; records: Neighbor[] };
-type Snapshot = { assets: Host[]; links: Connection[]; neighbors?: Collector };
+type Collector = { state: 'starting' | 'disabled' | 'ready' | 'unavailable'; updated_at: string | null };
+type Snapshot = {
+  assets: Host[]; links: Connection[];
+  neighbors?: Collector & { records: Neighbor[] };
+  sysmon?: Collector & { session_events: number };
+};
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
 
 function readNeighbors(value: unknown): Neighbor[] {
@@ -54,6 +58,7 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
   const matchingHosts = inventory?.assets.filter((asset) => fits(asset.host)) ?? [];
   const matchingLinks = inventory?.links.filter((link) => fits(link.address, hosts.get(link.asset_id) ?? '')) ?? [];
   const collector = inventory?.neighbors;
+  const windowsEvents = inventory?.sysmon;
   const matchesDevice = ([, records]: [string, Neighbor[]]) => records.some((record) =>
     fits(record.address, record.name, record.mac, record.network));
   const liveDevices = groupNeighbors(collector?.records ?? []);
@@ -131,6 +136,12 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
       </label>
     </header>
     {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
+    {windowsEvents && windowsEvents.state !== 'disabled' && <section className="panel">
+      <h2>Windows event collection</h2>
+      <p role="status">{windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
+        windowsEvents.state === 'unavailable' ? 'Sysmon is unavailable or this account cannot read its log. NORTH will retry.' :
+        `Collecting automatically · ${windowsEvents.session_events} new events since launch · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
+    </section>}
     {collector && collector.state !== 'disabled' && <section className="panel">
       <h2>Local network devices</h2>
       <p role="status">{collector.state === 'starting' ? 'Reading the local neighbor cache…' :

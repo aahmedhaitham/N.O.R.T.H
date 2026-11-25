@@ -81,6 +81,7 @@ try {
     }
 
     $env:NORTH_NETWORK_AUTO = '1'
+    $env:NORTH_SYSMON_AUTO = '1'
     $started += Start-NorthServer 'backend' $python '-m uvicorn main:app --host 127.0.0.1 --port 8000' $backend
     ConvertTo-Json -InputObject $started | Set-Content -LiteralPath $statePath -Encoding UTF8
     Wait-NorthServer $started[0] 'http://127.0.0.1:8000/api/health'

@@ -138,14 +138,27 @@ class Store:
                 )
                 """)
             db.execute("CREATE INDEX IF NOT EXISTS events_time ON events (timestamp, id)")
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS collection_offsets (
+                    source TEXT PRIMARY KEY, position BIGINT NOT NULL
+                )
+                """)
 
-    def ingest(self, alerts: list[dict]) -> int:
+    def collection_offset(self, source):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            row = db.execute(
+                f"SELECT position FROM collection_offsets WHERE source = {marker}", (source,),
+            ).fetchone()
+        return row[0] if row else 0
+
+    def ingest(self, alerts: list[dict], *, checkpoint: tuple[str, int] | None = None) -> int:
         # Normalize the whole batch before opening the transaction.
         events = [normalize(alert) for alert in alerts]
         marker = "%s" if self.url else "?"
         values = ", ".join([marker] * 3)
         with self.connect() as db:
-            return sum(
+            inserted = sum(
                 db.execute(
                     f"INSERT INTO events (id, timestamp, payload) VALUES ({values}) "
                     "ON CONFLICT (id) DO NOTHING",
@@ -153,6 +166,13 @@ class Store:
                 ).rowcount
                 for event in events
             )
+            if checkpoint is not None:
+                db.execute(
+                    f"INSERT INTO collection_offsets (source, position) VALUES ({marker}, {marker}) "
+                    "ON CONFLICT (source) DO UPDATE SET position = excluded.position",
+                    checkpoint,
+                )
+            return inserted
 
     def events(self) -> list[dict]:
         with self.connect() as db:
