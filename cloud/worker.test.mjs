@@ -115,6 +115,10 @@ test('cloud sources keep independent event and investigation history', async (t)
     network: { assets: [], links: [] }, reports: { [id]: 'sample report' } };
 
   assert.equal((await call('/api/cases')).status, 401);
+  const health = await call('/api/cloud/health', { method: 'HEAD' });
+  assert.equal(health.status, 204);
+  assert.equal(health.headers.get('Cache-Control'), 'no-store');
+  assert.equal(await health.text(), '');
   assert.equal((await call('/api/cloud/snapshot', post(data))).status, 401);
   assert.equal((await call('/api/cloud/snapshot', post(data, {
     Authorization: 'Bearer ' + secrets.NORTH_INGEST_KEY,

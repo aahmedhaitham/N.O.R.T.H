@@ -3,6 +3,7 @@
 import asyncio
 import json
 import socket
+import ssl
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -56,6 +57,7 @@ def check_origin(origin):
     result = {
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "dns_ms": None, "https_ms": None, "http_status": None, "gateway": check_gateway(),
+        "cloud_probe": True, "https_error": None,
     }
     started = monotonic()
     try:
@@ -64,15 +66,19 @@ def check_origin(origin):
     except OSError:
         pass
     started = monotonic()
-    request = Request(origin.rstrip("/") + "/", method="HEAD")
+    request = Request(origin.rstrip("/") + "/api/cloud/health", method="HEAD")
     try:
         with build_opener(NoRedirects()).open(request, timeout=8) as response:
             result["http_status"] = response.status
     except HTTPError as response:
         result["http_status"] = response.code
         response.close()
-    except OSError:
-        pass
+    except OSError as error:
+        reason = getattr(error, "reason", error)
+        result["https_error"] = (
+            "tls" if isinstance(reason, ssl.SSLError) else
+            "timeout" if isinstance(reason, TimeoutError) else "network"
+        )
     if result["http_status"] is not None:
         result["https_ms"] = round((monotonic() - started) * 1000)
     return result

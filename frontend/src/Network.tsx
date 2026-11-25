@@ -13,6 +13,9 @@ type Connection = {
   events: number; last_seen: string; cases: CaseReference[]; source: string;
 };
 type Collector = { state: 'starting' | 'disabled' | 'ready' | 'unavailable'; updated_at: string | null };
+type HealthSample = { checked_at: string; gateway?: 'responded' | 'no_reply' | 'unknown';
+  dns_ms: number | null; https_ms: number | null; http_status: number | null;
+  cloud_probe?: boolean; https_error?: 'tls' | 'timeout' | 'network' | null };
 type Finding = { id: string; first_seen: string; last_seen: string; reviewed_at: string | null;
   mac: string; interface: string; addresses: string[] };
 type Snapshot = {
@@ -29,8 +32,7 @@ type Snapshot = {
   app_connections?: { process: string; events: number; destinations: number }[];
   adapter_traffic?: Collector & { adapters: { name: string; received_bytes: number; sent_bytes: number;
     receive_rate: number | null; send_rate: number | null }[] };
-  internet_health?: { checked_at: string; gateway?: 'responded' | 'no_reply' | 'unknown';
-    dns_ms: number | null; https_ms: number | null; http_status: number | null }[];
+  internet_health?: HealthSample[];
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
 export type AtlasTarget = 'atlas-new-devices' | 'atlas-windows-events' | 'atlas-local-devices';
@@ -45,6 +47,20 @@ const sysmonProblems = {
   channel_missing: 'The Sysmon event log was not found.',
   read_failed: 'NORTH could not read the Sysmon event log. It will retry.',
 };
+
+function httpsResult(sample: HealthSample) {
+  if (sample.https_error === 'tls') return 'TLS failed';
+  if (sample.https_error === 'timeout') return 'Timed out';
+  if (sample.https_ms === null) return 'No response';
+  if (sample.cloud_probe && sample.http_status === 204) return 'Cloud reached';
+  if (sample.http_status === 401 || sample.http_status === 403) return 'Reached · access denied';
+  if (sample.http_status !== null && sample.http_status >= 500) return 'Reached · service error';
+  return 'Response received';
+}
+
+function healthIsStale(sample: HealthSample) {
+  return Date.now() - Date.parse(sample.checked_at) > 12 * 60 * 1000;
+}
 
 function readNeighbors(value: unknown): Neighbor[] {
   if (!Array.isArray(value)) throw new Error('Choose a JSON array of device records.');
@@ -543,12 +559,13 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       <h2>Internet health from the collector</h2>
       <p>Default IPv4 gateway response, plus DNS lookup and HTTPS response time for NORTH Cloud. Some gateways block ping replies.</p>
       {latestHealth && <>
-        <p className="reference">Last checked <time dateTime={latestHealth.checked_at}>{new Date(latestHealth.checked_at).toLocaleString()}</time></p>
+        <p className="reference">Last checked <time dateTime={latestHealth.checked_at}>{new Date(latestHealth.checked_at).toLocaleString()}</time>
+          {!demo && healthIsStale(latestHealth) && <strong className="health-stale"> Older than 12 minutes</strong>}</p>
         <dl className="health-summary">
           <div><dt>Gateway</dt><dd>{latestHealth.gateway === 'responded' ? 'Replied' : latestHealth.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</dd></div>
           <div><dt>DNS lookup</dt><dd>{latestHealth.dns_ms === null ? 'Failed' : latestHealth.dns_ms + ' ms'}</dd></div>
-          <div><dt>HTTPS response</dt><dd>{latestHealth.https_ms === null ? 'No response' : latestHealth.https_ms + ' ms'}
-            {latestHealth.http_status !== null && <small>HTTP {latestHealth.http_status}</small>}</dd></div>
+          <div><dt>HTTPS response</dt><dd>{httpsResult(latestHealth)}
+            {latestHealth.https_ms !== null && <small>{latestHealth.https_ms} ms · HTTP {latestHealth.http_status}</small>}</dd></div>
         </dl>
       </>}
       {!inventory.internet_health.length && <p>Waiting for the first check.</p>}
@@ -562,7 +579,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
             <td>{sample.gateway === 'responded' ? 'Replied' : sample.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</td>
             <td>{sample.dns_ms === null ? 'Lookup failed' : sample.dns_ms + ' ms'}</td>
             <td>{sample.https_ms === null ? 'No response' : sample.https_ms + ' ms'}</td>
-            <td>{sample.http_status ?? '—'}</td>
+            <td>{sample.http_status === null ? httpsResult(sample) : `${httpsResult(sample)} (HTTP ${sample.http_status})`}</td>
           </tr>)}</tbody>
         </table>
         </div>

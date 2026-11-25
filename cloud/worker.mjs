@@ -483,6 +483,9 @@ export default {
       .every((secret) => typeof secret === 'string' && secret.length >= 32)) {
       return json({ detail: 'Cloud service setup is incomplete.' }, 503);
     }
+    if (path === '/api/cloud/health' && (request.method === 'HEAD' || request.method === 'GET')) {
+      return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+    }
     if (request.method === 'GET' && path === '/api/cloud/auth/options') {
       return json({ google: googleEnabled(env) });
     }

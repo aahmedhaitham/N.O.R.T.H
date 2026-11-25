@@ -276,6 +276,7 @@ button:disabled { opacity: .65; cursor: wait; }
 .health-summary > div { padding: .55rem; border: 1px solid var(--line); background: var(--canvas); }
 .health-summary dd { margin: .25rem 0 0; font-weight: 600; }
 .health-summary small { margin-inline-start: .45rem; font-weight: 400; }
+.health-stale { margin-inline-start: .45rem; color: var(--warning); }
 .router-wifi-filter { display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; }
 @media (max-width: 850px) {
   .atlas-layout { grid-template-columns: 1fr; }

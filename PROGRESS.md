@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+- Collector diagnostics check a dedicated HTTPS health endpoint without credentials and distinguish a cloud response, rejected requests, TLS failures, and timeouts. The dashboard marks old samples, and the staging deploy checks the health endpoint.
 - The trace viewer reads Ethernet, raw IP, and both Linux cooked headers in PCAP and PCAPNG. It supports TCP/UDP port filtering and displays IPv6 addresses in compressed form.
 - Signed-in workspaces can name observed devices by MAC per collector. Labels are saved in the workspace and are shared across sessions, with their source shown in the inspector.
 - Router exports can label observed devices by an unambiguous MAC match. Imported names remain in the current window and can be cleared. Device coverage counts names, router-confirmed Wi-Fi, and router byte totals separately.

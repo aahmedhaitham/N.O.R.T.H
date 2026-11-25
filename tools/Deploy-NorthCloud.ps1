@@ -36,6 +36,8 @@ function Find-NorthDatabase {
 }
 
 function Test-StagingDeployment([string]$Origin) {
+    $health = Invoke-WebRequest -Method Head -Uri "$Origin/api/cloud/health" -UseBasicParsing -TimeoutSec 20
+    if ($health.StatusCode -ne 204) { throw 'The collector health endpoint did not return HTTP 204.' }
     $homepage = Invoke-WebRequest -Uri "$Origin/" -UseBasicParsing -TimeoutSec 20
     if ($homepage.StatusCode -ne 200 -or $homepage.Content -notmatch '<div id="root"') {
         throw 'The staging Worker did not serve the NORTH dashboard.'
