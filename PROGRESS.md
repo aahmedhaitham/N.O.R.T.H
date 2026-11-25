@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+- The device inventory shows name provenance, observed IPs, MAC, interface, and router usage in one table. Usage is shown only when the configured router reports counters for the observed MAC.
 - Router traffic lists active OpenWrt DHCP IPs next to MAC, Wi-Fi association, and byte totals. Collector-observed addresses are labeled when used as a fallback.
 - Router integrations should report device inventory, Wi-Fi association, and measured counters as separate capabilities. Huawei documents DN8245V diagnostics through its operator platform; automatic local integration for the DN8245V-56 remains unverified.
 - Windows adapter byte totals and sampled receive/send rates now appear in ATLAS Traffic for both paired collectors and the desktop local workspace. This measures interfaces and is shown separately from Sysmon process connections and router totals.

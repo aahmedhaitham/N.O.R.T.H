@@ -251,6 +251,9 @@ button:disabled { opacity: .65; cursor: wait; }
 .router-traffic-table td { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .router-traffic-table tbody th { color: var(--text); background: transparent; }
 .router-traffic-table :is(th, td) small { display: block; margin-top: .2rem; color: var(--muted); font-weight: 400; }
+.device-inventory-table tbody th { color: var(--text); background: transparent; }
+.device-inventory-table :is(th, td) small { display: block; color: var(--muted); font-weight: 400; }
+.device-inventory-table td code { white-space: nowrap; }
 .router-traffic-table .router-download { color: var(--accent); }
 .router-traffic-table .router-upload { color: var(--chart-blue); }
 .router-traffic-track { display: flex; min-width: 4rem; margin-top: .25rem; height: .3rem; border-radius: 1rem; background: var(--line); overflow: hidden; }

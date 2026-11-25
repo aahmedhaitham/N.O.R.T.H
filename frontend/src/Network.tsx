@@ -245,23 +245,43 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     ));
   }
 
-  function devicesList(devices: [string, Neighbor[]][]) {
-    const matching = devices.filter(matchesDevice);
+  function devicesList(devices: [string, Neighbor[]][], includeRouter = false) {
+    const matching = devices.map(([key, records]) => ({
+      key, records, traffic: includeRouter ? trafficByMac.get(macKey(records[0].mac)) : undefined,
+    })).filter(({ key, records, traffic }) => matchesDevice([key, records]) ||
+      (traffic && fits(traffic.router_name ?? '', ...(traffic.router_ips ?? []))));
     return <>
-      <ul className="network-list">{matching.map(([key, records]) => {
-        const { address, name, mac, network } = records[0];
-        return <li key={key}>
-          <strong>{name || address}</strong>
-          <small>{[mac, network, /VMware|VirtualBox|vEthernet/i.test(network) && 'Virtual adapter'].filter(Boolean).join(' · ')}</small>
-          <small>{records.map((record) => [record.address, record.state].filter(Boolean).join(' · ')).join(' / ')}</small>
-          <details className="device-explanation">
-            <summary>Explain this device</summary>
-            <p>{name ? 'The source supplied the label “' + name + '”.' : 'The available records do not identify the device model.'}
-              {' '}Addresses here were grouped by interface and hardware address when both were available.</p>
-            {records.map((record) => <p key={record.address}><strong>{record.address}</strong> · {explainAddress(record.address)}</p>)}
-          </details>
-        </li>;
-      })}</ul>
+      {matching.length > 0 && <div className="router-traffic-table-wrap">
+        <table className="investigation-table device-inventory-table" aria-label="Observed devices">
+          <thead><tr><th scope="col">Device</th><th scope="col">IP addresses</th><th scope="col">MAC address</th>
+            <th scope="col">Observed on</th>{includeRouter && <th scope="col">Router usage</th>}</tr></thead>
+          <tbody>{matching.map(({ key, records, traffic }) => {
+            const { address, mac, network } = records[0];
+            const observedName = records.find((record) => record.name)?.name;
+            const label = traffic?.router_name || observedName;
+            return <tr key={key}>
+              <th scope="row">{label || address}
+                <small>{traffic?.router_name ? 'Router DHCP name' : observedName ? 'Observed name' : 'Name unavailable'}</small>
+              </th>
+              <td>{records.map((record) => <div key={record.address}>
+                <button type="button" className="atlas-address-button" onClick={() => openEvents(record.address)}
+                  aria-label={`Search IRIS for ${record.address}`}>{record.address}</button>
+                {record.state && <small>{record.state}</small>}
+              </div>)}
+              <details className="device-explanation">
+                <summary>Explain addresses</summary>
+                {records.map((record) => <p key={record.address}><strong>{record.address}</strong> · {explainAddress(record.address)}</p>)}
+              </details></td>
+              <td>{mac ? <code>{mac}</code> : 'Unavailable'}</td>
+              <td>{network || 'Unknown interface'}{traffic?.wifi_associated && <small>Seen on router Wi-Fi</small>}</td>
+              {includeRouter && <td>{traffic ? <>
+                <span>↓ {formatTraffic(traffic.download_bytes)} · ↑ {formatTraffic(traffic.upload_bytes)}</span>
+                {router?.state === 'unavailable' && <small>Last available totals</small>}
+              </> : <small>Unavailable</small>}</td>}
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>}
       {devices.length > 0 && !matching.length && <p>No devices match this search.</p>}
     </>;
   }
@@ -327,8 +347,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       <p role="status">{collector.state === 'starting' ? 'Reading the local neighbor cache…' :
         collector.state === 'unavailable' ? 'The collector could not read the cache. It will retry automatically.' :
         `${liveDevices.length} device groups · Last refreshed ${new Date(collector.updated_at ?? '').toLocaleTimeString()}`}</p>
-      <p>Addresses on the same interface with the same MAC are grouped. This is the PC’s recent view of the network.</p>
-      {devicesList(liveDevices)}
+      <p>Addresses are grouped by interface and MAC. Router usage appears when the router reports byte totals for that MAC.</p>
+      {devicesList(liveDevices, true)}
     </section>}
     <div className="columns">
       <section className="panel">
