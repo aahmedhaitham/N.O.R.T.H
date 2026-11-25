@@ -9,7 +9,7 @@ $files = @(
     'tools/Read-NorthSysmon.ps1', 'tools/SysmonFormat.ps1',
     'backend/requirements.txt', 'backend/run_collector.py', 'backend/cloud_sync.py',
     'backend/neighbors.py', 'backend/sysmon.py', 'backend/north.py', 'backend/device_watch.py',
-    'backend/network.py', 'backend/router_usage.py'
+    'backend/network.py', 'backend/router_usage.py', 'backend/internet_health.py'
 )
 
 try {

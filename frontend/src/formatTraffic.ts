@@ -1,5 +1,11 @@
 const trafficAmount = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 
+export type TrafficTotals = {
+  download_bytes: number;
+  upload_bytes: number;
+  recent_usage?: { from: string; to: string; download_bytes: number; upload_bytes: number }[];
+};
+
 export function formatTraffic(bytes: number) {
   if (bytes >= 1e12) return trafficAmount.format(bytes / 1e12) + ' TB';
   if (bytes >= 1e9) return trafficAmount.format(bytes / 1e9) + ' GB';

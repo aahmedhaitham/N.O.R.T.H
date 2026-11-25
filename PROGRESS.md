@@ -23,6 +23,8 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+The first batch adds collector gateway, DNS, and HTTPS checks with 12 recent samples, Windows Sysmon app connection counts, OpenWrt DHCP names and positive Wi-Fi associations for devices with traffic counters, and 12 recent router byte-counter intervals. ATLAS can also inspect classic Ethernet PCAP headers locally. Live packet capture, per-app byte measurements, additional router integrations, and live deployment checks remain open.
+
 - Add internet health checks from the enrolled collector, including gateway reachability, DNS resolution, HTTPS connectivity, latency, and check history.
 - Improve device identity with source-labeled collector names and supported router client records. Display Wi-Fi association when the router or access point reports it.
 - Expand router and gateway integrations for per-device byte totals and time-series usage. Keep router traffic and collector-local traffic distinct.

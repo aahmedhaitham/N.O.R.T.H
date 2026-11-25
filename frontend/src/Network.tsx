@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { explainAddress } from './deviceExplanation';
 import { AtlasMap } from './AtlasMap';
 import { pollVisible } from './pollVisible';
-import { formatTraffic } from './formatTraffic';
+import { PacketTrace } from './PacketTrace';
+import { formatTraffic, type TrafficTotals } from './formatTraffic';
 
 type CaseReference = { id: string; title: string };
 type Host = { id: string; host: string; events: number; last_seen: string; cases: CaseReference[] };
@@ -21,8 +22,10 @@ type Snapshot = {
   neighbors?: Collector & { records: Neighbor[] };
   sysmon?: Collector & { session_events: number; recent?: boolean; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
   device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
-  router_usage?: Collector & { devices: { mac: string; download_bytes: number; upload_bytes: number }[] };
+  router_usage?: Collector & { devices: ({ mac: string; router_name?: string; wifi_associated?: boolean } & TrafficTotals)[] };
   app_connections?: { process: string; events: number; destinations: number }[];
+  internet_health?: { checked_at: string; gateway?: 'responded' | 'no_reply' | 'unknown';
+    dns_ms: number | null; https_ms: number | null; http_status: number | null }[];
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
 export type AtlasTarget = 'atlas-new-devices' | 'atlas-windows-events' | 'atlas-local-devices';
@@ -174,7 +177,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       ...device, observations, name: names.size === 1 ? [...names][0] : '',
       total: device.download_bytes + device.upload_bytes,
     };
-  }).filter((device) => fits(device.mac) ||
+  }).filter((device) => fits(device.mac, device.router_name ?? '') ||
     device.observations.some((record) => fits(record.name, record.address, record.network)))
     .sort((a, b) => b.total - a.total || a.mac.localeCompare(b.mac));
   const largestTrafficTotal = Math.max(1, routerDevices[0]?.total ?? 0);
@@ -258,9 +261,26 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {lastRefresh && <small>View updated {lastRefresh}</small>}
     </section>
     <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} openEvents={openEvents} />
-    {inventory?.local_device && <section className="panel">
-      <h2>App network activity on this PC</h2>
-      <p>Recent connection counts from Sysmon. Bandwidth per app and activity on other devices require separate telemetry.</p>
+    {Array.isArray(inventory?.internet_health) && <section className="panel">
+      <h2>Internet health from the collector</h2>
+      <p>Default IPv4 gateway response, plus DNS lookup and HTTPS response time for NORTH Cloud. Some gateways block ping replies.</p>
+      {!inventory.internet_health.length && <p>Waiting for the first check.</p>}
+      {inventory.internet_health.length > 0 && <div className="router-traffic-table-wrap">
+        <table className="investigation-table router-traffic-table" aria-label="Collector internet checks">
+          <thead><tr><th scope="col">Checked</th><th scope="col">Gateway</th><th scope="col">DNS</th><th scope="col">HTTPS</th><th scope="col">Response</th></tr></thead>
+          <tbody>{inventory.internet_health.slice(-12).reverse().map((sample) => <tr key={sample.checked_at}>
+            <td><time dateTime={sample.checked_at}>{new Date(sample.checked_at).toLocaleString()}</time></td>
+            <td>{sample.gateway === 'responded' ? 'Replied' : sample.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</td>
+            <td>{sample.dns_ms === null ? 'Lookup failed' : sample.dns_ms + ' ms'}</td>
+            <td>{sample.https_ms === null ? 'No response' : sample.https_ms + ' ms'}</td>
+            <td>{sample.http_status ?? '—'}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+    </section>}
+    {(inventory?.local_device || Array.isArray(inventory?.app_connections)) && <section className="panel">
+      <h2>App network activity</h2>
+      <p>Connection counts from the selected endpoint’s recorded Sysmon events. Byte totals come from separate traffic telemetry.</p>
       {!inventory.app_connections?.length && <p>{windowsEvents?.state === 'unavailable' ?
         'Allow this Windows account to read the Sysmon event log to see app network activity.' : 'No app connections in the available event history.'}</p>}
       <ul className="network-list">{inventory.app_connections?.filter((app) => fits(app.process)).map((app) => <li key={app.process}>
@@ -353,9 +373,12 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {router.state === 'ready' && !routerDevices.length && <p>No matching device totals.</p>}
       {routerDevices.length > 0 && <div className="router-traffic-table-wrap">
         <table className="investigation-table router-traffic-table" aria-label="Router traffic by device">
-          <thead><tr><th scope="col">Device</th><th scope="col">Download</th><th scope="col">Upload</th><th scope="col">Total</th></tr></thead>
+          <thead><tr><th scope="col">Device</th><th scope="col">Download</th><th scope="col">Upload</th><th scope="col">Total</th><th scope="col">Wi-Fi</th></tr></thead>
           <tbody>{routerDevices.map((device) => <tr key={device.mac}>
-            <th scope="row">{device.name || device.mac}{device.name && <small>{device.mac}</small>}</th>
+            <th scope="row">
+              {device.router_name || device.name || device.mac}
+              {(device.router_name || device.name) && <small>{device.mac} · {device.router_name ? 'DHCP lease' : 'Collector record'}</small>}
+            </th>
             <td>{formatTraffic(device.download_bytes)}</td>
             <td>{formatTraffic(device.upload_bytes)}</td>
             <td>
@@ -365,10 +388,12 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
                 <span style={{ width: `${device.upload_bytes / largestTrafficTotal * 100}%` }} />
               </div>
             </td>
+            <td>{device.wifi_associated === true ? 'Seen on router Wi-Fi' : '—'}</td>
           </tr>)}</tbody>
         </table>
       </div>}
     </section>}
+    <PacketTrace />
     <details className="panel">
       <summary>Import a device list</summary>
       <p>Choose a Windows or Linux neighbor-cache export, or a router export formatted as JSON device records. A cache is a partial list of devices seen recently. The file stays in this browser tab.</p>

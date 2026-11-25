@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Background, Controls, Position, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { explainAddress, explainMacAddress } from './deviceExplanation';
-import { formatTraffic } from './formatTraffic';
+import { formatTraffic, type TrafficTotals } from './formatTraffic';
 
 export type AtlasDevice = {
   id: string;
@@ -11,7 +11,7 @@ export type AtlasDevice = {
   mac: string;
   addresses: string[];
   states: string[];
-  traffic?: { download_bytes: number; upload_bytes: number };
+  traffic?: TrafficTotals;
 };
 
 const virtual = /VMware|VirtualBox|vEthernet|Hyper-V/i;
@@ -39,6 +39,13 @@ function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; st
         </div>
       </li>)}
     </ul>
+    {Array.isArray(traffic.recent_usage) && traffic.recent_usage.length > 0 && <details className="atlas-address-context">
+      <summary>Recent usage intervals</summary>
+      <ul>{traffic.recent_usage.slice(-12).reverse().map((interval) => <li key={interval.to}>
+        <p>{new Date(interval.from).toLocaleTimeString()}–{new Date(interval.to).toLocaleTimeString()}</p>
+        <p>↓ {formatTraffic(interval.download_bytes)} · ↑ {formatTraffic(interval.upload_bytes)}</p>
+      </li>)}</ul>
+    </details>}
   </section>;
 }
 

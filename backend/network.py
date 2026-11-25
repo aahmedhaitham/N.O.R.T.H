@@ -7,6 +7,25 @@ from ipaddress import ip_address
 from north import SSH_FAILURE, build_cases
 
 
+def app_connections(events, host):
+    processes = Counter()
+    destinations = {}
+    normalized_host = host.casefold()
+    for event in events:
+        observed_host = event["host"].casefold()
+        if (event["kind"] != 3 or not event["process"] or
+                (observed_host != normalized_host and observed_host.partition(".")[0] != normalized_host)):
+            continue
+        process = event["process"]
+        processes[process] += 1
+        if event["destination"]:
+            destinations.setdefault(process, set()).add(event["destination"])
+    return [
+        {"process": process, "events": count, "destinations": len(destinations.get(process, ()))}
+        for process, count in sorted(processes.items(), key=lambda item: (-item[1], item[0]))[:32]
+    ]
+
+
 def activity(events):
     if not events:
         return {"buckets": [], "types": [], "interval": None}

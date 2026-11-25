@@ -14,7 +14,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from starlette.concurrency import run_in_threadpool
 
 from device_watch import findings
-from network import snapshot
+from network import app_connections, snapshot
 from north import build_cases, report
 
 
@@ -23,7 +23,7 @@ class NoRedirects(HTTPRedirectHandler):
         return None
 
 
-def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=None):
+def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=None, health=None):
     events = store.events()
     cases = sorted(
         build_cases(events), key=lambda case: case["evidence"][-1]["timestamp"], reverse=True,
@@ -33,7 +33,11 @@ def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=Non
     }
     if router_status is not None:
         network["router_usage"] = router_status
+    if health is not None:
+        network["internet_health"] = health
     host = socket.gethostname()
+    if sysmon_status and sysmon_status.get("state") != "disabled":
+        network["app_connections"] = app_connections(events, host)
     source = os.getenv("NORTH_CLOUD_SOURCE") or "host-" + hashlib.sha256(host.encode()).hexdigest()[:16]
     label = (os.getenv("NORTH_CLOUD_LABEL") or host)[:80]
     target = hashlib.sha256((url.rstrip("/") + "|" + source).encode()).hexdigest()
@@ -66,13 +70,14 @@ def send_snapshot(url, key, data):
             raise OSError("Cloud workspace did not accept the snapshot")
 
 
-async def sync_loop(store, neighbors, sysmon, url, key, router=None):
+async def sync_loop(store, neighbors, sysmon, url, key, router=None, health=None):
     previous = None
     while True:
         retry_delay = 60
         try:
             data, target, event_ids = await run_in_threadpool(
                 build_snapshot, store, neighbors.current, sysmon.current, url, router.current if router else None,
+                health.current if health else None,
             )
             if data != previous:
                 await run_in_threadpool(send_snapshot, url, key, data)
