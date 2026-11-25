@@ -407,6 +407,60 @@ async function caseDraft(env, source, caseId, account) {
   }
 }
 
+async function caseReview(request, db, source, caseId) {
+  if (!source) return json({ detail: 'Case not found' }, 404);
+  const current = await db.prepare(`SELECT r.status, r.notes, r.revision, r.updated_at
+    FROM cloud_cases c LEFT JOIN cloud_case_reviews r ON r.source_id = c.source_id AND r.case_id = c.id
+    WHERE c.source_id = ? AND c.id = ?`).bind(source, caseId).first();
+  if (!current) return json({ detail: 'Case not found' }, 404);
+  if (request.method === 'GET') return json(current.revision ? current :
+    { status: 'open', notes: '', revision: 0, updated_at: null });
+  const update = await readBody(request, 12000).catch(() => null);
+  if (!update || !['open', 'investigating', 'resolved'].includes(update.status) ||
+    typeof update.notes !== 'string' || update.notes.length > 2000 ||
+    !Number.isSafeInteger(update.revision) || update.revision < 0) {
+    return json({ detail: 'Choose a valid status and enter up to 2,000 characters of notes.' }, 422);
+  }
+  if ((current.revision ?? 0) !== update.revision) return json({ detail: 'This case changed. Reload its review to try again.' }, 409);
+  const now = new Date().toISOString();
+  const saved = await db.prepare(`INSERT INTO cloud_case_reviews (source_id, case_id, status, notes, revision, updated_at)
+    SELECT source_id, id, ?, ?, ?, ? FROM cloud_cases WHERE source_id = ? AND id = ?
+    ON CONFLICT(source_id, case_id) DO UPDATE SET status = excluded.status, notes = excluded.notes,
+    revision = excluded.revision, updated_at = excluded.updated_at
+    WHERE cloud_case_reviews.revision = ?
+    RETURNING status, notes, revision, updated_at`)
+    .bind(update.status, update.notes, update.revision + 1, now, source, caseId, update.revision).first();
+  return saved ? json(saved) : json({ detail: 'This case changed. Reload its review to try again.' }, 409);
+}
+
+async function savedSearches(request, url, db, account) {
+  if (request.method === 'GET') {
+    const { results } = await db.prepare('SELECT id, label, query, kind FROM cloud_saved_searches WHERE account_id = ? ORDER BY label')
+      .bind(account).all();
+    return json({ searches: results });
+  }
+  if (request.method !== 'POST') return json({ detail: 'Method not allowed' }, 405);
+  if (request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+  const values = await readBody(request, 2048).catch(() => null);
+  if (values?.action === 'remove' && typeof values.id === 'string' && idPattern.test(values.id)) {
+    const removed = await db.prepare('DELETE FROM cloud_saved_searches WHERE account_id = ? AND id = ? RETURNING id')
+      .bind(account, values.id).first();
+    return removed ? json({ removed: true }) : json({ detail: 'Saved search not found.' }, 404);
+  }
+  const label = typeof values?.label === 'string' ? values.label.trim() : '';
+  const query = typeof values?.query === 'string' ? values.query.trim() : '';
+  const kind = values?.kind;
+  if (values?.action !== 'save' || !label || label.length > 60 || query.length > 200 ||
+    typeof kind !== 'string' || (kind && !/^\d{1,6}$/.test(kind)) || (!query && !kind)) {
+    return json({ detail: 'Enter a name and choose at least one event filter.' }, 422);
+  }
+  const saved = await db.prepare(`INSERT INTO cloud_saved_searches (account_id, id, label, query, kind)
+    SELECT ?, ?, ?, ?, ? WHERE (SELECT count(*) FROM cloud_saved_searches WHERE account_id = ?) < 30
+    ON CONFLICT(account_id, label) DO NOTHING RETURNING id, label, query, kind`)
+    .bind(account, randomHex().slice(0, 24), label, query, kind, account).first();
+  return saved ? json(saved, 201) : json({ detail: 'That name is already saved or this workspace has reached 30 saved searches.' }, 409);
+}
+
 export default {
   async scheduled(controller, env) {
     const now = Math.floor(controller.scheduledTime / 1000);
@@ -503,6 +557,8 @@ export default {
       'SELECT id FROM cloud_accounts WHERE id = ? AND disabled_at IS NULL',
     ).bind(account).first())) return json({ detail: 'Sign in required' }, 401);
 
+    if (path === '/api/cloud/saved-searches') return savedSearches(request, url, env.DB, account);
+
     if (path === '/api/cloud/settings') {
       if (request.method === 'GET') return json({
         ai_available: Boolean(env.AI), ai_enabled: await aiAllowed(env.DB, account),
@@ -560,8 +616,10 @@ export default {
       return result.meta.changes ? json({ revoked: true }) : json({ detail: 'Collector not found.' }, 404);
     }
     const draftId = request.method === 'POST' && /^\/api\/cases\/([0-9a-f]{24})\/draft$/.exec(path)?.[1];
-    if (draftId && request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
-    if (request.method !== 'GET' && !draftId) return json({ detail: 'This cloud endpoint is read-only' }, 405);
+    const reviewId = /^\/api\/cases\/([0-9a-f]{24})\/review$/.exec(path)?.[1];
+    const reviewWrite = reviewId && request.method === 'POST';
+    if ((draftId || reviewWrite) && request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+    if (request.method !== 'GET' && !draftId && !reviewWrite) return json({ detail: 'This cloud endpoint is read-only' }, 405);
     if (path === '/api/cloud/status') {
       const { results: sources } = await env.DB.prepare(
         `SELECT s.id, s.label, s.updated_at FROM cloud_sources s
@@ -578,6 +636,7 @@ export default {
       ORDER BY s.updated_at DESC, s.id LIMIT 1`).bind(account, sourceId, sourceId).first();
     if (sourceId && !source) return json({ detail: 'Collector not found' }, 404);
     if (draftId) return source ? caseDraft(env, source.id, draftId, account) : json({ detail: 'Case not found' }, 404);
+    if (reviewId) return caseReview(request, env.DB, source?.id, reviewId);
     if (path === '/api/cases') {
       if (!source) return json([]);
       const { results } = await env.DB.prepare(

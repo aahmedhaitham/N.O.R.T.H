@@ -24,6 +24,11 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 ### UX backlog
 
 - Preserve the current view and selected collector when the browser page is refreshed. The project owner reported that refresh returns to the dashboard.
+- Batch live staging checks after the next group of product changes.
+
+### Investigation workflow
+
+ECHO case reviews save status and analyst notes to the owning workspace. Concurrent edits receive a reload prompt instead of overwriting an updated review. IRIS offers pivots by host, process, and observed address, and stores named search filters in the workspace. Local cloud API tests exercise cross-account access and review conflicts. Live testing is deferred to the combined staging pass.
 
 ### Workspace settings
 

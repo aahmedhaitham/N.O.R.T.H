@@ -17,7 +17,8 @@ function makeCloudProxy(origin, fetcher = fetch) {
       headers.Origin = origin;
       headers['Content-Type'] = 'application/json';
       body = await request.text();
-      if (body.length > 4096) return Response.json({ detail: 'Request too large.' }, { status: 413 });
+      const limit = /^\/api\/cases\/[0-9a-f]{24}\/review$/.test(pathname) ? 12000 : 4096;
+      if (body.length > limit) return Response.json({ detail: 'Request too large.' }, { status: 413 });
     }
     try {
       let started;

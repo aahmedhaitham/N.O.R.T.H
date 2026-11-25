@@ -9,6 +9,7 @@ import { eventNames } from './eventNames';
 import { Dashboard } from './Dashboard';
 import { InstallApp } from './InstallApp';
 import { CloudGate } from './CloudGate';
+import { CaseReview } from './CaseReview';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
@@ -34,6 +35,7 @@ function App({ source = null, openCollectors, controls }: {
   controls?: import('react').ReactNode;
 }) {
   const [view, setView] = useState<'dashboard' | 'cases' | 'network' | 'events'>('dashboard');
+  const [eventSearch, setEventSearch] = useState('');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
   const [online, setOnline] = useState(false);
@@ -142,7 +144,8 @@ function App({ source = null, openCollectors, controls }: {
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud} />
       </div>
-      {view === 'events' && <Events portfolio={portfolio} source={source} openNetwork={() => setView('network')} />}
+      {view === 'events' && <Events portfolio={portfolio} source={source} initialSearch={eventSearch}
+        canSave={cloud} openNetwork={() => setView('network')} />}
       {view === 'cases' && <div className="workspace">
         <aside aria-label="Investigations">
           <h2>ECHO investigations</h2>
@@ -154,7 +157,8 @@ function App({ source = null, openCollectors, controls }: {
           ))}
         </aside>
         <main>
-          {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery} /> :
+          {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery}
+            openEvents={(search) => { setEventSearch(search); setView('events'); }} /> :
             <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations yet' : 'Waiting for telemetry'}</h1>
               {loaded && !loadError && <p>Investigations appear when NORTH links related events. You can inspect individual events in IRIS.</p>}
               {(loaded || loadError) && <button onClick={() => setView('events')}>Open IRIS events</button>}
@@ -166,7 +170,9 @@ function App({ source = null, openCollectors, controls }: {
   );
 }
 
-function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery: string }) {
+function Investigation({ incident, sourceQuery, openEvents }: {
+  incident: Case; sourceQuery: string; openEvents: (search: string) => void;
+}) {
   const [cursor, setCursor] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -241,9 +247,13 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
         <h1>{incident.title}</h1>
         <p>{incident.summary}</p>
       </div>
-      <a className="button" download={portfolio ? 'north-' + incident.id + '.md' : undefined}
-        href={portfolio ? '/demo/' + incident.id + '.md' : '/api/cases/' + incident.id + '/report' + sourceQuery}>Export report</a>
+      <div className="case-links">
+        <button onClick={() => openEvents(incident.host)}>Find host events in IRIS</button>
+        <a className="button" download={portfolio ? 'north-' + incident.id + '.md' : undefined}
+          href={portfolio ? '/demo/' + incident.id + '.md' : '/api/cases/' + incident.id + '/report' + sourceQuery}>Export report</a>
+      </div>
     </section>
+    {cloud && <CaseReview endpoint={'/api/cases/' + incident.id + '/review' + sourceQuery} />}
     <div className="columns">
       <section className="panel">
         <span className="module">ATLAS / INFRASTRUCTURE</span>

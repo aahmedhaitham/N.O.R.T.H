@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { eventNames } from './eventNames';
+import { SavedSearches } from './SavedSearches';
 
 type Event = {
   id: string; timestamp: string; kind: number; host: string; process: string;
@@ -27,10 +28,12 @@ function staticPage(events: Event[], filter: Filter): Page {
   };
 }
 
-export function Events({ portfolio, source, openNetwork }: { portfolio: boolean; source: string | null; openNetwork: () => void }) {
-  const [search, setSearch] = useState('');
+export function Events({ portfolio, source, initialSearch, openNetwork, canSave }: {
+  portfolio: boolean; source: string | null; initialSearch: string; openNetwork: () => void; canSave: boolean;
+}) {
+  const [search, setSearch] = useState(initialSearch);
   const [kind, setKind] = useState('');
-  const [filter, setFilter] = useState<Filter>({ search: '', kind: '', before: null });
+  const [filter, setFilter] = useState<Filter>({ search: initialSearch, kind: '', before: null });
   const [page, setPage] = useState<Page | null>(null);
   const [error, setError] = useState(false);
 
@@ -74,6 +77,13 @@ export function Events({ portfolio, source, openNetwork }: { portfolio: boolean;
     setFilter(next);
   }
 
+  function pivot(value: string) {
+    const search = value.slice(0, 200);
+    setSearch(search);
+    setKind('');
+    changeFilter({ search, kind: '', before: null });
+  }
+
   return <main className="event-explorer">
     <section className="panel">
       <h1>IRIS <span className="workspace-title">Event explorer</span></h1>
@@ -95,6 +105,9 @@ export function Events({ portfolio, source, openNetwork }: { portfolio: boolean;
         <button type="submit">Apply filters</button>
       </form>
     </section>
+    {canSave && <SavedSearches query={filter.search} kind={filter.kind} apply={(item) => {
+      setSearch(item.query); setKind(item.kind); changeFilter({ search: item.query, kind: item.kind, before: null });
+    }} />}
     <section className="panel" aria-label="Event results">
       {error && <p role="status">The event feed is temporarily unavailable.</p>}
       {!error && !page && <p role="status">Loading events…</p>}
@@ -112,6 +125,11 @@ export function Events({ portfolio, source, openNetwork }: { portfolio: boolean;
               <time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time>
             </summary>
             <p>{event.target || event.destination || event.source_ip || event.process}</p>
+            <div className="case-links" aria-label="Find related events">
+              {event.host && <button onClick={() => pivot(event.host)}>Find host events</button>}
+              {event.process && <button onClick={() => pivot(event.process)}>Find this process</button>}
+              {(event.destination || event.source_ip) && <button onClick={() => pivot(event.destination || event.source_ip || '')}>Find this address</button>}
+            </div>
             <pre>{JSON.stringify(event.raw, null, 2)}</pre>
             <small>Evidence ID {event.id}</small>
           </details>

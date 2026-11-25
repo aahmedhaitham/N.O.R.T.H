@@ -32,6 +32,17 @@ CREATE TABLE IF NOT EXISTS cloud_cases (
 );
 CREATE INDEX IF NOT EXISTS cloud_cases_time ON cloud_cases (source_id, timestamp DESC, id DESC);
 
+CREATE TABLE IF NOT EXISTS cloud_case_reviews (
+    source_id TEXT NOT NULL,
+    case_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('open', 'investigating', 'resolved')),
+    notes TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision >= 1),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (source_id, case_id),
+    FOREIGN KEY (source_id, case_id) REFERENCES cloud_cases(source_id, id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS cloud_pairings (
     source_id TEXT PRIMARY KEY,
     label TEXT NOT NULL,
@@ -74,6 +85,15 @@ CREATE TABLE IF NOT EXISTS cloud_revoked_sessions (
 CREATE TABLE IF NOT EXISTS cloud_workspace_preferences (
     account_id TEXT PRIMARY KEY,
     ai_enabled INTEGER NOT NULL CHECK (ai_enabled IN (0, 1))
+);
+CREATE TABLE IF NOT EXISTS cloud_saved_searches (
+    account_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    query TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    PRIMARY KEY (account_id, id),
+    UNIQUE (account_id, label)
 );
 CREATE INDEX IF NOT EXISTS cloud_revoked_sessions_expiry ON cloud_revoked_sessions (expires_at);
 

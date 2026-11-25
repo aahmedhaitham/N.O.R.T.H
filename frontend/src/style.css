@@ -41,6 +41,12 @@ button:disabled { opacity: .65; cursor: wait; }
 .network-list li { padding: .65rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .network-list small { display: block; color: var(--muted); margin-top: .3rem; }
 .case-links { display: flex; flex-wrap: wrap; gap: .4rem; }
+.case-review { display: grid; gap: .8rem; }
+.case-review label { display: grid; gap: .4rem; }
+.case-review textarea, .case-review select { max-width: 100%; color: inherit; font: inherit; border: 1px solid var(--line); background: var(--surface, #101620); padding: .55rem; border-radius: .35rem; }
+.case-review select { justify-self: start; }
+.case-review textarea { resize: vertical; }
+.case-review small { align-self: center; color: var(--muted); }
 .network-case { font-size: .78rem; margin-top: .5rem; }
 .event-filters { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-top: 1rem; }
 .event-filters label { display: grid; gap: .4rem; font-size: .88rem; max-width: 100%; }
