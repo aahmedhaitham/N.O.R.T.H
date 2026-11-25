@@ -1,11 +1,20 @@
-param([switch]$ShowAccessKey, [switch]$EnableCloudAI)
+param(
+    [switch]$ShowAccessKey,
+    [switch]$EnableCloudAI,
+    [switch]$Staging,
+    [switch]$ConfigureGoogle
+)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$configPath = Join-Path $root 'cloud\wrangler.jsonc'
+$deploymentName = if ($Staging) { 'north-cloud-staging' } else { 'north-cloud' }
+$configFile = if ($Staging) { 'wrangler.staging.local.jsonc' } else { 'wrangler.jsonc' }
+$configPath = Join-Path (Join-Path $root 'cloud') $configFile
 $templatePath = Join-Path $root 'cloud\wrangler.example.jsonc'
 $stateDirectory = Join-Path $root '.north-launcher'
-$keyPath = Join-Path $stateDirectory 'cloud-keys.json'
+$keyFile = if ($Staging) { 'cloud-staging-keys.json' } else { 'cloud-keys.json' }
+$keyPath = Join-Path $stateDirectory $keyFile
+if ($ConfigureGoogle -and !$Staging) { throw 'Google sign-in can only be configured on staging by this script.' }
 
 function Invoke-Wrangler {
     & npx.cmd --yes wrangler @args
@@ -21,7 +30,7 @@ function New-Secret {
 
 function Find-NorthDatabase {
     $databases = Invoke-Wrangler d1 list --json | Out-String | ConvertFrom-Json
-    return $databases | Where-Object { $_.name -eq 'north-cloud' } | Select-Object -First 1
+    return $databases | Where-Object { $_.name -eq $deploymentName } | Select-Object -First 1
 }
 
 function Get-Secrets {
@@ -56,25 +65,42 @@ try {
     if (!(Test-Path -LiteralPath $configPath)) {
         $database = Find-NorthDatabase
         if (!$database) {
-            Invoke-Wrangler d1 create north-cloud
+            Invoke-Wrangler d1 create $deploymentName
             $database = Find-NorthDatabase
         }
         $identifier = [guid]::Empty
         if (!$database -or ![guid]::TryParse([string]$database.uuid, [ref]$identifier)) {
-            throw 'Could not find the north-cloud database ID.'
+            throw "Could not find the $deploymentName database ID."
         }
         $config = Get-Content -LiteralPath $templatePath -Raw | ConvertFrom-Json
+        $config.name = $deploymentName
+        $config.d1_databases[0].database_name = $deploymentName
+        if ($Staging) {
+            $config | Add-Member -NotePropertyName vars -NotePropertyValue @{ NORTH_HOSTED_RETENTION_DAYS = '30' } -Force
+        }
         $config.d1_databases[0].database_id = $identifier.ToString()
         [IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 8))
     }
 
-    Invoke-Wrangler d1 execute north-cloud --config $configPath --remote --file cloud/schema.sql
+    $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+    if ($config.name -ne $deploymentName -or $config.d1_databases.Count -ne 1 -or
+        $config.d1_databases[0].database_name -ne $deploymentName -or $config.d1_databases[0].binding -ne 'DB') {
+        throw "The Wrangler configuration must target only $deploymentName."
+    }
+    if ($Staging) {
+        $database = Find-NorthDatabase
+        if (!$database -or $database.uuid -ne $config.d1_databases[0].database_id) {
+            throw 'The staging database binding does not match the staging database in Cloudflare.'
+        }
+    }
+
+    Invoke-Wrangler d1 execute $deploymentName --config $configPath --remote --file cloud/schema.sql
     & npm.cmd --prefix frontend run build -- --mode cloud
     if ($LASTEXITCODE -ne 0) { throw 'Cloud frontend build failed.' }
     $deploymentConfig = $configPath
     if ($EnableCloudAI) {
-        $deploymentConfig = Join-Path $root 'cloudwrangler.ai.local.jsonc'
-        $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+        $aiConfig = if ($Staging) { 'wrangler.staging.ai.local.jsonc' } else { 'wrangler.ai.local.jsonc' }
+        $deploymentConfig = Join-Path (Join-Path $root 'cloud') $aiConfig
         $config | Add-Member -NotePropertyName ai -NotePropertyValue @{ binding = 'AI' } -Force
         [IO.File]::WriteAllText($deploymentConfig, ($config | ConvertTo-Json -Depth 8))
     }
@@ -82,11 +108,24 @@ try {
     $deployment | Write-Output
 
     $secrets = Get-Secrets
+    if ($ConfigureGoogle) {
+        $googleId = (Read-Host 'Staging Google OAuth web client ID').Trim()
+        $googleSecret = Read-Host 'Staging Google OAuth web client secret' -AsSecureString
+        if (!$googleId.EndsWith('.apps.googleusercontent.com') -or !$googleSecret.Length) {
+            throw 'Enter the staging Google OAuth web client ID and secret.'
+        }
+        $credential = [Management.Automation.PSCredential]::new('north-oauth', $googleSecret)
+        $secrets.NORTH_GOOGLE_CLIENT_ID = $googleId
+        $secrets.NORTH_GOOGLE_CLIENT_SECRET = $credential.GetNetworkCredential().Password
+    }
     ($secrets | ConvertTo-Json -Compress) | & npx.cmd --yes wrangler secret bulk --config $deploymentConfig
     if ($LASTEXITCODE -ne 0) { throw 'Cloudflare did not accept the workspace secrets.' }
 
     $url = [regex]::Match(($deployment -join "`n"), 'https://[a-z0-9.-]+\.workers\.dev').Value
-    if ($url) { Write-Host "NORTH Cloud URL: $url" }
+    if ($url) {
+        Write-Host "NORTH Cloud URL: $url"
+        if ($Staging) { Write-Host "Google OAuth callback: $url/api/cloud/auth/google/callback" }
+    }
     Write-Host 'Deployment complete. Run this script with -ShowAccessKey to view your private sign-in key.'
     Write-Host 'No local telemetry was uploaded.'
 } finally {

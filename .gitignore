@@ -6,6 +6,7 @@ LOCAL-AUDIT.md
 .north-launcher/
 cloud/wrangler.jsonc
 cloud/wrangler.ai.local.jsonc
+cloud/wrangler.staging*.local.jsonc
 .wrangler/
 cloud/.dev.vars
 
