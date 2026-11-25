@@ -80,6 +80,7 @@ try {
         throw "Port(s) $($occupied -join ', ') already in use. If you started NORTH manually, press Ctrl+C in those tabs and run this launcher again."
     }
 
+    $env:NORTH_NETWORK_AUTO = '1'
     $started += Start-NorthServer 'backend' $python '-m uvicorn main:app --host 127.0.0.1 --port 8000' $backend
     ConvertTo-Json -InputObject $started | Set-Content -LiteralPath $statePath -Encoding UTF8
     Wait-NorthServer $started[0] 'http://127.0.0.1:8000/api/health'

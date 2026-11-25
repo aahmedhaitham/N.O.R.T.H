@@ -1,7 +1,7 @@
 import asyncio
 import json
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -14,6 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from north import SSH_FAILURE, SUDO_COMMAND, build_cases, configured_store, report
 from network import snapshot
+from neighbors import NeighborMonitor
 
 
 class Batch(BaseModel):
@@ -32,13 +33,22 @@ def demo_alerts(include_linux=False):
 def make_app(store=None):
     store = store if store is not None else configured_store()
     public_demo = os.getenv("NORTH_PUBLIC_DEMO") == "1"
+    watch_neighbors = not public_demo and os.getenv("NORTH_NETWORK_AUTO") == "1"
+    neighbors = NeighborMonitor(watch_neighbors)
 
     @asynccontextmanager
     async def lifespan(_app):
         store.initialize()
         if os.getenv("NORTH_SEED_DEMO", "1") == "1":
             store.ingest(demo_alerts(include_linux=public_demo))
-        yield
+        task = asyncio.create_task(neighbors.run()) if watch_neighbors else None
+        try:
+            yield
+        finally:
+            if task is not None:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
 
     app = FastAPI(
         title="NORTH", lifespan=lifespan,
@@ -63,7 +73,7 @@ def make_app(store=None):
 
     @app.get("/api/network")
     def network():
-        return snapshot(store.events())
+        return {**snapshot(store.events()), "neighbors": neighbors.current}
 
     @app.post("/api/ingest")
     def ingest(batch: Batch):

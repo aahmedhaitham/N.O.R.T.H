@@ -2,7 +2,7 @@ FROM python:3.14-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt "psycopg[binary]==3.3.2"
-COPY main.py north.py network.py ingest.py ./
+COPY main.py north.py network.py neighbors.py ingest.py ./
 COPY fixtures ./fixtures
 USER 65534
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

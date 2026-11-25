@@ -6,7 +6,8 @@ type Connection = {
   asset_id: string; address: string; direction: 'inbound' | 'outbound';
   events: number; last_seen: string; cases: CaseReference[]; source: string;
 };
-type Snapshot = { assets: Host[]; links: Connection[] };
+type Collector = { state: 'starting' | 'disabled' | 'ready' | 'unavailable'; updated_at: string | null; records: Neighbor[] };
+type Snapshot = { assets: Host[]; links: Connection[]; neighbors?: Collector };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
 
 function readNeighbors(value: unknown): Neighbor[] {
@@ -27,6 +28,20 @@ function readNeighbors(value: unknown): Neighbor[] {
   });
 }
 
+function groupNeighbors(records: Neighbor[]) {
+  const devices = new Map<string, Neighbor[]>();
+  for (const record of records) {
+    const mac = record.mac.replace(/[:-]/g, '').toLowerCase();
+    const identity = /^[0-9a-f]{12}$/.test(mac) && mac !== '000000000000'
+      ? 'mac:' + mac : 'ip:' + record.address;
+    const key = record.network + ':' + identity;
+    const device = devices.get(key) ?? [];
+    if (!device.some((item) => item.address === record.address)) device.push(record);
+    devices.set(key, device);
+  }
+  return [...devices];
+}
+
 export function Network({ endpoint, openCase }: { endpoint: string; openCase: (id: string) => void }) {
   const [inventory, setInventory] = useState<Snapshot | null>(null);
   const [fetchError, setFetchError] = useState(false);
@@ -38,7 +53,11 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
   const hosts = new Map(inventory?.assets.map((asset) => [asset.id, asset.host]));
   const matchingHosts = inventory?.assets.filter((asset) => fits(asset.host)) ?? [];
   const matchingLinks = inventory?.links.filter((link) => fits(link.address, hosts.get(link.asset_id) ?? '')) ?? [];
-  const matchingNeighbors = neighbors.filter((neighbor) => fits(neighbor.address, neighbor.name, neighbor.mac, neighbor.network));
+  const collector = inventory?.neighbors;
+  const matchesDevice = ([, records]: [string, Neighbor[]]) => records.some((record) =>
+    fits(record.address, record.name, record.mac, record.network));
+  const liveDevices = groupNeighbors(collector?.records ?? []);
+  const importedDevices = groupNeighbors(neighbors);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -49,6 +68,7 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
         const response = await fetch(endpoint, { signal: controller.signal, cache: 'no-store' });
         if (!response.ok) throw new Error('Inventory unavailable');
         const result: Snapshot = await response.json();
+        if (result.neighbors) result.neighbors.records = readNeighbors(result.neighbors.records);
         if (!controller.signal.aborted) {
           setInventory(result);
           setFetchError(false);
@@ -85,6 +105,21 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
     ));
   }
 
+  function devicesList(devices: [string, Neighbor[]][]) {
+    const matching = devices.filter(matchesDevice);
+    return <>
+      <ul className="network-list">{matching.map(([key, records]) => {
+        const { address, name, mac, network } = records[0];
+        return <li key={key}>
+          <strong>{name || address}</strong>
+          <small>{[mac, network, /VMware|VirtualBox|vEthernet/i.test(network) && 'Virtual adapter'].filter(Boolean).join(' · ')}</small>
+          <small>{records.map((record) => [record.address, record.state].filter(Boolean).join(' · ')).join(' / ')}</small>
+        </li>;
+      })}</ul>
+      {devices.length > 0 && !matching.length && <p>No devices match this search.</p>}
+    </>;
+  }
+
   return <main className="network">
     <header className="panel overview">
       <div>
@@ -96,6 +131,14 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
       </label>
     </header>
     {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
+    {collector && collector.state !== 'disabled' && <section className="panel">
+      <h2>Local network devices</h2>
+      <p role="status">{collector.state === 'starting' ? 'Reading the local neighbor cache…' :
+        collector.state === 'unavailable' ? 'The collector could not read the cache. It will retry automatically.' :
+        `${liveDevices.length} device groups · Last refreshed ${new Date(collector.updated_at ?? '').toLocaleTimeString()}`}</p>
+      <p>Addresses on the same interface with the same MAC are grouped. This is the PC’s recent view of the network.</p>
+      {devicesList(liveDevices)}
+    </section>}
     <div className="columns">
       <section className="panel">
         <h2>Reporting devices</h2>
@@ -110,23 +153,19 @@ export function Network({ endpoint, openCase }: { endpoint: string; openCase: (i
         <h2>Observed connections</h2>
         <ul className="network-list">{matchingLinks.map((link) => <li key={link.asset_id + link.address + link.direction}>
           <strong>{link.address}</strong>
-          <small>{link.direction === 'inbound' ? 'Inbound to' : 'Outbound from'} {hosts.get(link.asset_id)} · {link.source} · {link.events} events</small>
+          <small>{link.direction === 'inbound' ? 'Inbound to' : 'Outbound from'} {hosts.get(link.asset_id)} · {link.source} · {link.events} {link.events === 1 ? 'event' : 'events'}</small>
           <div className="case-links">{caseButtons(link.cases)}</div>
         </li>)}</ul>
         {!matchingLinks.length && <p>{inventory ? 'No observed connections match.' : 'Loading connections…'}</p>}
       </section>
     </div>
-    <section className="panel">
-      <h2>Import devices from your network</h2>
+    <details className="panel">
+      <summary>Import a device list</summary>
       <p>Choose a Windows or Linux neighbor-cache export, or a router export formatted as JSON device records. A cache is a partial list of devices seen recently. The file stays in this browser tab.</p>
       <input type="file" accept=".json,application/json" aria-label="Import device inventory JSON"
         onChange={(event) => { const file = event.target.files?.[0]; if (file) void importNeighbors(file); event.target.value = ''; }} />
       {fileMessage && <p role="status">{fileMessage}</p>}
-      <ul className="network-list">{matchingNeighbors.map((item, index) => <li key={item.address + '-' + index}>
-        <strong>{item.name || item.address}</strong>
-        <small>{[item.name && item.address, item.mac, item.network, item.state].filter(Boolean).join(' · ')}</small>
-      </li>)}</ul>
-      {neighbors.length > 0 && !matchingNeighbors.length && <p>No imported records match.</p>}
-    </section>
+      {devicesList(importedDevices)}
+    </details>
   </main>;
 }
