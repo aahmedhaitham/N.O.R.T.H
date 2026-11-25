@@ -31,7 +31,7 @@ def snapshot_target(url, source):
     return hashlib.sha256((url.rstrip("/") + "|" + source).encode()).hexdigest()
 
 
-def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=None, health=None, traffic=None):
+def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=None, health=None, traffic=None, journal=None):
     events = store.events()
     cases = sorted(
         build_cases(events), key=lambda case: case["evidence"][-1]["timestamp"], reverse=True,
@@ -45,6 +45,8 @@ def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=Non
         network["internet_health"] = health
     if traffic is not None:
         network["adapter_traffic"] = traffic
+    if journal is not None:
+        network["linux_journal"] = journal
     host = socket.gethostname()
     if sysmon_status and sysmon_status.get("state") != "disabled":
         network["app_connections"] = app_connections(events, host)
@@ -80,7 +82,7 @@ def send_snapshot(url, key, data):
             raise OSError("Cloud workspace did not accept the snapshot")
 
 
-async def sync_loop(store, neighbors, sysmon, url, key, router=None, health=None, traffic=None):
+async def sync_loop(store, neighbors, sysmon, url, key, router=None, health=None, traffic=None, journal=None):
     previous = None
     while True:
         retry_delay = 60
@@ -89,6 +91,7 @@ async def sync_loop(store, neighbors, sysmon, url, key, router=None, health=None
                 build_snapshot, store, neighbors.current, sysmon.current, url, router.current if router else None,
                 health.current if health else None,
                 traffic.current if traffic else None,
+                journal.current if journal else None,
             )
             if data != previous:
                 await run_in_threadpool(send_snapshot, url, key, data)

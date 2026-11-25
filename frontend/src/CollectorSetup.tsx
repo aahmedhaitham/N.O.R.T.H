@@ -88,6 +88,11 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
         </ol>
         <pre>{command}</pre>
         <button onClick={() => void copy(command, 'Command')}>Copy command</button>
+        <details>
+          <summary>Connect on Linux</summary>
+          <p>Open a terminal in the extracted Linux collector folder and run the command. Paste the same pairing key when prompted.</p>
+          <pre>{'bash tools/Start-NorthCollectorLinux.sh ' + created.source_id + (workspace ? ' ' + workspace : '')}</pre>
+        </details>
         <label>Pairing key <input readOnly value={created.token} onFocus={(event) => event.currentTarget.select()} /></label>
         <div className="case-links">
           <button onClick={() => void copy(created.token, 'Pairing key')}>Copy pairing key</button>
@@ -106,8 +111,9 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
     {message && <p role="alert">{message}</p>}
     <section className="panel">
       <h2>Add collector</h2>
-      <p>Run the collector on the Windows PC you want to monitor. It needs Python 3.11 or later. Approve pairing only on PCs you manage.</p>
+      <p>Use a separate pairing for each Windows or Linux computer you manage. The collector needs Python 3.11 or later.</p>
       <a className="button" href="/downloads/NORTH-Collector-Windows.zip" target="_blank" rel="noopener">Download Windows collector</a>
+      <a className="button" href="/downloads/NORTH-Collector-Linux.zip" target="_blank" rel="noopener">Download Linux collector</a>
       <details>
         <summary>Start the collector automatically at Windows sign-in</summary>
         <p>Pair the collector and verify a sync first. Stop its PowerShell window, then run this from the same collector folder. Windows starts it under your account, including while NORTH is closed.</p>

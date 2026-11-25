@@ -27,6 +27,7 @@ type Snapshot = {
     types: { kind: number; count: number }[] };
   neighbors?: Collector & { records: Neighbor[] };
   sysmon?: Collector & { session_events: number; recent?: boolean; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
+  linux_journal?: Collector & { session_events: number };
   device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
   router_usage?: Collector & { devices: ({
     mac: string; router_name?: string; router_ips?: string[]; wifi_associated?: boolean;
@@ -662,7 +663,15 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         windowsEvents.state === 'unavailable' ? sysmonProblems[windowsEvents.problem ?? 'read_failed'] :
         `${windowsEvents.session_events} ${windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
     </section>}
-    {inventory && !inventory.internet_health && (!windowsEvents || windowsEvents.state === 'disabled') && <p>This collector has not supplied diagnostics.</p>}
+    {inventory?.linux_journal && <section className="panel">
+      <h2>Linux event collection</h2>
+      <p>Collects recent OpenSSH authentication failures and sudo events visible to the Linux account.</p>
+      <p role="status">{inventory.linux_journal.state === 'unavailable' ?
+        'The collector could not read the system journal. It will retry.' : inventory.linux_journal.state === 'starting' ?
+        'Waiting for the first journal check…' :
+        `${inventory.linux_journal.session_events} new events since launch · Last checked ${new Date(inventory.linux_journal.updated_at ?? '').toLocaleTimeString()}`}</p>
+    </section>}
+    {inventory && !inventory.internet_health && !inventory.linux_journal && (!windowsEvents || windowsEvents.state === 'disabled') && <p>This collector has not supplied diagnostics.</p>}
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'traces'}>
     <PacketTrace />

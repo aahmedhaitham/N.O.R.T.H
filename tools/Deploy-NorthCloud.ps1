@@ -52,11 +52,13 @@ function Test-StagingDeployment([string]$Origin) {
     } catch {
         if ($null -eq $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 401) { throw }
     }
-    $download = Invoke-WebRequest -Method Head -Uri "$Origin/downloads/NORTH-Collector-Windows.zip" -UseBasicParsing -TimeoutSec 20
-    if ($download.StatusCode -ne 200 -or $download.Headers['Content-Type'] -notmatch '^application/(zip|x-zip-compressed|octet-stream)(;|$)') {
-        throw 'The staging collector download did not respond with a ZIP file.'
+    foreach ($platform in @('Windows', 'Linux')) {
+        $download = Invoke-WebRequest -Method Head -Uri "$Origin/downloads/NORTH-Collector-$platform.zip" -UseBasicParsing -TimeoutSec 20
+        if ($download.StatusCode -ne 200 -or $download.Headers['Content-Type'] -notmatch '^application/(zip|x-zip-compressed|octet-stream)(;|$)') {
+            throw "The staging $platform collector download did not respond with a ZIP file."
+        }
     }
-    Write-Host "Staging checks passed. Sign-in is required and the Windows collector is available. Google enabled: $($options.google)."
+    Write-Host "Staging checks passed. Sign-in is required and both collector downloads are available. Google enabled: $($options.google)."
 }
 
 function Get-Secrets {
@@ -128,6 +130,7 @@ try {
     & npm.cmd --prefix frontend run build -- --mode cloud
     if ($LASTEXITCODE -ne 0) { throw 'Cloud frontend build failed.' }
     & (Join-Path $PSScriptRoot 'Build-NorthCollectorZip.ps1') -OutputPath 'frontend/dist/downloads/NORTH-Collector-Windows.zip'
+    & (Join-Path $PSScriptRoot 'Build-NorthCollectorZip.ps1') -Platform Linux -OutputPath 'frontend/dist/downloads/NORTH-Collector-Linux.zip'
     $deploymentConfig = $configPath
     if ($EnableCloudAI) {
         $aiConfig = if ($Staging) { 'wrangler.staging.ai.local.jsonc' } else { 'wrangler.ai.local.jsonc' }

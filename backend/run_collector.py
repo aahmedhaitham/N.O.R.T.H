@@ -9,6 +9,7 @@ import sys
 from cloud_sync import collector_source, snapshot_target, sync_loop
 from adapter_traffic import AdapterTraffic
 from internet_health import InternetHealth
+from journal_monitor import JournalMonitor
 from neighbors import NeighborMonitor
 from north import configured_store
 from router_usage import RouterUsage
@@ -29,6 +30,7 @@ async def collect():
     if router:
         await router.restore()
     traffic = AdapterTraffic() if sys.platform == "win32" else None
+    journal = JournalMonitor(store) if sys.platform.startswith("linux") else None
     async with asyncio.TaskGroup() as tasks:
         tasks.create_task(neighbors.run())
         tasks.create_task(health.run())
@@ -36,10 +38,12 @@ async def collect():
             tasks.create_task(sysmon.run())
         if traffic:
             tasks.create_task(traffic.run())
+        if journal:
+            tasks.create_task(journal.run())
         if router:
             tasks.create_task(router.run())
         tasks.create_task(sync_loop(
-            store, neighbors, sysmon, cloud_url, os.environ["NORTH_CLOUD_INGEST_KEY"], router, health, traffic,
+            store, neighbors, sysmon, cloud_url, os.environ["NORTH_CLOUD_INGEST_KEY"], router, health, traffic, journal,
         ))
 
 
