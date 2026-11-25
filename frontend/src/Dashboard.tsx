@@ -68,11 +68,17 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
         <strong>{metric.count?.toLocaleString() ?? (inventory || fetchError ? '—' : '…')}</strong>
       </button>)}
     </section>
-    <div className="dashboard-charts">
-      <section className="panel">
-        <h2>Telemetry activity</h2>
+    <div className="dashboard-console">
+      <section className="panel dashboard-activity">
+        <header className="dashboard-section-heading">
+          <h2>Telemetry activity</h2>
+          {activity && <span>Events per {activity.interval} · UTC</span>}
+        </header>
         {buckets.length ? <>
-          <p>Events per {activity?.interval} · Last 12 intervals ending at the latest event</p>
+          <div className="activity-plot">
+          <div className="activity-scale" aria-hidden="true">
+            <span>{highest}</span><span>{highest >= 2 && Number.isInteger(highest / 2) ? highest / 2 : ''}</span><span>0</span>
+          </div>
           <div className="activity-chart" aria-label="Collected events by time" role="list">
             {buckets.map((item) => <div className="activity-slot" role="listitem" key={item.start}
               aria-label={axisLabel(item.start) + ' UTC: ' + item.count + ' events'}
@@ -80,12 +86,14 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
               <div className="activity-bar" style={{ height: item.count ? `${item.count / highest * 100}%` : '2px' }} />
             </div>)}
           </div>
+          </div>
           <div className="activity-axis">
             <span>{axisLabel(buckets[0].start)} UTC</span>
             <span>{axisLabel(buckets[buckets.length - 1].start)} UTC</span>
           </div>
         </> : <p>{inventory ? 'Activity appears after NORTH receives events.' : 'Loading activity…'}</p>}
       </section>
+      <div className="dashboard-monitor">
       <section className="panel">
         <h2>Events by type</h2>
         <ul className="event-breakdown">{eventTypes.map((item) => <li key={item.kind}>
@@ -94,8 +102,6 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
         </li>)}</ul>
         {!eventTypes.length && <p>{inventory ? 'No event types recorded yet.' : 'Loading event types…'}</p>}
       </section>
-    </div>
-    <div className="overview-priority">
       <section className="panel">
         <h2>Needs attention</h2>
         {newDevices > 0 && <p><button className="network-case" onClick={() => open('network')}>
@@ -106,8 +112,13 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
         </button></p>}
         {!newDevices && !coverageIssue && <p>{inventory ? 'No device reviews or data source issues reported.' : 'Checking available data sources…'}</p>}
       </section>
+      </div>
+    </div>
       <section className="panel dashboard-recent">
-        <h2>Recent investigations</h2>
+        <header className="dashboard-section-heading">
+          <h2>Recent investigations</h2>
+          {latest.length > 0 && <button type="button" onClick={() => open('cases')}>Open ECHO</button>}
+        </header>
         {!latest.length && <p>{loaded ? 'No investigations have been recorded yet.' : 'Checking for recent investigations…'}</p>}
         {latest.length > 0 && <table className="investigation-table" aria-label="Recent investigations">
           <thead><tr><th scope="col">Investigation</th><th scope="col">Host</th><th scope="col">Latest event</th></tr></thead>
@@ -117,9 +128,8 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
             <td>{item.timestamp ? <time dateTime={item.timestamp}>{new Date(item.timestamp).toLocaleString()}</time> : '—'}</td>
           </tr>)}</tbody>
         </table>}
-        {latest.length > 0 && <button className="network-case" onClick={() => open('cases')}>Open ECHO</button>}
       </section>
-      <section className="panel">
+      <section className="panel dashboard-sources">
         <h2>{local ? 'What NORTH can see on this PC' : 'Data sources'}</h2>
         {local && <p>Nearby devices come from the Windows neighbor cache. Event history comes from the Sysmon log when readable.</p>}
         {demo && <p>This demo uses synthetic evidence.</p>}
@@ -128,7 +138,6 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
           <span>{label}</span><strong data-state={status.state}>{collectorStatus[status.state]}</strong>
         </li>)}</ul>
       </section>
-    </div>
     {inventory?.device_findings?.baseline_at && (
       <section className="panel">
         <h2>Device history</h2>
