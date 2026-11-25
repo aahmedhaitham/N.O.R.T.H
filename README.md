@@ -50,6 +50,8 @@ On the development laptop, `qwen2.5-coder:7b` returned six valid drafts out of s
 
 Run `.\.venv\Scripts\python.exe -m pytest tests` from `backend`, and `npm.cmd run build` from `frontend`. For a standard-library-only core check, run `python -m unittest discover -s tests -p test_core.py` from `backend`.
 
+The repository's **Verify NORTH** GitHub Actions workflow runs the backend suite and frontend build. A separate job starts Docker Compose, checks the console and evidence through its HTTP and WebSocket gateway, then restarts with seeding disabled to check PostgreSQL persistence. To run the smoke check against your local Windows demo, use `.\.venv\Scripts\python.exe smoke_demo.py http://127.0.0.1:5173` from `backend` while both servers are running.
+
 1. Ingestion normalizes times to UTC and inserts them transactionally. The database rejects duplicate evidence IDs.
 2. IRIS links process creation and a script write by agent and process GUID within a two-minute window. This is a triage signal. Legitimate administration can produce it.
 3. A WebSocket sends authoritative case snapshots, including after reconnect. This keeps the small demo simple. For sustained telemetry volumes, the next design step would be incrementally materialized cases and bounded event queries.

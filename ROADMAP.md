@@ -45,7 +45,7 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | ATLAS and ECHO console | Build and replay verified | The TypeScript check and Vite production build passed. The user confirmed the ECHO replay advanced through all three events. |
 | Wazuh and Sysmon | Fixture format verified | The importer accepts JSON and JSON Lines. Verify a sanitized export from the authorized lab. |
 | Ollama | Live fixture benchmark verified by user | Qwen2.5-Coder returned six valid drafts with a 0.61-second warm median. Two reported timed Qwen3 attempts were rejected. The README records the comparison. |
-| Docker and PostgreSQL | Configured | Docker is unavailable on the audited host. Run the build and check persistence once available. |
+| Docker and PostgreSQL | Automated check added | The GitHub workflow builds the stack, verifies the demo gateway and checks persistence after a restart with seeding disabled. First hosted run pending. |
 | Portfolio | Core demo verified by user | Capture the walkthrough for the portfolio. Docker, live lab ingestion, and a real Ollama draft are tracked above. |
 
 ## Progress log
