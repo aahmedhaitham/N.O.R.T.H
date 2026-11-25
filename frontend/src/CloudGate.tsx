@@ -1,11 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
-export function CloudGate({ children }: { children: ReactNode }) {
+type Source = { id: string; label: string; updated_at: string };
+
+export function CloudGate({ children }: { children: (source: string | null) => ReactNode }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [key, setKey] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const [syncedAt, setSyncedAt] = useState<string | null>(null);
+  const [sources, setSources] = useState<Source[]>([]);
+  const [active, setActive] = useState('');
+  const source = sources.find((item) => item.id === active) ?? sources[0];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -15,7 +19,7 @@ export function CloudGate({ children }: { children: ReactNode }) {
         if (controller.signal.aborted) return;
         if (response.ok) {
           const data = await response.json();
-          setSyncedAt(data.synced_at);
+          setSources(data.sources);
           setSignedIn(true);
         } else if (response.status === 401) {
           setSignedIn(false);
@@ -57,6 +61,8 @@ export function CloudGate({ children }: { children: ReactNode }) {
       const response = await fetch('/api/cloud/logout', { method: 'POST' });
       if (!response.ok) throw new Error('Sign-out could not be completed.');
       setSignedIn(false);
+      setSources([]);
+      setActive('');
       setMessage('');
     } catch {
       setMessage('Sign-out could not be completed.');
@@ -65,11 +71,17 @@ export function CloudGate({ children }: { children: ReactNode }) {
 
   if (signedIn) return <>
     <div className="cloud-banner">
-      <span>{syncedAt ? 'Last collector sync ' + new Date(syncedAt).toLocaleString() : 'Waiting for a collector snapshot'}</span>
+      {source ? <label>Collector{' '}
+        <select value={source.id} onChange={(event) => setActive(event.target.value)}>
+          {sources.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+        </select>
+      </label> : <span>Waiting for a collector snapshot</span>}
+      {source && <span>Last collector sync {new Date(source.updated_at).toLocaleString()}</span>}
+      {!source && <span>Start a paired NORTH collector to send events here.</span>}
       {message && <span role="alert">{message}</span>}
       <button onClick={() => void signOut()}>Sign out</button>
     </div>
-    {children}
+    {children(source?.id ?? null)}
   </>;
 
   return <main className="cloud-sign-in">

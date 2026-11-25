@@ -157,6 +157,12 @@ class Store:
             db.execute("""
                 CREATE INDEX IF NOT EXISTS neighbor_review ON neighbor_devices (baseline, reviewed_at, first_seen)
                 """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS cloud_event_receipts (
+                    target TEXT NOT NULL, event_id TEXT NOT NULL,
+                    PRIMARY KEY (target, event_id)
+                )
+                """)
 
     def collection_offset(self, source):
         marker = "%s" if self.url else "?"
@@ -219,6 +225,27 @@ class Store:
         events = [json.loads(row[0]) for row in rows[:limit]]
         last = events[-1] if len(rows) > limit else None
         return {"events": events, "next": f"{last['timestamp']}|{last['id']}" if last else None}
+
+    def pending_cloud_events(self, target, limit=100):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT events.payload FROM events "
+                "WHERE NOT EXISTS (SELECT 1 FROM cloud_event_receipts "
+                f"WHERE target = {marker} AND event_id = events.id) "
+                f"ORDER BY events.timestamp, events.id LIMIT {marker}",
+                (target, limit),
+            )
+            return [json.loads(row[0]) for row in rows]
+
+    def record_cloud_receipts(self, target, event_ids):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            for event_id in event_ids:
+                db.execute(
+                    f"INSERT INTO cloud_event_receipts (target, event_id) VALUES ({marker}, {marker}) "
+                    "ON CONFLICT (target, event_id) DO NOTHING", (target, event_id),
+                )
 
 
 def windows_cases(events: list[dict]) -> list[dict]:

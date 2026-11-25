@@ -27,7 +27,7 @@ function staticPage(events: Event[], filter: Filter): Page {
   };
 }
 
-export function Events({ portfolio }: { portfolio: boolean }) {
+export function Events({ portfolio, source }: { portfolio: boolean; source: string | null }) {
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState('');
   const [filter, setFilter] = useState<Filter>({ search: '', kind: '', before: null });
@@ -40,6 +40,7 @@ export function Events({ portfolio }: { portfolio: boolean }) {
     async function load() {
       try {
         const query = new URLSearchParams({ limit: String(pageSize) });
+        if (source) query.set('source', source);
         if (filter.search) query.set('q', filter.search);
         if (filter.kind) query.set('kind', filter.kind);
         if (filter.before) query.set('before', filter.before);
@@ -65,7 +66,7 @@ export function Events({ portfolio }: { portfolio: boolean }) {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [filter, portfolio]);
+  }, [filter, portfolio, source]);
 
   function changeFilter(next: Filter) {
     setPage(null);

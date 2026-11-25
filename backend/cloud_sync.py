@@ -1,8 +1,12 @@
 """Publish a bounded private snapshot to a configured NORTH Cloud workspace."""
 
 import asyncio
+import hashlib
 import json
 import logging
+import os
+import socket
+import sqlite3
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
@@ -18,7 +22,7 @@ class NoRedirects(HTTPRedirectHandler):
         return None
 
 
-def build_snapshot(store, neighbor_status, sysmon_status):
+def build_snapshot(store, neighbor_status, sysmon_status, url):
     events = store.events()
     cases = sorted(
         build_cases(events), key=lambda case: case["evidence"][-1]["timestamp"], reverse=True,
@@ -26,12 +30,22 @@ def build_snapshot(store, neighbor_status, sysmon_status):
     network = {
         **snapshot(events), "neighbors": neighbor_status, "sysmon": sysmon_status, "device_findings": findings(store),
     }
-    payload = {"cases": cases, "events": events[-100:], "network": network,
+    host = socket.gethostname()
+    source = os.getenv("NORTH_CLOUD_SOURCE") or "host-" + hashlib.sha256(host.encode()).hexdigest()[:16]
+    label = (os.getenv("NORTH_CLOUD_LABEL") or host)[:80]
+    target = hashlib.sha256((url.rstrip("/") + "|" + source).encode()).hexdigest()
+    pending = store.pending_cloud_events(target)
+    payload = {"source": {"id": source, "label": label},
+               "cases": cases, "events": pending, "network": network,
                "reports": {case["id"]: report(case) for case in cases}}
     data = json.dumps(payload).encode()
+    while len(data) > 700_000 and len(pending) > 1:
+        pending = pending[:len(pending) // 2]
+        payload["events"] = pending
+        data = json.dumps(payload).encode()
     if len(data) > 700_000:
         raise ValueError("Collector snapshot exceeds the cloud size limit")
-    return data
+    return data, target, [event["id"] for event in pending]
 
 
 def send_snapshot(url, key, data):
@@ -52,10 +66,14 @@ async def sync_loop(store, neighbors, sysmon, url, key):
     previous = None
     while True:
         try:
-            data = await run_in_threadpool(build_snapshot, store, neighbors.current, sysmon.current)
+            data, target, event_ids = await run_in_threadpool(
+                build_snapshot, store, neighbors.current, sysmon.current, url,
+            )
             if data != previous:
                 await run_in_threadpool(send_snapshot, url, key, data)
+                if event_ids:
+                    await run_in_threadpool(store.record_cloud_receipts, target, event_ids)
                 previous = data
-        except (OSError, ValueError) as error:
+        except (OSError, ValueError, sqlite3.Error) as error:
             logging.getLogger(__name__).warning("NORTH Cloud sync failed: %s", type(error).__name__)
         await asyncio.sleep(60)

@@ -1,7 +1,10 @@
 const cookieName = '__Host-north_session';
 const sessionSeconds = 8 * 60 * 60;
 const maxBytes = 700_000;
-const empty = { cases: [], events: [], network: { assets: [], links: [] }, reports: {} };
+const emptyNetwork = { assets: [], links: [] };
+const idPattern = /^[0-9a-f]{24}$/;
+const sourcePattern = /^[a-z0-9][a-z0-9-]{0,47}$/;
+const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+00:00$/;
 const headers = { 'Cache-Control': 'no-store', 'Content-Type': 'application/json; charset=utf-8' };
 const encoder = new TextEncoder();
 
@@ -57,21 +60,63 @@ async function readBody(request, limit) {
 function validSnapshot(body) {
   return body && Array.isArray(body.cases) && body.cases.length <= 100 &&
     Array.isArray(body.events) && body.events.length <= 150 &&
-    body.events.every((event) => typeof event?.timestamp === 'string' && /^[0-9a-f]{24}$/.test(event.id)) &&
+    body.events.every((event) => typeof event?.id === 'string' && idPattern.test(event.id)
+      && typeof event.timestamp === 'string' && timestampPattern.test(event.timestamp) && Number.isInteger(event.kind)) &&
     Array.isArray(body.network?.assets) && Array.isArray(body.network?.links) &&
-    body.reports && typeof body.reports === 'object' && !Array.isArray(body.reports);
+    body.reports && typeof body.reports === 'object' && !Array.isArray(body.reports) &&
+    body.cases.every((item) => typeof item?.id === 'string' && idPattern.test(item.id)
+      && Array.isArray(item.evidence) && typeof body.reports[item.id] === 'string');
 }
 
-function eventPage(events, params) {
+async function eventPage(db, source, params) {
   const q = (params.get('q') ?? '').trim().toLowerCase().slice(0, 200);
   const kind = params.get('kind');
   const before = params.get('before');
   const limit = Math.max(1, Math.min(100, Number.parseInt(params.get('limit') ?? '25', 10) || 25));
-  const cursor = (event) => event.timestamp + '|' + event.id;
-  const matches = events.filter((event) => (!kind || String(event.kind) === kind)
-    && (!before || cursor(event) < before) && (!q || JSON.stringify(event).toLowerCase().includes(q)))
-    .sort((a, b) => cursor(a) < cursor(b) ? 1 : cursor(a) > cursor(b) ? -1 : 0);
-  return { events: matches.slice(0, limit), next: matches.length > limit ? cursor(matches[limit - 1]) : null };
+  const terms = ['source_id = ?'];
+  const values = [source];
+  if (q) {
+    terms.push("lower(payload) LIKE ? ESCAPE '!'");
+    values.push('%' + q.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_') + '%');
+  }
+  if (kind) {
+    if (!/^\d{1,6}$/.test(kind)) return null;
+    terms.push('kind = ?');
+    values.push(Number(kind));
+  }
+  if (before) {
+    const [timestamp, id, extra] = before.split('|');
+    if (extra !== undefined || !timestampPattern.test(timestamp) || !idPattern.test(id ?? '')) return null;
+    terms.push('(timestamp < ? OR (timestamp = ? AND id < ?))');
+    values.push(timestamp, timestamp, id);
+  }
+  const { results } = await db.prepare(
+    `SELECT payload FROM cloud_events WHERE ${terms.join(' AND ')} ORDER BY timestamp DESC, id DESC LIMIT ?`,
+  ).bind(...values, limit + 1).all();
+  const events = results.slice(0, limit).map((row) => JSON.parse(row.payload));
+  const last = events.at(-1);
+  return { events, next: results.length > limit ? last.timestamp + '|' + last.id : null };
+}
+
+async function saveSnapshot(db, body, now) {
+  const source = body.source ?? { id: 'legacy', label: 'Earlier collector' };
+  if (typeof source.id !== 'string' || !sourcePattern.test(source.id)
+    || typeof source.label !== 'string' || !source.label.trim() || source.label.length > 80) return false;
+  await db.batch([
+    db.prepare(`INSERT INTO cloud_sources (id, label, network, updated_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET label=excluded.label, network=excluded.network, updated_at=excluded.updated_at`)
+      .bind(source.id, source.label, JSON.stringify(body.network), now),
+    db.prepare(`INSERT OR IGNORE INTO cloud_events (source_id, id, timestamp, kind, payload)
+      SELECT ?, json_extract(value, '$.id'), json_extract(value, '$.timestamp'), json_extract(value, '$.kind'), value
+      FROM json_each(?)`).bind(source.id, JSON.stringify(body.events)),
+    db.prepare(`INSERT INTO cloud_cases (source_id, id, timestamp, payload, report)
+      SELECT ?, json_extract(value, '$.id'), coalesce(json_extract(value, '$.evidence[#-1].timestamp'), ?),
+             value, json_extract(?, '$.' || json_extract(value, '$.id'))
+      FROM json_each(?) WHERE 1
+      ON CONFLICT(source_id,id) DO UPDATE SET timestamp=excluded.timestamp, payload=excluded.payload, report=excluded.report`)
+      .bind(source.id, now, JSON.stringify(body.reports), JSON.stringify(body.cases)),
+  ]);
+  return true;
 }
 
 export default {
@@ -90,8 +135,7 @@ export default {
         const body = await readBody(request, maxBytes);
         if (!validSnapshot(body)) return json({ detail: 'Invalid collector snapshot' }, 422);
         const now = new Date().toISOString();
-        await env.DB.prepare('INSERT INTO snapshots (id, payload, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at')
-          .bind(JSON.stringify(body), now).run();
+        if (!await saveSnapshot(env.DB, body, now)) return json({ detail: 'Invalid collector identity' }, 422);
         return json({ updated_at: now });
       } catch {
         return json({ detail: 'Could not store collector snapshot' }, 400);
@@ -115,15 +159,36 @@ export default {
 
     if (!await sessionValid(request, env.NORTH_SESSION_SECRET)) return json({ detail: 'Sign in required' }, 401);
     if (request.method !== 'GET') return json({ detail: 'This cloud endpoint is read-only' }, 405);
-    const stored = await env.DB.prepare('SELECT payload, updated_at FROM snapshots WHERE id=1').first();
-    const data = stored ? JSON.parse(stored.payload) : empty;
-    if (path === '/api/cloud/status') return json({ signed_in: true, synced_at: stored?.updated_at ?? null });
-    if (path === '/api/cases') return json(data.cases);
-    if (path === '/api/network') return json(data.network);
-    if (path === '/api/events') return json(eventPage(data.events, url.searchParams));
+    if (path === '/api/cloud/status') {
+      const { results: sources } = await env.DB.prepare(
+        'SELECT id, label, updated_at FROM cloud_sources ORDER BY updated_at DESC, id LIMIT 100',
+      ).all();
+      return json({ signed_in: true, sources });
+    }
+    const sourceId = url.searchParams.get('source');
+    if (sourceId && !sourcePattern.test(sourceId)) return json({ detail: 'Invalid collector identity' }, 422);
+    const source = sourceId
+      ? await env.DB.prepare('SELECT id, network FROM cloud_sources WHERE id = ?').bind(sourceId).first()
+      : await env.DB.prepare('SELECT id, network FROM cloud_sources ORDER BY updated_at DESC, id LIMIT 1').first();
+    if (sourceId && !source) return json({ detail: 'Collector not found' }, 404);
+    if (path === '/api/cases') {
+      if (!source) return json([]);
+      const { results } = await env.DB.prepare(
+        'SELECT payload FROM cloud_cases WHERE source_id = ? ORDER BY timestamp DESC, id DESC LIMIT 100',
+      ).bind(source.id).all();
+      return json(results.map((row) => JSON.parse(row.payload)));
+    }
+    if (path === '/api/network') return json(source ? JSON.parse(source.network) : emptyNetwork);
+    if (path === '/api/events') {
+      const page = source ? await eventPage(env.DB, source.id, url.searchParams) : { events: [], next: null };
+      return page ? json(page) : json({ detail: 'Invalid event filter' }, 422);
+    }
     const id = /^\/api\/cases\/([0-9a-f]{24})\/report$/.exec(path)?.[1];
-    if (id && typeof data.reports[id] === 'string') {
-      return new Response(data.reports[id], { headers: {
+    const stored = id && source && await env.DB.prepare(
+      'SELECT report FROM cloud_cases WHERE source_id = ? AND id = ?',
+    ).bind(source.id, id).first();
+    if (stored) {
+      return new Response(stored.report, { headers: {
         'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8',
         'Content-Disposition': `attachment; filename="north-${id}.md"`,
       } });

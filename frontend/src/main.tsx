@@ -24,7 +24,7 @@ const portfolio = import.meta.env.MODE === 'portfolio';
 const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
 const cloud = import.meta.env.MODE === 'cloud';
 
-function App() {
+function App({ source = null }: { source?: string | null }) {
   const [view, setView] = useState<'dashboard' | 'cases' | 'network' | 'events'>('dashboard');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
@@ -32,7 +32,8 @@ function App() {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const incident = cases.find((item) => item.id === selected) ?? cases[0];
-  const networkEndpoint = portfolio ? '/demo/network.json' : '/api/network';
+  const sourceQuery = source ? '?source=' + encodeURIComponent(source) : '';
+  const networkEndpoint = portfolio ? '/demo/network.json' : '/api/network' + sourceQuery;
 
   function openCase(id: string) {
     setSelected(id);
@@ -45,7 +46,7 @@ function App() {
       let timer: number | undefined;
       async function update() {
         try {
-          const response = await fetch('/api/cases', { signal: controller.signal });
+          const response = await fetch('/api/cases' + sourceQuery, { signal: controller.signal });
           if (!response.ok) throw new Error('Cloud case feed unavailable');
           const items: Case[] = await response.json();
           if (!controller.signal.aborted) {
@@ -97,7 +98,7 @@ function App() {
       window.clearTimeout(retry);
       socket?.close();
     };
-  }, []);
+  }, [sourceQuery]);
 
   return (
     <div className="shell">
@@ -130,7 +131,7 @@ function App() {
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} demo={publicDemo} readOnly={publicDemo || cloud} />
       </div>
-      {view === 'events' && <Events portfolio={portfolio} />}
+      {view === 'events' && <Events portfolio={portfolio} source={source} />}
       {view === 'cases' && <div className="workspace">
         <aside aria-label="Investigations">
           <h2>ECHO investigations</h2>
@@ -143,7 +144,7 @@ function App() {
           {loaded && cases.length === 0 && <p>No correlated events.</p>}
         </aside>
         <main>
-          {incident ? <Investigation key={incident.id} incident={incident} /> :
+          {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery} /> :
             <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations' : 'Waiting for telemetry'}</h1></section>}
         </main>
       </div>}
@@ -152,7 +153,7 @@ function App() {
   );
 }
 
-function Investigation({ incident }: { incident: Case }) {
+function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery: string }) {
   const [cursor, setCursor] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -210,7 +211,7 @@ function Investigation({ incident }: { incident: Case }) {
         <p>{incident.summary}</p>
       </div>
       <a className="button" download={portfolio ? 'north-' + incident.id + '.md' : undefined}
-        href={portfolio ? '/demo/' + incident.id + '.md' : '/api/cases/' + incident.id + '/report'}>Export report</a>
+        href={portfolio ? '/demo/' + incident.id + '.md' : '/api/cases/' + incident.id + '/report' + sourceQuery}>Export report</a>
     </section>
     <div className="columns">
       <section className="panel">
@@ -271,4 +272,5 @@ function Investigation({ incident }: { incident: Case }) {
   </>;
 }
 
-createRoot(document.getElementById('root')!).render(cloud ? <CloudGate><App /></CloudGate> : <App />);
+createRoot(document.getElementById('root')!).render(cloud ?
+  <CloudGate>{(source) => <App key={source ?? ''} source={source} />}</CloudGate> : <App />);
