@@ -216,7 +216,8 @@ function App({ source = null, openCollectors, controls }: {
           {cases.map((item) => (
             <button key={item.id} className="case" aria-pressed={item.id === incident?.id}
               onClick={() => setSelected(item.id)}>
-              <strong>{item.title}</strong><small>{item.host}</small>
+              <strong>{item.title}</strong>
+              <small>{item.host} · {item.evidence.length} {item.evidence.length === 1 ? 'event' : 'events'}</small>
             </button>
           ))}
         </aside>
@@ -248,6 +249,11 @@ function Investigation({ incident, sourceQuery, openEvents }: {
   const [draftProvider, setDraftProvider] = useState('');
   const last = incident.evidence.length - 1;
   const active = Math.min(cursor ?? last, last);
+
+  function seek(index: number) {
+    setPlaying(false);
+    setCursor(index);
+  }
 
   useEffect(() => {
     if (!cloud) return;
@@ -337,25 +343,31 @@ function Investigation({ incident, sourceQuery, openEvents }: {
       <section className="panel">
         <span className="module">ECHO / RECONSTRUCTION</span>
         <h2>Evidence timeline</h2>
-        <div className="replay">
-          <button onClick={() => {
-            if (!playing && active === last) setCursor(0);
-            setPlaying(!playing);
-          }}>
-            {playing ? 'Pause' : 'Play'}
-          </button>
-          <input aria-label="Timeline position" type="range" min="0" max={last} value={active}
-            onChange={(event) => { setPlaying(false); setCursor(Number(event.target.value)); }} />
-          <select aria-label="Replay speed" value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
-            <option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option>
-          </select>
-          <span>{active + 1} / {last + 1}</span>
-        </div>
+        {last < 0 ? <p>No evidence events in this case.</p> :
+          <div className="replay" role="group" aria-label="Timeline playback">
+            <div className="replay-actions">
+              <button disabled={active <= 0} onClick={() => seek(active - 1)} aria-label="Previous event">‹</button>
+              <button disabled={last === 0} onClick={() => {
+                if (!playing && active === last) setCursor(0);
+                setPlaying(!playing);
+              }}>{playing ? 'Pause' : 'Play'}</button>
+              <button disabled={active >= last} onClick={() => seek(active + 1)} aria-label="Next event">›</button>
+              <select aria-label="Replay speed" value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
+                <option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option>
+              </select>
+            </div>
+            <div className="replay-position">
+              <input aria-label="Timeline position" aria-valuetext={`Event ${active + 1} of ${last + 1}`}
+                type="range" min="0" max={last} value={active} disabled={last === 0}
+                onChange={(event) => seek(Number(event.target.value))} />
+              <span>Event {active + 1} of {last + 1}</span>
+            </div>
+          </div>}
         <ol className="timeline">
           {incident.evidence.map((item, index) => (
-            <li id={'event-' + item.id} key={item.id} className={index === active ? 'current' : ''}>
+            <li id={'event-' + item.id} key={item.id} aria-current={index === active ? 'step' : undefined}>
               <time dateTime={item.timestamp}>{item.timestamp.slice(11, 19)} UTC</time>
-              <strong>{eventNames[item.kind]}</strong>
+              <strong>{eventNames[item.kind] ?? 'Event ' + item.kind}</strong>
               <small>{item.target || item.destination || item.source_ip || item.process}</small>
               <details><summary>Raw evidence</summary><pre>{JSON.stringify(item.raw, null, 2)}</pre></details>
             </li>

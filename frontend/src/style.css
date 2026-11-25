@@ -199,7 +199,7 @@ button:disabled { opacity: .65; cursor: wait; }
 aside { padding: 1.4rem; border-right: 1px solid var(--line); }
 aside h2 { font-size: 1rem; }
 .case { width: 100%; text-align: left; margin-top: .6rem; }
-.case[aria-pressed="true"] { border-color: var(--accent); }
+.case[aria-pressed="true"] { border-color: #406b67; background: #192b35; box-shadow: inset 3px 0 var(--accent); }
 .case small { display: block; color: var(--muted); margin-top: .35rem; }
 main { display: grid; gap: 1rem; padding: 1.5rem; }
 .panel { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: .75rem; padding: 1.25rem; }
@@ -212,12 +212,17 @@ p { color: var(--muted); line-height: 1.55; margin: .5rem 0; }
 .columns { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .graph { height: 260px; border-radius: .4rem; border: 1px solid var(--line); overflow: hidden; }
 .reference, .timeline time, .timeline small { font-size: .82rem; color: var(--muted); overflow-wrap: anywhere; }
-.replay { display: flex; align-items: center; gap: .65rem; }
+.replay { display: grid; gap: .65rem; padding: .75rem; border: 1px solid var(--line); border-radius: .6rem; background: #101620; }
+.replay-actions, .replay-position { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.replay-actions button { min-width: 2.5rem; padding: .45rem .65rem; }
+.replay-actions button:disabled { cursor: default; }
+.replay-actions select { margin-left: auto; }
+.replay-position span { color: var(--muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
 .replay input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .replay select { color: inherit; font: inherit; border: 1px solid var(--line); background: #101620; border-radius: .35rem; padding: .38rem; }
 .timeline { list-style: none; display: grid; gap: .5rem; margin: .8rem 0 0; padding: 0; }
 .timeline li { border-left: 2px solid var(--line); padding: .5rem .7rem; }
-.timeline li.current, .timeline li:target { border-color: var(--accent); background: #1b2b38; }
+.timeline li[aria-current="step"], .timeline li:target { border-color: var(--accent); background: #1b2b38; }
 .timeline strong, .timeline small { display: block; margin-top: .2rem; }
 details { margin-top: .3rem; font-size: .84rem; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
