@@ -270,7 +270,8 @@ function App({ source = null, openCollectors, controls, panel }: {
         connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} openEvents={openEvents}
-          target={networkTarget} onTarget={setNetworkTarget} demo={publicDemo} readOnly={publicDemo || cloud} />
+          target={networkTarget} onTarget={setNetworkTarget} demo={publicDemo} readOnly={publicDemo || cloud}
+          labelSource={cloud ? source : null} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} source={source} initialSearch={eventSearch}
         canSave={cloud} openNetwork={() => setView('network')} />}

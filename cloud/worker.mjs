@@ -618,8 +618,9 @@ export default {
     const draftId = request.method === 'POST' && /^\/api\/cases\/([0-9a-f]{24})\/draft$/.exec(path)?.[1];
     const reviewId = /^\/api\/cases\/([0-9a-f]{24})\/review$/.exec(path)?.[1];
     const reviewWrite = reviewId && request.method === 'POST';
-    if ((draftId || reviewWrite) && request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
-    if (request.method !== 'GET' && !draftId && !reviewWrite) return json({ detail: 'This cloud endpoint is read-only' }, 405);
+    const labelWrite = path === '/api/network/device-labels' && request.method === 'POST';
+    if ((draftId || reviewWrite || labelWrite) && request.headers.get('Origin') !== url.origin) return json({ detail: 'Invalid origin' }, 403);
+    if (request.method !== 'GET' && !draftId && !reviewWrite && !labelWrite) return json({ detail: 'This cloud endpoint is read-only' }, 405);
     if (path === '/api/cloud/status') {
       const { results: sources } = await env.DB.prepare(
         `SELECT s.id, s.label, s.updated_at FROM cloud_sources s
@@ -650,6 +651,32 @@ export default {
       return matches ? json({ matches }) : json({ detail: 'Case not found' }, 404);
     }
     if (path === '/api/network') return json(source ? JSON.parse(source.network) : emptyNetwork);
+    if (path === '/api/network/device-labels') {
+      if (!sourceId || !source) return json({ detail: 'Select a collector first.' }, 404);
+      if (request.method === 'GET') {
+        const { results } = await env.DB.prepare(
+          'SELECT mac, label FROM cloud_device_labels WHERE source_id = ? ORDER BY mac',
+        ).bind(source.id).all();
+        return json({ labels: results });
+      }
+      const body = await readBody(request, 512).catch(() => null);
+      const mac = body?.mac;
+      const label = typeof body?.label === 'string' ? body.label.trim() : null;
+      if (typeof mac !== 'string' || !/^[0-9a-f]{12}$/.test(mac) || mac === '000000000000' ||
+          label === null || label.length > 64 || /[\u0000-\u001f\u007f]/.test(label)) {
+        return json({ detail: 'Enter a device label up to 64 characters.' }, 422);
+      }
+      if (!label) {
+        await env.DB.prepare('DELETE FROM cloud_device_labels WHERE source_id = ? AND mac = ?').bind(source.id, mac).run();
+      } else {
+        const saved = await env.DB.prepare(`INSERT INTO cloud_device_labels (source_id, mac, label)
+          SELECT ?1, ?2, ?3 WHERE EXISTS (SELECT 1 FROM cloud_device_labels WHERE source_id = ?1 AND mac = ?2)
+            OR (SELECT count(*) FROM cloud_device_labels WHERE source_id = ?1) < 256
+          ON CONFLICT(source_id, mac) DO UPDATE SET label = excluded.label`).bind(source.id, mac, label).run();
+        if (!saved.meta.changes) return json({ detail: 'This collector already has 256 device labels.' }, 409);
+      }
+      return json({ mac, label });
+    }
     if (path === '/api/events') {
       const page = source ? await eventPage(env.DB, source.id, url.searchParams) : { events: [], next: null };
       return page ? json(page) : json({ detail: 'Invalid event filter' }, 422);

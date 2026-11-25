@@ -11,6 +11,13 @@ CREATE TABLE IF NOT EXISTS cloud_sources (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS cloud_device_labels (
+    source_id TEXT NOT NULL REFERENCES cloud_sources(id),
+    mac TEXT NOT NULL,
+    label TEXT NOT NULL,
+    PRIMARY KEY (source_id, mac)
+);
+
 CREATE TABLE IF NOT EXISTS cloud_events (
     source_id TEXT NOT NULL REFERENCES cloud_sources(id),
     id TEXT NOT NULL,

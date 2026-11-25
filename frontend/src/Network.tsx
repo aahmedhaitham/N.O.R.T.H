@@ -125,9 +125,10 @@ export function useNetworkInventory(endpoint: string, interval = 5000) {
   } };
 }
 
-export function Network({ endpoint, openCase, openEvents, target, onTarget, demo, readOnly }: {
+export function Network({ endpoint, openCase, openEvents, target, onTarget, demo, readOnly, labelSource }: {
   endpoint: string; openCase: (id: string) => void; openEvents: (search: string) => void;
   target: AtlasTarget | null; onTarget: (target: null) => void; demo: boolean; readOnly: boolean;
+  labelSource: string | null;
 }) {
   const [interval, setInterval] = useState(15000);
   const { inventory, fetchError, refresh, refreshing, lastRefresh } = useNetworkInventory(endpoint, interval);
@@ -139,6 +140,34 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const activeView = target ? (target === 'atlas-windows-events' ? 'health' : 'devices') : atlasView;
   const [reviewing, setReviewing] = useState('');
   const [reviewError, setReviewError] = useState(false);
+  const [deviceLabels, setDeviceLabels] = useState<Map<string, string> | null>(null);
+  const [labelError, setLabelError] = useState(false);
+  const labelsEndpoint = labelSource ? '/api/network/device-labels?source=' + encodeURIComponent(labelSource) : '';
+
+  useEffect(() => {
+    if (!labelsEndpoint) return;
+    const controller = new AbortController();
+    void fetch(labelsEndpoint, { signal: controller.signal }).then(async (response) => {
+      if (!response.ok) throw new Error();
+      const data: { labels: { mac: string; label: string }[] } = await response.json();
+      if (!controller.signal.aborted) setDeviceLabels(new Map(data.labels.map(({ mac, label }) => [mac, label])));
+    }).catch(() => { if (!controller.signal.aborted) setLabelError(true); });
+    return () => controller.abort();
+  }, [labelsEndpoint]);
+
+  async function saveDeviceLabel(mac: string, label: string) {
+    const response = await fetch(labelsEndpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mac, label }),
+    });
+    if (!response.ok) throw new Error('Device label could not be saved.');
+    const saved: { mac: string; label: string } = await response.json();
+    setDeviceLabels((current) => {
+      const next = new Map(current);
+      if (saved.label) next.set(saved.mac, saved.label);
+      else next.delete(saved.mac);
+      return next;
+    });
+  }
   const hasInventory = Boolean(inventory);
 
   useEffect(() => {
@@ -197,10 +226,11 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     const imported = withRouter ? importedNames.get(mac) : undefined;
     const observedName = records.find((record) => record.name.trim())?.name.trim();
     const importedName = imported?.size === 1 ? [...imported][0] : undefined;
-    const name = traffic?.router_name || observedName || importedName;
-    const nameSource = traffic?.router_name ? 'Router DHCP' : observedName ? (withRouter ? 'Collector observation' : 'Imported list') :
+    const savedLabel = withRouter ? deviceLabels?.get(mac) : undefined;
+    const name = savedLabel || traffic?.router_name || observedName || importedName;
+    const nameSource = savedLabel ? 'Workspace label' : traffic?.router_name ? 'Router DHCP' : observedName ? (withRouter ? 'Collector observation' : 'Imported list') :
       importedName ? 'Imported router list' : undefined;
-    return { traffic, name, nameSource };
+    return { traffic, name, nameSource, savedLabel };
   }
   const observedByMac = new Map<string, Neighbor[]>();
   for (const record of collector?.records ?? []) {
@@ -217,18 +247,19 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     const observedIPs = [...new Set(observations.map((record) => record.address))];
     return {
       ...device, observations, leaseIPs, observedIPs, name: names.size === 1 ? [...names][0] : '',
+      savedLabel: deviceLabels?.get(macKey(device.mac)),
       total: device.download_bytes + device.upload_bytes,
     };
   }).filter((device) => (!wifiOnly || device.wifi_associated === true) &&
-    (fits(device.mac, device.router_name ?? '', ...device.leaseIPs) ||
+    (fits(device.mac, device.router_name ?? '', device.savedLabel ?? '', ...device.leaseIPs) ||
       device.observations.some((record) => fits(record.name, record.address, record.network))))
     .sort((a, b) => b.total - a.total || a.mac.localeCompare(b.mac));
   const largestTrafficTotal = Math.max(1, routerDevices[0]?.total ?? 0);
   const observedDevices = liveDevices.map(([id, records]) => {
     const first = records[0];
-    const { name, nameSource, traffic } = describeDevice(records, true);
+    const { name, nameSource, savedLabel, traffic } = describeDevice(records, true);
     const label = name || records.find((record) => !record.address.includes(':'))?.address || first.address;
-    return { id, label, observedName: name, nameSource, network: first.network || 'Unknown interface', mac: first.mac,
+    return { id, label, observedName: name, nameSource, savedLabel, network: first.network || 'Unknown interface', mac: first.mac,
       addresses: records.map((record) => record.address), states: [...new Set(records.map((record) => record.state).filter(Boolean))],
       traffic };
   });
@@ -343,7 +374,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         <dt>{item.label}</dt><dd>{item.count.toLocaleString()}</dd>
       </div>)}</dl>
     </section>}
-    <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} openEvents={openEvents} />
+    {labelError && <p role="status">Saved device labels are temporarily unavailable.</p>}
+    <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} openEvents={openEvents}
+      saveLabel={deviceLabels ? saveDeviceLabel : undefined} />
     {localDevice && <section className="panel">
       <h2>This computer</h2>
       <p>{localDevice.host} · {adapters.size} {adapters.size === 1 ? 'network adapter' : 'network adapters'}</p>
@@ -464,8 +497,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
           <thead><tr><th scope="col">Device</th><th scope="col">IP addresses</th><th scope="col" className="router-download">Download</th><th scope="col" className="router-upload">Upload</th><th scope="col">Total</th><th scope="col">Wi-Fi</th></tr></thead>
           <tbody>{routerDevices.map((device) => <tr key={device.mac}>
             <th scope="row">
-              {device.router_name || device.name || device.mac}
-              {(device.router_name || device.name) && <small>{device.mac} · {device.router_name ? 'DHCP lease' : 'Collector record'}</small>}
+              {device.savedLabel || device.router_name || device.name || device.mac}
+              {(device.savedLabel || device.router_name || device.name) &&
+                <small>{device.mac} · {device.savedLabel ? 'Workspace label' : device.router_name ? 'DHCP lease' : 'Collector record'}</small>}
             </th>
             <td>{(device.leaseIPs.length ? device.leaseIPs : device.observedIPs).map((address) =>
               <button key={address} type="button" className="atlas-address-button" onClick={() => openEvents(address)}

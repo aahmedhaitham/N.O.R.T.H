@@ -8,6 +8,7 @@ export type AtlasDevice = {
   label: string;
   observedName?: string;
   nameSource?: string;
+  savedLabel?: string;
   network: string;
   mac: string;
   addresses: string[];
@@ -59,8 +60,34 @@ function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; st
   </section>;
 }
 
-export function AtlasMap({ devices, staleTraffic, openEvents }: {
+function DeviceLabel({ mac, label, save }: { mac: string; label: string; save: (mac: string, label: string) => Promise<void> }) {
+  const [draft, setDraft] = useState(label);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  async function submit() {
+    setBusy(true);
+    setMessage('');
+    try {
+      await save(mac, draft.trim());
+      setDraft(draft.trim());
+      setMessage(draft.trim() ? 'Label saved.' : 'Label removed.');
+    } catch {
+      setMessage('Could not save the label. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return <form className="atlas-device-label" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+    <label>Workspace label<input value={draft} maxLength={64} disabled={busy}
+      placeholder="e.g. My iPhone" onChange={(event) => setDraft(event.target.value)} /></label>
+    <button type="submit" disabled={busy || draft.trim() === label}>{draft.trim() ? 'Save label' : 'Remove label'}</button>
+    {message && <p role="status">{message}</p>}
+  </form>;
+}
+
+export function AtlasMap({ devices, staleTraffic, openEvents, saveLabel }: {
   devices: AtlasDevice[]; staleTraffic: boolean; openEvents: (search: string) => void;
+  saveLabel?: (mac: string, label: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState('');
@@ -83,6 +110,7 @@ export function AtlasMap({ devices, staleTraffic, openEvents }: {
   const edges: Edge[] = [];
   const selectedDevice = displayed.find((item) => 'device:' + item.id === selected) ?? displayed[0];
   const macContext = selectedDevice ? explainMacAddress(selectedDevice.mac) : '';
+  const selectedMac = selectedDevice?.mac.replace(/[:-]/g, '').toLowerCase() ?? '';
   let offset = 0;
   for (const [name, group] of groups) {
     const interfaceId = 'interface:' + name;
@@ -136,6 +164,8 @@ export function AtlasMap({ devices, staleTraffic, openEvents }: {
             {displayed.map((item) => <option key={item.id} value={'device:' + item.id}>{item.label} · {item.network}</option>)}
           </select>
         </label>
+        {saveLabel && /^[0-9a-f]{12}$/.test(selectedMac) && selectedMac !== '000000000000' &&
+          <DeviceLabel key={selectedMac} mac={selectedMac} label={selectedDevice.savedLabel ?? ''} save={saveLabel} />}
         <dl>
           <dt>Observed on</dt><dd>{selectedDevice.network}</dd>
           <dt>MAC address</dt><dd>{selectedDevice.mac || 'Unavailable'}</dd>

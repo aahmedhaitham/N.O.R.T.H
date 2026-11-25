@@ -225,6 +225,15 @@ test('cloud sources keep independent event and investigation history', async (t)
   const ownSnapshot = { ...incident, source: { id: ownPairing.source_id, label: 'Ignored' }, events: [connection] };
   assert.equal((await call('/api/cloud/snapshot', post(ownSnapshot, ownHeaders))).status, 200);
   assert.equal((await call('/api/network?source=' + ownPairing.source_id, { headers })).status, 404);
+  const labelPath = '/api/network/device-labels?source=' + ownPairing.source_id;
+  const label = { mac: '020000000042', label: 'Lab phone' };
+  assert.equal((await call(labelPath, post(label, { ...accountHeaders, Origin: 'https://example.test' }))).status, 403);
+  assert.equal((await call(labelPath, post(label, { ...headers, Origin: root }))).status, 404);
+  assert.equal((await call(labelPath, post(label, accountHeaders))).status, 200);
+  assert.deepEqual(await (await call(labelPath, { headers: accountHeaders })).json(), { labels: [label] });
+  assert.equal((await call(labelPath, { headers })).status, 404);
+  assert.equal((await call(labelPath, post({ ...label, label: '' }, accountHeaders))).status, 200);
+  assert.deepEqual(await (await call(labelPath, { headers: accountHeaders })).json(), { labels: [] });
   for (const endpoint of [
     '/api/events', '/api/events/' + id, '/api/cases', '/api/cases/' + id + '/report',
     '/api/cases/' + id + '/related',
