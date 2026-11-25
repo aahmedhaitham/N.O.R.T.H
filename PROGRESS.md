@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- Kept the navigation and toolbars in place on wide layouts while the workspace scrolls independently. Consolidated Overview metrics into one compact strip, prioritized activity charts, and added a recent investigations table.
 - Added system, light, and dark appearance settings, a centered NORTH title, a translucent sidebar, and a native desktop View menu for zoom and fullscreen.
 - ECHO case cards show evidence counts. Timeline playback includes previous and next event controls and an accessible event position.
 - IRIS previews observed values in collapsed event rows, displays the number of results on the current page, and lets users remove applied filters individually.

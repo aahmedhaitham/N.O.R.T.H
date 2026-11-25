@@ -53,8 +53,6 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
   return <main className="dashboard">
     <header className="dashboard-heading">
       <h1>Security overview</h1>
-      {local && <p>See the network devices and security events Windows has observed on this computer.</p>}
-      {demo && <p>Explore sample telemetry and follow it into an investigation.</p>}
     </header>
     {connect && <section className="panel dashboard-connect">
       <div><h2>Connect your first collector</h2>
@@ -63,42 +61,11 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
     </section>}
     {!connect && <>
     {fetchError && <p role="status">The device and event counts could not refresh.</p>}
-    <div className="overview-priority">
-      <section className="panel">
-        <h2>Needs attention</h2>
-        {newDevices > 0 && <p><button className="network-case" onClick={() => open('network')}>
-          Review {newDevices} newly observed {newDevices === 1 ? 'device' : 'devices'}
-        </button></p>}
-        {coverageIssue && <p><button className="network-case" onClick={() => open('network')}>
-          Check data source access
-        </button></p>}
-        {!newDevices && !coverageIssue && <p>{inventory ? 'No device reviews or data source issues reported.' : 'Checking available data sources…'}</p>}
-      </section>
-      <section className="panel dashboard-recent">
-        <h2>What changed</h2>
-        {!latest.length && <p>{loaded ? 'No investigations have been recorded yet.' : 'Checking for recent investigations…'}</p>}
-        <ul className="network-list">{latest.slice(0, 3).map((item) => <li key={item.id}>
-          <button onClick={() => openCase(item.id)}>{item.title}</button>
-          <small>{item.host}{item.timestamp && ' · ' + new Date(item.timestamp).toLocaleString()}</small>
-        </li>)}</ul>
-        {latest.length > 3 && <button className="network-case" onClick={() => open('cases')}>See all investigations</button>}
-      </section>
-      <section className="panel">
-        <h2>{local ? 'What NORTH can see on this PC' : 'Data sources'}</h2>
-        {local && <p>Nearby devices come from the Windows neighbor cache. Event history comes from the Sysmon log when readable.</p>}
-        {demo && <p>This demo uses synthetic evidence.</p>}
-        {!local && !demo && !collectors.length && <p>{inventory ? 'No collector health details are available for this feed.' : 'Checking collector status…'}</p>}
-        <ul className="coverage-list">{collectors.map(({ label, status }) => status && <li key={label}>
-          <span>{label}</span><strong data-state={status.state}>{collectorStatus[status.state]}</strong>
-        </li>)}</ul>
-      </section>
-    </div>
     <section className="dashboard-metrics" aria-label="Security overview counts">
-      {metrics.map((metric) => <button className="panel dashboard-metric" key={metric.label}
+      {metrics.map((metric) => <button type="button" className="dashboard-metric" key={metric.label}
         onClick={() => open(metric.section)}>
         <span>{metric.label}</span>
         <strong>{metric.count?.toLocaleString() ?? (inventory || fetchError ? '—' : '…')}</strong>
-        <small>{{ cases: 'ECHO', network: 'ATLAS', events: 'IRIS' }[metric.section]}</small>
       </button>)}
     </section>
     <div className="dashboard-charts">
@@ -126,6 +93,40 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
           <div className="breakdown-track" aria-hidden="true"><span style={{ width: `${item.count / eventMax * 100}%` }} /></div>
         </li>)}</ul>
         {!eventTypes.length && <p>{inventory ? 'No event types recorded yet.' : 'Loading event types…'}</p>}
+      </section>
+    </div>
+    <div className="overview-priority">
+      <section className="panel">
+        <h2>Needs attention</h2>
+        {newDevices > 0 && <p><button className="network-case" onClick={() => open('network')}>
+          Review {newDevices} newly observed {newDevices === 1 ? 'device' : 'devices'}
+        </button></p>}
+        {coverageIssue && <p><button className="network-case" onClick={() => open('network')}>
+          Check data source access
+        </button></p>}
+        {!newDevices && !coverageIssue && <p>{inventory ? 'No device reviews or data source issues reported.' : 'Checking available data sources…'}</p>}
+      </section>
+      <section className="panel dashboard-recent">
+        <h2>Recent investigations</h2>
+        {!latest.length && <p>{loaded ? 'No investigations have been recorded yet.' : 'Checking for recent investigations…'}</p>}
+        {latest.length > 0 && <table className="investigation-table" aria-label="Recent investigations">
+          <thead><tr><th scope="col">Investigation</th><th scope="col">Host</th><th scope="col">Latest event</th></tr></thead>
+          <tbody>{latest.map((item) => <tr key={item.id}>
+            <td><button onClick={() => openCase(item.id)}>{item.title}</button></td>
+            <td>{item.host || '—'}</td>
+            <td>{item.timestamp ? <time dateTime={item.timestamp}>{new Date(item.timestamp).toLocaleString()}</time> : '—'}</td>
+          </tr>)}</tbody>
+        </table>}
+        {latest.length > 0 && <button className="network-case" onClick={() => open('cases')}>Open ECHO</button>}
+      </section>
+      <section className="panel">
+        <h2>{local ? 'What NORTH can see on this PC' : 'Data sources'}</h2>
+        {local && <p>Nearby devices come from the Windows neighbor cache. Event history comes from the Sysmon log when readable.</p>}
+        {demo && <p>This demo uses synthetic evidence.</p>}
+        {!local && !demo && !collectors.length && <p>{inventory ? 'No collector health details are available for this feed.' : 'Checking collector status…'}</p>}
+        <ul className="coverage-list">{collectors.map(({ label, status }) => status && <li key={label}>
+          <span>{label}</span><strong data-state={status.state}>{collectorStatus[status.state]}</strong>
+        </li>)}</ul>
       </section>
     </div>
     {inventory?.device_findings?.baseline_at && (

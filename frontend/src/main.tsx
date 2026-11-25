@@ -106,6 +106,7 @@ function App({ source = null, openCollectors, controls }: {
   controls?: import('react').ReactNode;
 }) {
   const [view, setView] = useState<View>('dashboard');
+  const viewContent = useRef<HTMLDivElement>(null);
   const [eventSearch, setEventSearch] = useState('');
   const [cases, setCases] = useState<Case[]>([]);
   const [selected, setSelected] = useState('');
@@ -115,6 +116,10 @@ function App({ source = null, openCollectors, controls }: {
   const incident = cases.find((item) => item.id === selected) ?? cases[0];
   const sourceQuery = source ? '?source=' + encodeURIComponent(source) : '';
   const networkEndpoint = portfolio ? '/demo/network.json' : '/api/network' + sourceQuery;
+
+  useEffect(() => {
+    if (viewContent.current) viewContent.current.scrollTop = 0;
+  }, [view]);
 
   function openCase(id: string) {
     setSelected(id);
@@ -203,6 +208,7 @@ function App({ source = null, openCollectors, controls }: {
             portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
         </span>
       </header>
+      <div className="view-content" ref={viewContent}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase} connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
@@ -230,6 +236,7 @@ function App({ source = null, openCollectors, controls }: {
             </section>}
         </main>
       </div>}
+      </div>
       </div>
     </div>
   );
