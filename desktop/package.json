@@ -23,7 +23,7 @@
     "files": ["main.cjs", "workspace.cjs", "cloud-proxy.cjs", "local-workspace.cjs", "device-history.cjs", "packet-capture.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
     "extraResources": [
       {"from": "ui", "to": "north-ui"},
-      {"from": "../tools", "to": "north-tools", "filter": ["Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "SysmonFormat.ps1"]}
+      {"from": "../tools", "to": "north-tools", "filter": ["Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "Read-NorthAdapterTraffic.ps1", "SysmonFormat.ps1"]}
     ],
     "nsis": {"artifactName": "NORTH-Setup-Windows-x64.exe"},
     "win": {

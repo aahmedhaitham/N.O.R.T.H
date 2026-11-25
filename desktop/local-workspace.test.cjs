@@ -19,7 +19,8 @@ test('local workspace reads Windows data without cloud configuration', async () 
   ];
   const invocations = [];
   const api = makeLocalWorkspace('tools', async (file, args) => {
-    invocations.push(args[0]);
+    invocations.push(args[0] ?? path.basename(file));
+    if (file.endsWith('Read-NorthAdapterTraffic.ps1')) return [{ name: 'Wi-Fi', received: '1200', sent: '500' }];
     return file.endsWith('Read-NorthSysmon.ps1') ? { alerts } : records;
   });
   const call = (endpoint, method = 'GET') => api(new Request('north://app' + endpoint, { method }));
@@ -35,7 +36,10 @@ test('local workspace reads Windows data without cloud configuration', async () 
   assert.match(await report.text(), /PowerShell process wrote a script file/);
   const filtered = await (await call('/api/events?kind=11&q=inventory')).json();
   assert.equal(filtered.events.length, 1);
-  assert.deepEqual(invocations.sort(), ['-AsJson', '-Recent']);
+  assert.deepEqual(invocations.sort(), ['-AsJson', '-Recent', 'Read-NorthAdapterTraffic.ps1']);
+  assert.deepEqual(snapshot.adapter_traffic.adapters, [
+    { name: 'Wi-Fi', received_bytes: 1200, sent_bytes: 500, receive_rate: null, send_rate: null },
+  ]);
   assert.equal((await call('/api/cloud/status')).status, 404);
   assert.equal((await call('/api/cases', 'POST')).status, 405);
 });

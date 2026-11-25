@@ -5,11 +5,11 @@ $root = Split-Path -Parent $PSScriptRoot
 $staging = Join-Path $root ('.north-launcher/collector-package-' + [guid]::NewGuid().ToString('N'))
 $files = @(
     'Start NORTH Collector.cmd',
-    'tools/Start-NorthCollector.ps1', 'tools/Export-NorthNeighbors.ps1', 'tools/capture_north.py',
+    'tools/Start-NorthCollector.ps1', 'tools/Export-NorthNeighbors.ps1', 'tools/capture_north.py', 'tools/Read-NorthAdapterTraffic.ps1',
     'tools/Read-NorthSysmon.ps1', 'tools/SysmonFormat.ps1',
     'backend/requirements.txt', 'backend/run_collector.py', 'backend/cloud_sync.py',
     'backend/neighbors.py', 'backend/sysmon.py', 'backend/north.py', 'backend/device_watch.py',
-    'backend/network.py', 'backend/router_usage.py', 'backend/internet_health.py'
+    'backend/network.py', 'backend/router_usage.py', 'backend/internet_health.py', 'backend/adapter_traffic.py'
 )
 
 try {

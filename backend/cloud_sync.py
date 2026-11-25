@@ -23,7 +23,7 @@ class NoRedirects(HTTPRedirectHandler):
         return None
 
 
-def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=None, health=None):
+def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=None, health=None, traffic=None):
     events = store.events()
     cases = sorted(
         build_cases(events), key=lambda case: case["evidence"][-1]["timestamp"], reverse=True,
@@ -35,6 +35,8 @@ def build_snapshot(store, neighbor_status, sysmon_status, url, router_status=Non
         network["router_usage"] = router_status
     if health is not None:
         network["internet_health"] = health
+    if traffic is not None:
+        network["adapter_traffic"] = traffic
     host = socket.gethostname()
     if sysmon_status and sysmon_status.get("state") != "disabled":
         network["app_connections"] = app_connections(events, host)
@@ -70,7 +72,7 @@ def send_snapshot(url, key, data):
             raise OSError("Cloud workspace did not accept the snapshot")
 
 
-async def sync_loop(store, neighbors, sysmon, url, key, router=None, health=None):
+async def sync_loop(store, neighbors, sysmon, url, key, router=None, health=None, traffic=None):
     previous = None
     while True:
         retry_delay = 60
@@ -78,6 +80,7 @@ async def sync_loop(store, neighbors, sysmon, url, key, router=None, health=None
             data, target, event_ids = await run_in_threadpool(
                 build_snapshot, store, neighbors.current, sysmon.current, url, router.current if router else None,
                 health.current if health else None,
+                traffic.current if traffic else None,
             )
             if data != previous:
                 await run_in_threadpool(send_snapshot, url, key, data)

@@ -24,6 +24,8 @@ type Snapshot = {
   device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
   router_usage?: Collector & { devices: ({ mac: string; router_name?: string; wifi_associated?: boolean } & TrafficTotals)[] };
   app_connections?: { process: string; events: number; destinations: number }[];
+  adapter_traffic?: Collector & { adapters: { name: string; received_bytes: number; sent_bytes: number;
+    receive_rate: number | null; send_rate: number | null }[] };
   internet_health?: { checked_at: string; gateway?: 'responded' | 'no_reply' | 'unknown';
     dns_ms: number | null; https_ms: number | null; http_status: number | null }[];
 };
@@ -165,6 +167,10 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const windowsEvents = inventory?.sysmon;
   const latestHealth = Array.isArray(inventory?.internet_health) ? inventory.internet_health.at(-1) : undefined;
   const matchingApps = inventory?.app_connections?.filter((app) => fits(app.process)) ?? [];
+  const adapterTraffic = inventory?.adapter_traffic;
+  const adapterRows = (adapterTraffic?.adapters ?? []).filter((item) => fits(item.name))
+    .sort((a, b) => ((b.receive_rate ?? 0) + (b.send_rate ?? 0)) - ((a.receive_rate ?? 0) + (a.send_rate ?? 0)) ||
+      a.name.localeCompare(b.name));
   const matchesDevice = ([, records]: [string, Neighbor[]]) => records.some((record) =>
     fits(record.address, record.name, record.mac, record.network));
   const liveDevices = groupNeighbors(collector?.records ?? []);
@@ -360,6 +366,26 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     </details>
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'traffic'}>
+    {adapterTraffic && <section className="panel">
+      <h2>Windows adapter traffic</h2>
+      <p>Traffic through the selected endpoint’s network adapters. Rates are averages between samples.</p>
+      {adapterTraffic.updated_at && <p className="reference">Last sample {new Date(adapterTraffic.updated_at).toLocaleString()}</p>}
+      {adapterTraffic.state === 'unavailable' && <p role="status">Adapter counters could not refresh. Any rows shown are from the last successful sample.</p>}
+      {adapterTraffic.state === 'starting' && <p>Waiting for the first adapter sample…</p>}
+      {adapterTraffic.state === 'ready' && !adapterRows.length && <p>{query ? 'No adapters match the search.' : 'No adapter counters were reported.'}</p>}
+      {adapterRows.length > 0 && <div className="router-traffic-table-wrap">
+        <table className="investigation-table router-traffic-table" aria-label="Windows adapter traffic">
+          <thead><tr><th scope="col">Adapter</th><th scope="col">Receive rate</th><th scope="col">Send rate</th><th scope="col">Received total</th><th scope="col">Sent total</th></tr></thead>
+          <tbody>{adapterRows.map((item) => <tr key={item.name}>
+            <th scope="row">{item.name}</th>
+            <td>{item.receive_rate === null ? '—' : formatTraffic(item.receive_rate) + '/s'}</td>
+            <td>{item.send_rate === null ? '—' : formatTraffic(item.send_rate) + '/s'}</td>
+            <td>{formatTraffic(item.received_bytes)}</td><td>{formatTraffic(item.sent_bytes)}</td>
+          </tr>)}</tbody>
+        </table>
+        {adapterRows.some((item) => item.receive_rate === null) && <p className="reference">Rates appear after two successful samples with increasing or unchanged counters.</p>}
+      </div>}
+    </section>}
     {router && <section className="panel">
       <h2>Router traffic by device</h2>
       <p>OpenWrt accounting-period totals, sorted by combined traffic.</p>
@@ -409,7 +435,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         </table>
       </div> : <p>No processes match the search.</p>) : null}
     </section>}
-    {inventory && !router && !inventory.local_device && !inventory.app_connections && <p>No traffic source is reporting to this collector.</p>}
+    {inventory && !router && !adapterTraffic && !inventory.local_device && !inventory.app_connections && <p>No traffic source is reporting to this collector.</p>}
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'health'}>
     {Array.isArray(inventory?.internet_health) && <section className="panel">

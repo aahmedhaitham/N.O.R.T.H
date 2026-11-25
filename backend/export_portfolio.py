@@ -36,6 +36,10 @@ def export(directory: Path):
                  "dns_ms": 26, "https_ms": 83, "http_status": 200},
             ],
             "app_connections": app_connections(events, "WIN-LAB-01"),
+            "adapter_traffic": {"state": "ready", "updated_at": sample_time, "adapters": [
+                {"name": "Demo LAN", "received_bytes": 81_000_000, "sent_bytes": 22_000_000,
+                 "receive_rate": 120_000, "send_rate": 18_000},
+            ]},
             "router_usage": {"state": "ready", "updated_at": sample_time, "devices": [
                 {"mac": records[0]["mac"], "download_bytes": 128_000_000, "upload_bytes": 24_000_000,
                  "recent_usage": [

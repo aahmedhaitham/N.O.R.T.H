@@ -85,6 +85,29 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
     const data = await read(path.join(scripts, 'Read-NorthSysmon.ps1'), ['-Recent']);
     return { events: data.alerts.map(normalize).sort((a, b) => b.timestamp.localeCompare(a.timestamp)) };
   }, { events: [] });
+  let previousCounters = new Map();
+  let previousSample = 0;
+  const adapterTraffic = cachedReader(async () => {
+    const rows = await read(path.join(scripts, 'Read-NorthAdapterTraffic.ps1'), []);
+    const now = performance.now();
+    const elapsed = (now - previousSample) / 1000;
+    const counters = new Map();
+    const adapters = [];
+    for (const { name, received, sent } of rows) {
+      if (typeof name !== 'string' || !/^\d{1,20}$/.test(received) || !/^\d{1,20}$/.test(sent)) continue;
+      const rx = BigInt(received);
+      const tx = BigInt(sent);
+      const previous = previousCounters.get(name);
+      const validRate = previous && elapsed > 0 && rx >= previous.rx && tx >= previous.tx;
+      counters.set(name, { rx, tx });
+      adapters.push({ name, received_bytes: Number(rx), sent_bytes: Number(tx),
+        receive_rate: validRate ? Number(rx - previous.rx) / elapsed : null,
+        send_rate: validRate ? Number(tx - previous.tx) / elapsed : null });
+    }
+    previousCounters = counters;
+    previousSample = now;
+    return { adapters };
+  }, { adapters: [] });
 
   return async (request) => {
     const { pathname, searchParams } = new URL(request.url);
@@ -107,7 +130,8 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
       } });
     }
     if (pathname === '/api/network') {
-      const [localNeighbors, localSysmon] = await Promise.all([neighbors(searchParams.get('refresh') === '1'), sysmon()]);
+      const refresh = searchParams.get('refresh') === '1';
+      const [localNeighbors, localSysmon, traffic] = await Promise.all([neighbors(refresh), sysmon(), adapterTraffic(refresh)]);
       const { events, ...status } = localSysmon;
       const deviceFindings = history && await history.observe(localNeighbors.records,
         localNeighbors.updated_at ?? new Date().toISOString()).catch(() => undefined);
@@ -137,6 +161,7 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
         app_connections: [...apps].map(([process, app]) => ({
           process, events: app.events, destinations: app.destinations.size,
         })).sort((a, b) => b.events - a.events || a.process.localeCompare(b.process)),
+        adapter_traffic: traffic,
         neighbors: localNeighbors,
         device_findings: deviceFindings,
         sysmon: { ...status, recent: true, session_events: events.length },
