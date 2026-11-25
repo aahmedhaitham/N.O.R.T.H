@@ -13,7 +13,19 @@ export function CloudGate({ children }: {
   const [sources, setSources] = useState<Source[]>([]);
   const [active, setActive] = useState('');
   const [setup, setSetup] = useState(false);
+  const [google, setGoogle] = useState(false);
   const source = sources.find((item) => item.id === active) ?? sources[0];
+
+  useEffect(() => {
+    if (location.protocol !== 'https:') return;
+    const controller = new AbortController();
+    void fetch('/api/cloud/auth/options', { signal: controller.signal }).then(async (response) => {
+      if (!response.ok) return;
+      const options = await response.json();
+      if (!controller.signal.aborted) setGoogle(options.google === true);
+    }).catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -97,6 +109,7 @@ export function CloudGate({ children }: {
   return <main className="cloud-sign-in">
     <section className="panel">
       <h1>NORTH Cloud</h1>
+      {signedIn === false && google && <p><a className="button primary-action" href="/api/cloud/auth/google">Continue with Google</a></p>}
       {signedIn === null ? <p>Checking your session…</p> : <form className="event-filters" onSubmit={(event) => {
         event.preventDefault(); void signIn();
       }}>
@@ -107,6 +120,8 @@ export function CloudGate({ children }: {
         <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>}
       {message && <p role="alert">{message}</p>}
+      {!message && signedIn === false && new URLSearchParams(location.search).has('sign_in_failed') &&
+        <p role="alert">Google sign-in could not be completed. Try again.</p>}
     </section>
   </main>;
 }

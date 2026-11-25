@@ -7,6 +7,10 @@ const sourcePattern = /^[a-z0-9][a-z0-9-]{0,47}$/;
 const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+00:00$/;
 const headers = { 'Cache-Control': 'no-store', 'Content-Type': 'application/json; charset=utf-8' };
 const encoder = new TextEncoder();
+const googleCallback = '/api/cloud/auth/google/callback';
+const oauthCookie = '__Host-north_oauth';
+const randomHex = () => Array.from(crypto.getRandomValues(new Uint8Array(32)),
+  (byte) => byte.toString(16).padStart(2, '0')).join('');
 
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), { status, headers: { ...headers, ...extra } });
@@ -44,6 +48,80 @@ async function sessionValid(request, secret) {
 
 function cookie(value, lifetime) {
   return `${cookieName}=${value}; Path=/; Max-Age=${lifetime}; HttpOnly; Secure; SameSite=Strict`;
+}
+
+async function sessionCookie(secret, account) {
+  const value = Math.floor(Date.now() / 1000 + sessionSeconds) + '.' + crypto.randomUUID() +
+    (account ? '.' + account : '');
+  return cookie(value + '.' + await signature(secret, value), sessionSeconds);
+}
+
+const googleEnabled = (env) => Boolean(env.NORTH_GOOGLE_CLIENT_ID && env.NORTH_GOOGLE_CLIENT_SECRET);
+
+function authRedirect(location, cookies = []) {
+  const response = new Response(null, { status: 303, headers: {
+    Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+  } });
+  for (const value of cookies) response.headers.append('Set-Cookie', value);
+  return response;
+}
+
+async function googleAuth(request, url, env) {
+  if (!googleEnabled(env) || url.protocol !== 'https:') return json({ detail: 'Google sign-in is unavailable.' }, 404);
+  const setOAuth = (value, age) => `${oauthCookie}=${value}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`;
+  const redirectUri = url.origin + googleCallback;
+  if (url.pathname !== googleCallback) {
+    const state = randomHex();
+    const verifier = randomHex();
+    const expires = Math.floor(Date.now() / 1000) + 600;
+    const value = `${state}.${verifier}.${expires}`;
+    const token = value + '.' + await signature(env.NORTH_SESSION_SECRET, 'google:' + value);
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(verifier)));
+    const challenge = btoa(String.fromCharCode(...digest)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+    const destination = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    destination.search = new URLSearchParams({
+      client_id: env.NORTH_GOOGLE_CLIENT_ID, redirect_uri: redirectUri, response_type: 'code',
+      scope: 'openid profile', state, code_challenge: challenge, code_challenge_method: 'S256',
+    }).toString();
+    return authRedirect(destination, [setOAuth(token, 600)]);
+  }
+
+  const expiredCookie = setOAuth('', 0);
+  const reject = () => authRedirect('/?sign_in_failed=1', [expiredCookie]);
+  const saved = request.headers.get('Cookie')?.match(/(?:^|;\s*)__Host-north_oauth=([^;]+)/)?.[1] ?? '';
+  const parts = /^([a-f0-9]{64})\.([a-f0-9]{64})\.(\d{10})\.([a-f0-9]{64})$/.exec(saved);
+  const code = url.searchParams.get('code');
+  if (!parts || !code || code.length > 4096 || !equal(parts[1], url.searchParams.get('state')) ||
+    Number(parts[3]) <= Date.now() / 1000 ||
+    !equal(parts[4], await signature(env.NORTH_SESSION_SECRET, 'google:' + parts.slice(1, 4).join('.')))) {
+    return reject();
+  }
+  try {
+    const exchange = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
+      body: new URLSearchParams({ code, client_id: env.NORTH_GOOGLE_CLIENT_ID,
+        client_secret: env.NORTH_GOOGLE_CLIENT_SECRET, redirect_uri: redirectUri,
+        grant_type: 'authorization_code', code_verifier: parts[2] }),
+    });
+    if (!exchange.ok) return reject();
+    const { access_token: token } = await exchange.json();
+    if (typeof token !== 'string' || !token || token.length > 4096) return reject();
+    const profile = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+      headers: { Authorization: 'Bearer ' + token }, redirect: 'error', signal: AbortSignal.timeout(10000),
+    });
+    if (!profile.ok) return reject();
+    const { sub } = await profile.json();
+    if (typeof sub !== 'string' || !sub || sub.length > 255) return reject();
+    const account = 'google-' + (await fingerprint('google:' + sub)).slice(0, 56);
+    await env.DB.prepare(`INSERT INTO cloud_accounts (id, access_key_hash) VALUES (?, ?)
+      ON CONFLICT(id) DO NOTHING`).bind(account, randomHex()).run();
+    if (!await env.DB.prepare('SELECT id FROM cloud_accounts WHERE id = ? AND disabled_at IS NULL').bind(account).first()) {
+      return reject();
+    }
+    return authRedirect('/', [expiredCookie, await sessionCookie(env.NORTH_SESSION_SECRET, account)]);
+  } catch {
+    return reject();
+  }
 }
 
 async function readBody(request, limit) {
@@ -211,6 +289,12 @@ export default {
       .every((secret) => typeof secret === 'string' && secret.length >= 32)) {
       return json({ detail: 'Cloud service setup is incomplete.' }, 503);
     }
+    if (request.method === 'GET' && path === '/api/cloud/auth/options') {
+      return json({ google: googleEnabled(env) });
+    }
+    if (request.method === 'GET' && [googleCallback, '/api/cloud/auth/google'].includes(path)) {
+      return googleAuth(request, url, env);
+    }
 
     if (request.method === 'POST' && path === '/api/cloud/snapshot') {
       const token = /^Bearer ([A-Za-z0-9+/=]{32,128})$/.exec(request.headers.get('Authorization') ?? '')?.[1];
@@ -250,10 +334,8 @@ export default {
           'SELECT id FROM cloud_accounts WHERE access_key_hash = ? AND disabled_at IS NULL',
         ).bind(await fingerprint(key)).first();
         if (!legacy && !account) return json({ detail: 'Access key did not match.' }, 401);
-        const value = Math.floor(Date.now() / 1000 + sessionSeconds) + '.' + crypto.randomUUID() +
-          (account ? '.' + account.id : '');
         return json({ signed_in: true }, 200, {
-          'Set-Cookie': cookie(value + '.' + await signature(env.NORTH_SESSION_SECRET, value), sessionSeconds),
+          'Set-Cookie': await sessionCookie(env.NORTH_SESSION_SECRET, account?.id),
         });
       } catch {
         return json({ detail: 'Invalid sign-in request.' }, 400);

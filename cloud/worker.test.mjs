@@ -32,6 +32,46 @@ function d1(sqlite) {
   };
 }
 
+test('Google sign-in creates an isolated workspace after state and PKCE checks', async (t) => {
+  const sqlite = new DatabaseSync(':memory:');
+  t.after(() => sqlite.close());
+  sqlite.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'));
+  const env = { ...secrets, DB: d1(sqlite), NORTH_GOOGLE_CLIENT_ID: 'example-client',
+    NORTH_GOOGLE_CLIENT_SECRET: 'example-secret' };
+  const call = (path, headers) => worker.fetch(new Request(root + path, { headers }), env);
+  const start = await call('/api/cloud/auth/google');
+  const destination = new URL(start.headers.get('Location'));
+  const state = destination.searchParams.get('state');
+  const callback = '/api/cloud/auth/google/callback';
+  const cookie = start.headers.get('Set-Cookie').split(';')[0];
+  assert.equal(destination.origin, 'https://accounts.google.com');
+  assert.equal(destination.searchParams.get('code_challenge_method'), 'S256');
+
+  const fetchBefore = globalThis.fetch;
+  t.after(() => { globalThis.fetch = fetchBefore; });
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push(url);
+    if (url === 'https://oauth2.googleapis.com/token') {
+      assert.equal(options.body.get('redirect_uri'), root + callback);
+      assert.equal(createHash('sha256').update(options.body.get('code_verifier')).digest('base64url'),
+        destination.searchParams.get('code_challenge'));
+      return Response.json({ access_token: 'test-token' });
+    }
+    assert.equal(url, 'https://openidconnect.googleapis.com/v1/userinfo');
+    assert.equal(options.headers.Authorization, 'Bearer test-token');
+    return Response.json({ sub: 'google-test-user' });
+  };
+  assert.equal((await call(callback + '?code=example&state=wrong', { Cookie: cookie })).headers.get('Location'),
+    '/?sign_in_failed=1');
+  assert.deepEqual(calls, []);
+  const signedIn = await call(callback + '?code=example&state=' + state, { Cookie: cookie });
+  assert.equal(signedIn.headers.get('Location'), '/');
+  const session = signedIn.headers.getSetCookie().find((value) => value.startsWith('__Host-north_session=')).split(';')[0];
+  assert.deepEqual(await (await call('/api/cloud/status', { Cookie: session })).json(), { signed_in: true, sources: [] });
+  assert.equal(sqlite.prepare('SELECT count(*) AS count FROM cloud_accounts').get().count, 1);
+});
+
 test('cloud sources keep independent event and investigation history', async (t) => {
   const sqlite = new DatabaseSync(':memory:');
   t.after(() => sqlite.close());
