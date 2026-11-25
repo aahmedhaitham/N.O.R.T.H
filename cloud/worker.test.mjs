@@ -63,7 +63,7 @@ test('Google sign-in creates an isolated workspace after state and PKCE checks',
     return Response.json({ sub: 'google-test-user' });
   };
   assert.equal((await call(callback + '?code=example&state=wrong', { Cookie: cookie })).headers.get('Location'),
-    '/?sign_in_failed=1');
+    '/?sign_in_failed=session');
   assert.deepEqual(calls, []);
   const signedIn = await call(callback + '?code=example&state=' + state, { Cookie: cookie });
   assert.equal(signedIn.headers.get('Location'), '/');

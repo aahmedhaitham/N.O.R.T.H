@@ -182,15 +182,17 @@ async function googleAuth(request, url, env) {
   }
 
   const expiredCookie = setOAuth('', 0);
-  const reject = () => authRedirect('/?sign_in_failed=1', [expiredCookie]);
+  const reject = (reason) => authRedirect('/?sign_in_failed=' + reason, [expiredCookie]);
   const saved = request.headers.get('Cookie')?.match(/(?:^|;\s*)__Host-north_oauth=([^;]+)/)?.[1] ?? '';
   const parts = /^([a-f0-9]{64})\.([a-f0-9]{64})\.(\d{10})\.([a-f0-9]{64})$/.exec(saved);
   const code = url.searchParams.get('code');
-  if (!parts || !code || code.length > 4096 || !equal(parts[1], url.searchParams.get('state')) ||
+  if (!parts || !equal(parts[1], url.searchParams.get('state')) ||
     Number(parts[3]) <= Date.now() / 1000 ||
     !equal(parts[4], await signature(env.NORTH_SESSION_SECRET, 'google:' + parts.slice(1, 4).join('.')))) {
-    return reject();
+    return reject('session');
   }
+  if (url.searchParams.has('error') || !code || code.length > 4096) return reject('authorization');
+  let stage = 'provider';
   try {
     const exchange = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
@@ -198,24 +200,28 @@ async function googleAuth(request, url, env) {
         client_secret: env.NORTH_GOOGLE_CLIENT_SECRET, redirect_uri: redirectUri,
         grant_type: 'authorization_code', code_verifier: parts[2] }),
     });
-    if (!exchange.ok) return reject();
+    if (!exchange.ok) {
+      const failure = await exchange.json().catch(() => null);
+      return reject(failure?.error === 'invalid_client' ? 'configuration' : 'exchange');
+    }
     const { access_token: token } = await exchange.json();
-    if (typeof token !== 'string' || !token || token.length > 4096) return reject();
+    if (typeof token !== 'string' || !token || token.length > 4096) return reject('exchange');
     const profile = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
       headers: { Authorization: 'Bearer ' + token }, redirect: 'error', signal: AbortSignal.timeout(10000),
     });
-    if (!profile.ok) return reject();
+    if (!profile.ok) return reject('profile');
     const { sub } = await profile.json();
-    if (typeof sub !== 'string' || !sub || sub.length > 255) return reject();
+    if (typeof sub !== 'string' || !sub || sub.length > 255) return reject('profile');
+    stage = 'workspace';
     const account = 'google-' + (await fingerprint('google:' + sub)).slice(0, 56);
     await env.DB.prepare(`INSERT INTO cloud_accounts (id, access_key_hash) VALUES (?, ?)
       ON CONFLICT(id) DO NOTHING`).bind(account, randomHex()).run();
     if (!await env.DB.prepare('SELECT id FROM cloud_accounts WHERE id = ? AND disabled_at IS NULL').bind(account).first()) {
-      return reject();
+      return reject('workspace');
     }
     return authRedirect('/', [expiredCookie, await sessionCookie(env.NORTH_SESSION_SECRET, account)]);
   } catch {
-    return reject();
+    return reject(stage);
   }
 }
 

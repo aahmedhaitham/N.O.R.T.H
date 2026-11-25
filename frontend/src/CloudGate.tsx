@@ -6,6 +6,15 @@ type DesktopRequest = { ticket: string; expires: number };
 const desktop = location.protocol === 'north:';
 const ticketPattern = /^[a-f0-9]{32}\.[a-f0-9]{64}\.\d{10}\.[a-f0-9]{64}$/;
 const desktopCode = (ticket: string) => ticket.slice(0, 8).toUpperCase();
+const signInErrors: Record<string, string> = {
+  session: 'The sign-in request expired or its browser session was lost. Start again in this tab.',
+  authorization: 'Google did not authorize sign-in. Check that you’re using a staging test account.',
+  configuration: 'Google rejected the OAuth client credentials. Ask the workspace administrator to check the client ID and secret.',
+  exchange: 'Google could not complete the code exchange. Start sign-in again.',
+  profile: 'NORTH could not confirm your Google account. Try signing in again.',
+  provider: 'NORTH could not reach Google to complete sign-in. Try again shortly.',
+  workspace: 'NORTH could not open your workspace. Contact the workspace administrator.',
+};
 const desktopPost = (operation: string, payload: object, signal?: AbortSignal) => fetch('/api/cloud/desktop/' + operation, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal,
 });
@@ -214,7 +223,8 @@ export function CloudGate({ children }: {
       </form>}
       {message && <p role="alert">{message}</p>}
       {!message && signedIn === false && new URLSearchParams(location.search).has('sign_in_failed') &&
-        <p role="alert">Google sign-in could not be completed. Try again.</p>}
+        <p role="alert">{signInErrors[new URLSearchParams(location.search).get('sign_in_failed') ?? ''] ??
+          'Google sign-in could not be completed. Try again.'}</p>}
     </section>
   </main>;
 }
