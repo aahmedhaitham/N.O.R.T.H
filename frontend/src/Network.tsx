@@ -38,7 +38,7 @@ type Snapshot = {
   internet_health?: HealthSample[];
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
-export type AtlasTarget = 'atlas-new-devices' | 'atlas-windows-events' | 'atlas-local-devices';
+export type AtlasTarget = 'atlas-new-devices' | 'atlas-windows-events' | 'atlas-linux-events' | 'atlas-local-devices';
 const atlasViews = [
   { id: 'devices', label: 'Devices' }, { id: 'traffic', label: 'Traffic' },
   { id: 'health', label: 'Diagnostics' }, { id: 'traces', label: 'Packet traces' },
@@ -159,7 +159,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const [adapterSelection, setAdapterSelection] = useState('');
   const [atlasView, setAtlasView] = useState<AtlasView>('devices');
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
-  const activeView = target ? (target === 'atlas-windows-events' ? 'health' : 'devices') : atlasView;
+  const targetView = target === 'atlas-windows-events' || target === 'atlas-linux-events' ? 'health' : 'devices';
+  const activeView = target ? targetView : atlasView;
   const [reviewing, setReviewing] = useState('');
   const [reviewError, setReviewError] = useState(false);
   const [deviceLabels, setDeviceLabels] = useState<Map<string, string> | null>(null);
@@ -199,11 +200,11 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       heading?.scrollIntoView({ block: 'start' });
       heading?.focus({ preventScroll: true });
       if (target === 'atlas-new-devices') setSearch('');
-      setAtlasView(target === 'atlas-windows-events' ? 'health' : 'devices');
+      setAtlasView(targetView);
       onTarget(null);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [endpoint, target, hasInventory, fetchError, refreshing, onTarget]);
+  }, [endpoint, target, targetView, hasInventory, fetchError, refreshing, onTarget]);
   const query = search.trim().toLowerCase();
   const fits = (...values: string[]) => values.some((value) => value.toLowerCase().includes(query));
   const localDevice = inventory?.local_device;
@@ -664,7 +665,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         `${windowsEvents.session_events} ${windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
     </section>}
     {inventory?.linux_journal && <section className="panel">
-      <h2>Linux event collection</h2>
+      <h2 id="atlas-linux-events" tabIndex={-1}>Linux event collection</h2>
       <p>Collects recent OpenSSH authentication failures and sudo events visible to the Linux account.</p>
       <p role="status">{inventory.linux_journal.state === 'unavailable' ?
         'The collector could not read the system journal. It will retry.' : inventory.linux_journal.state === 'starting' ?

@@ -69,7 +69,8 @@ test('Google sign-in creates an isolated workspace after state and PKCE checks',
   const signedIn = await call(callback + '?code=example&state=' + state, { Cookie: cookie });
   assert.equal(signedIn.headers.get('Location'), '/');
   const session = signedIn.headers.getSetCookie().find((value) => value.startsWith('__Host-north_session=')).split(';')[0];
-  assert.deepEqual(await (await call('/api/cloud/status', { Cookie: session })).json(), { signed_in: true, sources: [] });
+  assert.deepEqual(await (await call('/api/cloud/status', { Cookie: session })).json(),
+    { signed_in: true, sources: [], waiting_collectors: [] });
   assert.equal(sqlite.prepare('SELECT count(*) AS count FROM cloud_accounts').get().count, 1);
   const desktopPost = (operation, payload, cookie) => worker.fetch(new Request(root + '/api/cloud/desktop/' + operation, {
     method: 'POST', headers: { Origin: root, ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(payload),
@@ -227,9 +228,17 @@ test('cloud sources keep independent event and investigation history', async (t)
   const ownPairingResponse = await call(pairings, post({ label: 'Private collector' }, accountHeaders));
   assert.equal(ownPairingResponse.status, 201);
   const ownPairing = await ownPairingResponse.json();
+  const waiting = await (await call('/api/cloud/status', { headers: accountHeaders })).json();
+  assert.deepEqual(waiting.waiting_collectors, [{ id: ownPairing.source_id, label: ownPairing.label }]);
+  const otherWaiting = await (await call('/api/cloud/status', { headers })).json();
+  assert.ok(!otherWaiting.waiting_collectors.some((item) => item.id === ownPairing.source_id));
   const ownHeaders = { Authorization: 'Bearer ' + ownPairing.token };
-  const ownSnapshot = { ...incident, source: { id: ownPairing.source_id, label: 'Ignored' }, events: [connection] };
+  const ownSnapshot = { ...incident, source: { id: ownPairing.source_id, label: 'Ignored' }, events: [connection],
+    network: { ...incident.network, linux_journal: { state: 'ready' } } };
   assert.equal((await call('/api/cloud/snapshot', post(ownSnapshot, ownHeaders))).status, 200);
+  const synced = await (await call('/api/cloud/status', { headers: accountHeaders })).json();
+  assert.deepEqual(synced.waiting_collectors, []);
+  assert.equal(synced.sources[0].platform, 'Linux');
   assert.equal((await call('/api/network?source=' + ownPairing.source_id, { headers })).status, 404);
   const labelPath = '/api/network/device-labels?source=' + ownPairing.source_id;
   const label = { mac: '020000000042', label: 'Lab phone' };

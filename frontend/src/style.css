@@ -334,6 +334,8 @@ button:disabled { opacity: .65; cursor: wait; }
 .collector-table-wrap { overflow-x: auto; }
 .collector-table thead { white-space: nowrap; }
 .collector-table tbody th { background: transparent; color: var(--text); }
+.fleet-table tbody th { background: transparent; color: var(--text); }
+.fleet-table button { padding: .3rem .5rem; font-size: .8rem; }
 .collector-table td, .collector-table tbody th { vertical-align: middle; }
 .collector-table button { padding: .35rem .55rem; font-size: .8rem; }
 .collector-table .collector-details-toggle { color: var(--accent); background: transparent; border-color: transparent; text-align: left; font-weight: 650; }

@@ -1,5 +1,6 @@
 import { groupNeighbors, useNetworkInventory, type AtlasTarget } from './Network';
 import { eventNames } from './eventNames';
+import type { CollectorFleet } from './CloudGate';
 
 type CaseSummary = { id: string; title: string; host: string; evidence: { timestamp: string }[] };
 type Section = 'cases' | 'network' | 'events';
@@ -11,7 +12,42 @@ const collectorStatus = {
   disabled: 'Disabled',
 };
 
-export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase, openAtlas, connect }: {
+function Fleet({ fleet, source, manage }: { fleet: CollectorFleet; source?: string | null; manage?: () => void }) {
+  const now = Date.now();
+  return <section className="panel" aria-labelledby="fleet-heading">
+    <header className="dashboard-section-heading">
+      <h2 id="fleet-heading">Collector fleet</h2>
+      {manage && <button type="button" onClick={manage}>Manage collectors</button>}
+    </header>
+    <div className="router-traffic-table-wrap">
+      <table className="investigation-table fleet-table" aria-label="Workspace collectors">
+        <thead><tr><th scope="col">Collector</th><th scope="col">Platform</th><th scope="col">Status</th><th scope="col">Last sync</th><th scope="col">Workspace</th></tr></thead>
+        <tbody>
+          {fleet.sources.map((item) => {
+            const recent = now - Date.parse(item.updated_at) <= 3 * 60 * 1000;
+            const state = item.revoked_at ? 'revoked' : recent ? 'synced' : 'waiting';
+            return <tr key={item.id}>
+              <th scope="row">{item.label}</th>
+              <td>{item.platform ?? 'Unknown'}</td>
+              <td><span className="collector-state" data-state={state}>{item.revoked_at ? 'Revoked' :
+                recent ? 'Synced recently' : 'No recent snapshot'}</span></td>
+              <td><time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time></td>
+              <td>{source === item.id ? <span className="reference">Selected</span> :
+                <button type="button" onClick={() => fleet.select(item.id)}>{item.revoked_at ? 'View history' : 'Switch collector'}</button>}</td>
+            </tr>;
+          })}
+          {fleet.waiting.map((item) => <tr key={item.id}>
+            <th scope="row">{item.label}</th><td>—</td>
+            <td><span className="collector-state" data-state="waiting">Waiting for first sync</span></td><td>—</td>
+            <td>{manage && <button type="button" onClick={manage}>Open setup</button>}</td>
+          </tr>)}
+        </tbody>
+      </table>
+    </div>
+  </section>;
+}
+
+export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase, openAtlas, connect, fleet, source, manageCollectors }: {
   endpoint: string;
   cases: CaseSummary[];
   loaded: boolean;
@@ -21,6 +57,9 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
   openCase: (id: string) => void;
   openAtlas: (target: AtlasTarget) => void;
   connect?: () => void;
+  fleet?: CollectorFleet;
+  source?: string | null;
+  manageCollectors?: () => void;
 }) {
   const { inventory, fetchError } = useNetworkInventory(endpoint);
   const total = inventory?.assets.reduce((count, asset) => count + asset.events, 0);
@@ -39,6 +78,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
   const collectors = [
     { label: 'Network inventory', status: inventory?.neighbors },
     { label: 'Windows events', status: inventory?.sysmon },
+    { label: 'Linux journal', status: inventory?.linux_journal },
   ].filter((item) => item.status && item.status.state !== 'disabled');
   const newDevices = inventory?.device_findings?.unreviewed ?? 0;
   const coverageIssue = collectors.some((item) => item.status?.state === 'unavailable');
@@ -60,6 +100,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
         <p>Pair a Windows device to start receiving network observations and security events.</p></div>
       <button className="primary-action" onClick={connect}>Set up collector</button>
     </section>}
+    {fleet && (fleet.sources.length > 0 || fleet.waiting.length > 0) && <Fleet fleet={fleet} source={source} manage={manageCollectors} />}
     {!connect && <>
     {fetchError && <p role="status">The device and event counts could not refresh.</p>}
     <section className="dashboard-metrics" aria-label="Security overview counts">
@@ -108,7 +149,8 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
         {newDevices > 0 && <p><button className="network-case" onClick={() => openAtlas('atlas-new-devices')}>
           Review {newDevices} newly observed {newDevices === 1 ? 'device' : 'devices'}
         </button></p>}
-        {coverageIssue && <p><button className="network-case" onClick={() => openAtlas(sysmonUnavailable ? 'atlas-windows-events' : 'atlas-local-devices')}>
+        {coverageIssue && <p><button className="network-case" onClick={() => openAtlas(sysmonUnavailable ? 'atlas-windows-events' :
+          inventory?.linux_journal?.state === 'unavailable' ? 'atlas-linux-events' : 'atlas-local-devices')}>
           Check data source access
         </button></p>}
         {!newDevices && !coverageIssue && <p>{inventory ? 'No device reviews or data source issues reported.' : 'Checking available data sources…'}</p>}

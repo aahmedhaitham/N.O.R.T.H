@@ -4,7 +4,9 @@ import { pollVisible } from './pollVisible';
 import { WorkspaceSettings } from './WorkspaceSettings';
 import { clearWorkspacePreferences, readWorkspacePreference, writeWorkspacePreference } from './workspaceSession';
 
-type Source = { id: string; label: string; updated_at: string };
+type Source = { id: string; label: string; updated_at: string; platform?: 'Windows' | 'Linux' | null; revoked_at?: string | null };
+type WaitingCollector = Pick<Source, 'id' | 'label'>;
+export type CollectorFleet = { sources: Source[]; waiting: WaitingCollector[]; select: (id: string) => void };
 type DesktopRequest = { ticket: string; expires: number };
 type WorkspaceSection = 'dashboard' | 'collectors' | 'settings';
 export type WorkspacePanel = { title: string; content: ReactNode; close: () => void };
@@ -25,7 +27,7 @@ const desktopPost = (operation: string, payload: object, signal?: AbortSignal) =
 });
 
 export function CloudGate({ children }: {
-  children: (source: string | null, openCollectors: () => void, controls: ReactNode, panel?: WorkspacePanel) => ReactNode;
+  children: (source: string | null, openCollectors: () => void, controls: ReactNode, fleet: CollectorFleet, panel?: WorkspacePanel) => ReactNode;
 }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [key, setKey] = useState('');
@@ -33,6 +35,7 @@ export function CloudGate({ children }: {
   const [connectionIssue, setConnectionIssue] = useState('');
   const [busy, setBusy] = useState(false);
   const [sources, setSources] = useState<Source[]>([]);
+  const [waiting, setWaiting] = useState<WaitingCollector[]>([]);
   const [active, setActive] = useState(() => readWorkspacePreference('collector'));
   const [section, updateSection] = useState<WorkspaceSection>(() => {
     const saved = readWorkspacePreference('section');
@@ -146,11 +149,13 @@ export function CloudGate({ children }: {
           const data = await response.json();
           if (controller.signal.aborted) return;
           setSources(data.sources);
+          setWaiting(data.waiting_collectors ?? []);
           setConnectionIssue('');
           setSignedIn(true);
         } else if (response.status === 401) {
           clearWorkspacePreferences();
           setSources([]);
+          setWaiting([]);
           setActive('');
           updateSection('dashboard');
           setConnectionIssue('');
@@ -193,6 +198,7 @@ export function CloudGate({ children }: {
       if (!response.ok) throw new Error('Sign-out could not be completed.');
       setSignedIn(false);
       setSources([]);
+      setWaiting([]);
       setActive('');
       updateSection('dashboard');
       clearWorkspacePreferences();
@@ -239,7 +245,8 @@ export function CloudGate({ children }: {
     } : section === 'settings' ? {
       title: 'Workspace settings', content: <WorkspaceSettings back={close} openCollectors={openCollectors} />, close,
     } : undefined;
-    return children(panel ? panelSource : source?.id ?? null, openCollectors, controls, panel);
+    return children(panel ? panelSource : source?.id ?? null, openCollectors, controls,
+      { sources, waiting, select: selectCollector }, panel);
   }
 
   const keyForm = <form className="event-filters" onSubmit={(event) => {

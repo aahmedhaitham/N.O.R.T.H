@@ -8,7 +8,7 @@ import { Events } from './Events';
 import { eventNames } from './eventNames';
 import { Dashboard } from './Dashboard';
 import { InstallApp } from './InstallApp';
-import { CloudGate, type WorkspacePanel } from './CloudGate';
+import { CloudGate, type CollectorFleet, type WorkspacePanel } from './CloudGate';
 import { CaseReview } from './CaseReview';
 import { Appearance } from './Appearance';
 import { pollVisible } from './pollVisible';
@@ -103,10 +103,11 @@ function QuickNavigation({ view, open }: { view?: View; open: (view: View) => vo
   </>;
 }
 
-function App({ source = null, openCollectors, controls, panel }: {
+function App({ source = null, openCollectors, controls, fleet, panel }: {
   source?: string | null;
   openCollectors?: () => void;
   controls?: import('react').ReactNode;
+  fleet?: CollectorFleet;
   panel?: WorkspacePanel;
 }) {
   const [view, updateView] = useState<View>(() => {
@@ -264,6 +265,7 @@ function App({ source = null, openCollectors, controls, panel }: {
       <div className="workspace-pages" hidden={Boolean(panel)}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase}
+        fleet={fleet} source={source} manageCollectors={openCollectors}
         openAtlas={(target) => { setView('network'); setNetworkTarget(target); }}
         connect={cloud && !source ? openCollectors : undefined} />}
       <div hidden={view !== 'network'}>
@@ -553,5 +555,5 @@ function RelatedEvidence({ event }: { event: RelatedEvent }) {
 }
 
 createRoot(document.getElementById('root')!).render(cloud ?
-  <CloudGate>{(source, openCollectors, controls, panel) =>
-    <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} panel={panel} />}</CloudGate> : <App />);
+  <CloudGate>{(source, openCollectors, controls, fleet, panel) =>
+    <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} fleet={fleet} panel={panel} />}</CloudGate> : <App />);

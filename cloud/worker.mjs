@@ -637,11 +637,24 @@ export default {
     if (request.method !== 'GET' && !draftId && !reviewWrite && !labelWrite) return json({ detail: 'This cloud endpoint is read-only' }, 405);
     if (path === '/api/cloud/status') {
       const { results: sources } = await env.DB.prepare(
-        `SELECT s.id, s.label, s.updated_at FROM cloud_sources s
+        `SELECT s.id, s.label, s.updated_at, p.revoked_at,
+         CASE WHEN json_type(s.network, '$.linux_journal') = 'object' THEN 'Linux'
+              WHEN json_type(s.network, '$.adapter_traffic') = 'object'
+                   OR json_extract(s.network, '$.sysmon.state') IN ('starting', 'ready', 'unavailable') THEN 'Windows'
+              ELSE NULL END AS platform
+         FROM cloud_sources s
          LEFT JOIN cloud_source_owners o ON o.source_id = s.id
+         LEFT JOIN cloud_pairings p ON p.source_id = s.id
          WHERE coalesce(o.account_id, 'legacy') = ? ORDER BY s.updated_at DESC, s.id LIMIT 100`,
       ).bind(account).all();
-      return json({ signed_in: true, sources });
+      const { results: waiting_collectors } = await env.DB.prepare(
+        `SELECT p.source_id AS id, p.label FROM cloud_pairings p
+         LEFT JOIN cloud_source_owners o ON o.source_id = p.source_id
+         LEFT JOIN cloud_sources s ON s.id = p.source_id
+         WHERE coalesce(o.account_id, 'legacy') = ? AND s.id IS NULL AND p.revoked_at IS NULL
+         ORDER BY p.created_at DESC LIMIT 100`,
+      ).bind(account).all();
+      return json({ signed_in: true, sources, waiting_collectors });
     }
     const sourceId = url.searchParams.get('source');
     if (sourceId && !sourcePattern.test(sourceId)) return json({ detail: 'Invalid collector identity' }, 422);
