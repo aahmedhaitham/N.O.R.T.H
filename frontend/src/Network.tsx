@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { explainAddress } from './deviceExplanation';
+import { AtlasMap } from './AtlasMap';
 
 type CaseReference = { id: string; title: string };
 type Host = { id: string; host: string; events: number; last_seen: string; cases: CaseReference[] };
@@ -19,6 +20,7 @@ type Snapshot = {
   sysmon?: Collector & { session_events: number; recent?: boolean; problem?: 'access_denied' | 'channel_missing' | 'read_failed' | null };
   device_findings?: { baseline_at: string | null; unreviewed: number; items: Finding[] };
   router_usage?: Collector & { devices: { mac: string; download_bytes: number; upload_bytes: number }[] };
+  app_connections?: { process: string; events: number; destinations: number }[];
 };
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
 const megabytes = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
@@ -61,30 +63,39 @@ export function groupNeighbors(records: Neighbor[]) {
   return [...devices];
 }
 
-export function useNetworkInventory(endpoint: string) {
+export function useNetworkInventory(endpoint: string, interval = 5000) {
   const [inventory, setInventory] = useState<Snapshot | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<string>();
+  const manual = useRef(false);
 
   useEffect(() => {
     if (!endpoint) return;
     const controller = new AbortController();
     let timer: number | undefined;
     async function refresh() {
+      setRefreshing(true);
       try {
-        const response = await fetch(endpoint, { signal: controller.signal, cache: 'no-store' });
+        const requested = manual.current && location.protocol === 'north:' && location.pathname === '/';
+        manual.current = false;
+        const response = await fetch(requested ? endpoint + '?refresh=1' : endpoint,
+          { signal: controller.signal, cache: 'no-store' });
         if (!response.ok) throw new Error('Inventory unavailable');
         const result: Snapshot = await response.json();
         if (result.neighbors) result.neighbors.records = readNeighbors(result.neighbors.records);
         if (!controller.signal.aborted) {
           setInventory(result);
           setFetchError(false);
+          setLastRefresh(new Date().toLocaleTimeString());
         }
       } catch {
         if (!controller.signal.aborted) setFetchError(true);
       } finally {
-        if (!controller.signal.aborted && endpoint.startsWith('/api/')) {
-          timer = window.setTimeout(refresh, 5000);
+        if (!controller.signal.aborted) {
+          setRefreshing(false);
+          if (interval && endpoint.startsWith('/api/')) timer = window.setTimeout(refresh, interval);
         }
       }
     }
@@ -93,15 +104,19 @@ export function useNetworkInventory(endpoint: string) {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [endpoint, revision]);
+  }, [endpoint, revision, interval]);
 
-  return { inventory, fetchError, refresh: () => setRevision((value) => value + 1) };
+  return { inventory, fetchError, refreshing, lastRefresh, refresh: () => {
+    manual.current = true;
+    setRevision((value) => value + 1);
+  } };
 }
 
 export function Network({ endpoint, openCase, demo, readOnly }: {
   endpoint: string; openCase: (id: string) => void; demo: boolean; readOnly: boolean;
 }) {
-  const { inventory, fetchError, refresh } = useNetworkInventory(endpoint);
+  const [interval, setInterval] = useState(15000);
+  const { inventory, fetchError, refresh, refreshing, lastRefresh } = useNetworkInventory(endpoint, interval);
   const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
   const [fileMessage, setFileMessage] = useState('');
   const [search, setSearch] = useState('');
@@ -129,6 +144,14 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
   const watch = inventory?.device_findings;
   const router = inventory?.router_usage;
   const routerDevices = router?.devices.filter((device) => fits(device.mac)) ?? [];
+  const macKey = (mac: string) => mac.replace(/[:-]/g, '').toLowerCase();
+  const trafficByMac = new Map(router?.devices.map((device) => [macKey(device.mac), device]));
+  const mapDevices = liveDevices.filter(matchesDevice).map(([id, records]) => {
+    const first = records[0];
+    return { id, label: first.name || first.address, network: first.network || 'Unknown interface', mac: first.mac,
+      addresses: records.map((record) => record.address), states: [...new Set(records.map((record) => record.state).filter(Boolean))],
+      traffic: trafficByMac.get(macKey(first.mac)) };
+  });
 
   async function review(id: string) {
     setReviewError(false);
@@ -195,6 +218,25 @@ export function Network({ endpoint, openCase, demo, readOnly }: {
       </label>
     </header>
     {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
+    <section className="panel atlas-toolbar" aria-label="Network map controls">
+      <button type="button" className="primary-action" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh observations'}</button>
+      {endpoint.startsWith('/api/') && <label>Auto refresh <select value={interval} onChange={(event) => setInterval(Number(event.target.value))}>
+        <option value={0}>Off</option><option value={15000}>Every 15 seconds</option>
+        <option value={30000}>Every 30 seconds</option><option value={60000}>Every minute</option>
+      </select></label>}
+      {lastRefresh && <small>View updated {lastRefresh}</small>}
+      <small>Uses available observations from Windows or your collector.</small>
+    </section>
+    <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} />
+    {inventory?.local_device && <section className="panel">
+      <h2>App network activity on this PC</h2>
+      <p>Recent connection counts from Sysmon. Bandwidth per app and activity on other devices require separate telemetry.</p>
+      {!inventory.app_connections?.length && <p>{windowsEvents?.state === 'unavailable' ?
+        'Allow this Windows account to read the Sysmon event log to see app network activity.' : 'No app connections in the available event history.'}</p>}
+      <ul className="network-list">{inventory.app_connections?.filter((app) => fits(app.process)).map((app) => <li key={app.process}>
+        <strong>{app.process}</strong><small>{app.events} {app.events === 1 ? 'connection' : 'connections'} · {app.destinations} {app.destinations === 1 ? 'destination' : 'destinations'}</small>
+      </li>)}</ul>
+    </section>}
     {localDevice && <section className="panel">
       <h2>This computer</h2>
       <p>{localDevice.host} · {adapters.size} {adapters.size === 1 ? 'network adapter' : 'network adapters'}</p>

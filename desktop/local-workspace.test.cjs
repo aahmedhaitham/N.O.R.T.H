@@ -15,7 +15,7 @@ test('local workspace reads Windows data without cloud configuration', async () 
   const alerts = [
     makeEvent(3, 11, { targetFilename: 'inventory.ps1' }),
     makeEvent(1, 1, { image: 'powershell.exe' }),
-    makeEvent(2, 3, { destinationIp: '192.0.2.1' }),
+    makeEvent(2, 3, { destinationIp: '192.0.2.1', image: 'PowerShell.exe' }),
   ];
   const invocations = [];
   const api = makeLocalWorkspace('tools', async (file, args) => {
@@ -28,6 +28,7 @@ test('local workspace reads Windows data without cloud configuration', async () 
   assert.equal(snapshot.sysmon.session_events, 3);
   assert.equal(snapshot.activity.buckets.at(-1).count, 3);
   assert.equal(snapshot.links[0].address, '192.0.2.1');
+  assert.deepEqual(snapshot.app_connections, [{ process: 'powershell.exe', events: 1, destinations: 1 }]);
   const [incident] = await (await call('/api/cases')).json();
   assert.deepEqual(incident.evidence.map(({ kind }) => kind), [1, 3, 11]);
   const report = await call('/api/cases/' + incident.id + '/report');

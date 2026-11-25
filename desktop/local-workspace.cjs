@@ -19,8 +19,8 @@ async function readScript(file, args) {
 function cachedReader(read, fallback) {
   let cached;
   let expires = 0;
-  return () => {
-    if (!cached || Date.now() >= expires) {
+  return (refresh = false) => {
+    if (!cached || Date.now() >= expires || (refresh && Date.now() >= expires - 12000)) {
       cached = read().then((data) => ({
         ...data, state: 'ready', updated_at: new Date().toISOString(),
       })).catch(() => ({ ...fallback, state: 'unavailable', updated_at: null }));
@@ -107,14 +107,22 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
       } });
     }
     if (pathname === '/api/network') {
-      const [localNeighbors, localSysmon] = await Promise.all([neighbors(), sysmon()]);
+      const [localNeighbors, localSysmon] = await Promise.all([neighbors(searchParams.get('refresh') === '1'), sysmon()]);
       const { events, ...status } = localSysmon;
       const deviceFindings = history && await history.observe(localNeighbors.records,
         localNeighbors.updated_at ?? new Date().toISOString()).catch(() => undefined);
       const cases = scriptCases(events);
       const connections = new Map();
+      const apps = new Map();
       for (const event of events) {
         if (event.kind !== 3 || !event.destination) continue;
+        if (event.process) {
+          const process = event.process.toLowerCase();
+          const app = apps.get(process) ?? { events: 0, destinations: new Set() };
+          app.events += 1;
+          app.destinations.add(event.destination);
+          apps.set(process, app);
+        }
         const link = connections.get(event.destination) ?? { asset_id: 'local-pc', address: event.destination,
           direction: 'outbound', source: 'Sysmon', events: 0, last_seen: event.timestamp, cases: [] };
         link.events += 1;
@@ -126,6 +134,9 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
         assets: events.length ? [{ id: 'local-pc', host, events: events.length, last_seen: events[0].timestamp,
           cases: cases.map(({ id, title }) => ({ id, title })) }] : [],
         links: [...connections.values()],
+        app_connections: [...apps].map(([process, app]) => ({
+          process, events: app.events, destinations: app.destinations.size,
+        })).sort((a, b) => b.events - a.events || a.process.localeCompare(b.process)),
         neighbors: localNeighbors,
         device_findings: deviceFindings,
         sysmon: { ...status, recent: true, session_events: events.length },

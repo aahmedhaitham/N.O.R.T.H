@@ -75,6 +75,17 @@ button:disabled { opacity: .65; cursor: wait; }
 .network-list .adapter-addresses { display: flex; flex-wrap: wrap; gap: .3rem 1rem; list-style: none; padding: 0; margin: .15rem 0 0; }
 .network-list .adapter-addresses li { border: 0; padding: 0; }
 .adapter-addresses code { color: inherit; margin-inline-start: .2rem; overflow-wrap: anywhere; }
+.atlas-toolbar, .atlas-map-heading { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: center; }
+.atlas-map-heading { justify-content: space-between; }
+.atlas-toolbar label, .atlas-map-heading label { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.atlas-toolbar small { color: var(--muted); }
+.atlas-toolbar select, .atlas-map-heading select { color: inherit; font: inherit; background: #101620; border: 1px solid var(--line); border-radius: .35rem; padding: .45rem; }
+.atlas-canvas { height: clamp(340px, 60vh, 650px); background: #0d1420; }
+.atlas-canvas .atlas-interface, .atlas-canvas .atlas-device { width: 185px; overflow-wrap: anywhere; }
+.atlas-canvas .atlas-interface { border-color: var(--accent); background: #192b35; }
+.atlas-canvas .atlas-device.selected { border-color: var(--accent); }
+.atlas-device-detail { margin-top: .75rem; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: .5rem; }
+.atlas-device-detail h3 { margin: 0; }
 .activity-chart {
   display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(.2rem, 1vw, .6rem);
   align-items: stretch; height: 9rem; margin-top: 1.2rem; padding-bottom: 1px; border-bottom: 1px solid var(--line);
