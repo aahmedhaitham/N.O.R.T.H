@@ -217,8 +217,8 @@ function App({ source = null, openCollectors, controls }: {
       {view === 'events' && <Events portfolio={portfolio} source={source} initialSearch={eventSearch}
         canSave={cloud} openNetwork={() => setView('network')} />}
       {view === 'cases' && <div className="workspace">
-        <aside aria-label="Investigations">
-          <h2>ECHO investigations</h2>
+        <aside className="echo-case-list" aria-label="Investigations">
+          <h2>Investigations <span>{loaded ? cases.length : ''}</span></h2>
           {cases.map((item) => (
             <button key={item.id} className="case" aria-pressed={item.id === incident?.id}
               onClick={() => setSelected(item.id)}>
@@ -227,7 +227,7 @@ function App({ source = null, openCollectors, controls }: {
             </button>
           ))}
         </aside>
-        <main>
+        <main className="echo-workspace">
           {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery}
             openEvents={(search) => { setEventSearch(search); setView('events'); }} /> :
             <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations yet' : 'Waiting for telemetry'}</h1>
@@ -321,34 +321,18 @@ function Investigation({ incident, sourceQuery, openEvents }: {
   return <>
     <section className="panel overview">
       <div>
-        <span className="module">IRIS / INVESTIGATION</span>
         <h1>{incident.title}</h1>
-        <p>{incident.summary}</p>
+        <p className="echo-case-host">{incident.host}</p>
       </div>
       <div className="case-links">
         <button onClick={() => openEvents(incident.host)}>Find host events in IRIS</button>
         <a className="button" download={portfolio ? 'north-' + incident.id + '.md' : undefined}
           href={portfolio ? '/demo/' + incident.id + '.md' : '/api/cases/' + incident.id + '/report' + sourceQuery}>Export report</a>
       </div>
+      <p className="echo-case-summary">{incident.summary}</p>
     </section>
-    {cloud && <CaseReview endpoint={'/api/cases/' + incident.id + '/review' + sourceQuery} />}
-    <div className="columns">
-      <section className="panel">
-        <span className="module">ATLAS / INFRASTRUCTURE</span>
-        <h2>Observed connections</h2>
-        <div className="graph">
-          <ReactFlow key={destinations.join(',')} nodes={nodes} edges={edges}
-            fitView fitViewOptions={{ maxZoom: 1 }} nodesDraggable={false} nodesConnectable={false}>
-            <Background gap={18} /><Controls showInteractive={false} />
-          </ReactFlow>
-        </div>
-        {incident.links.map((link) => <p key={link.evidence_id} className="reference">
-          {link.destination}{' '}<a href={'#event-' + link.evidence_id}>View evidence</a>
-        </p>)}
-        {incident.links.length === 0 && <p>No connection events for this case.</p>}
-      </section>
-      <section className="panel">
-        <span className="module">ECHO / RECONSTRUCTION</span>
+    <div className="echo-evidence-grid">
+      <section className="panel echo-timeline">
         <h2>Evidence timeline</h2>
         {last < 0 ? <p>No evidence events in this case.</p> :
           <div className="replay" role="group" aria-label="Timeline playback">
@@ -381,7 +365,21 @@ function Investigation({ incident, sourceQuery, openEvents }: {
           ))}
         </ol>
       </section>
+      <section className="panel echo-connections">
+        <h2>Observed connections</h2>
+        {incident.links.length > 0 && <div className="graph">
+          <ReactFlow key={destinations.join(',')} nodes={nodes} edges={edges}
+            fitView fitViewOptions={{ maxZoom: 1 }} nodesDraggable={false} nodesConnectable={false}>
+            <Background gap={18} /><Controls showInteractive={false} />
+          </ReactFlow>
+        </div>}
+        {incident.links.map((link) => <p key={link.evidence_id} className="reference">
+          {link.destination}{' '}<a href={'#event-' + link.evidence_id}>View evidence</a>
+        </p>)}
+        {incident.links.length === 0 && <p>No connection events for this case.</p>}
+      </section>
     </div>
+    {cloud && <CaseReview endpoint={'/api/cases/' + incident.id + '/review' + sourceQuery} />}
     {cloud && <section className="panel">
       <h2>Related events across collectors</h2>
       <p>Matches share an IP address within five minutes of the case’s latest event. Shared addresses alone cannot establish that events are part of the same incident.</p>

@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### UX backlog
 
+- ECHO has a compact investigation list and a timeline-first evidence view. Connection graphs appear when the case contains connection records.
 - IRIS uses a split event list and evidence inspector, with related-event actions beside the selected record.
 - ATLAS uses a compact command bar and a shared map and device inspector. The portfolio preview includes labeled synthetic neighbor and router traffic records so the map can be explored immediately.
 - Reworked Overview into a flat console with a larger telemetry plot, a side pane for event types and attention items, and a full-width investigation table.
