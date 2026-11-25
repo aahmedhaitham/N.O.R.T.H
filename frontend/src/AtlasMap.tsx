@@ -7,6 +7,7 @@ export type AtlasDevice = {
   id: string;
   label: string;
   observedName?: string;
+  nameSource?: string;
   network: string;
   mac: string;
   addresses: string[];
@@ -147,7 +148,7 @@ export function AtlasMap({ devices, staleTraffic, openEvents }: {
         </dl>
         <details className="atlas-address-context" key={selectedDevice.id}>
           <summary>Explain device evidence</summary>
-          {selectedDevice.observedName && <p>The collector reported the name <strong>{selectedDevice.observedName}</strong>.</p>}
+          {selectedDevice.observedName && <p><strong>{selectedDevice.observedName}</strong> · {selectedDevice.nameSource}</p>}
           {selectedDevice.addresses.map((address) => <div key={address}>
             <code>{address}</code>
             <p>{explainAddress(address)}</p>

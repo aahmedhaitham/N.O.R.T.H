@@ -182,6 +182,26 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const router = inventory?.router_usage;
   const macKey = (mac: string) => mac.replace(/[:-]/g, '').toLowerCase();
   const trafficByMac = new Map(router?.devices.map((device) => [macKey(device.mac), device]));
+  const importedNames = new Map<string, Set<string>>();
+  for (const record of neighbors) {
+    const mac = macKey(record.mac);
+    const name = record.name.trim();
+    if (!/^[0-9a-f]{12}$/.test(mac) || mac === '000000000000' || !name) continue;
+    const labels = importedNames.get(mac) ?? new Set<string>();
+    labels.add(name);
+    importedNames.set(mac, labels);
+  }
+  function describeDevice(records: Neighbor[], withRouter: boolean) {
+    const mac = macKey(records[0].mac);
+    const traffic = withRouter ? trafficByMac.get(mac) : undefined;
+    const imported = withRouter ? importedNames.get(mac) : undefined;
+    const observedName = records.find((record) => record.name.trim())?.name.trim();
+    const importedName = imported?.size === 1 ? [...imported][0] : undefined;
+    const name = traffic?.router_name || observedName || importedName;
+    const nameSource = traffic?.router_name ? 'Router DHCP' : observedName ? (withRouter ? 'Collector observation' : 'Imported list') :
+      importedName ? 'Imported router list' : undefined;
+    return { traffic, name, nameSource };
+  }
   const observedByMac = new Map<string, Neighbor[]>();
   for (const record of collector?.records ?? []) {
     if (!record.mac) continue;
@@ -204,14 +224,22 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       device.observations.some((record) => fits(record.name, record.address, record.network))))
     .sort((a, b) => b.total - a.total || a.mac.localeCompare(b.mac));
   const largestTrafficTotal = Math.max(1, routerDevices[0]?.total ?? 0);
-  const mapDevices = liveDevices.filter(matchesDevice).map(([id, records]) => {
+  const observedDevices = liveDevices.map(([id, records]) => {
     const first = records[0];
-    const observedName = records.find((record) => record.name)?.name;
-    const label = observedName || records.find((record) => !record.address.includes(':'))?.address || first.address;
-    return { id, label, observedName, network: first.network || 'Unknown interface', mac: first.mac,
+    const { name, nameSource, traffic } = describeDevice(records, true);
+    const label = name || records.find((record) => !record.address.includes(':'))?.address || first.address;
+    return { id, label, observedName: name, nameSource, network: first.network || 'Unknown interface', mac: first.mac,
       addresses: records.map((record) => record.address), states: [...new Set(records.map((record) => record.state).filter(Boolean))],
-      traffic: trafficByMac.get(macKey(first.mac)) };
+      traffic };
   });
+  const mapDevices = observedDevices.filter((device, index) => matchesDevice(liveDevices[index]) ||
+    fits(device.observedName ?? '', ...(device.traffic?.router_ips ?? [])));
+  const coverage = [
+    { label: 'Observed groups', count: observedDevices.length },
+    { label: 'Named groups', count: observedDevices.filter((device) => device.observedName).length },
+    { label: 'Router Wi-Fi confirmed', count: observedDevices.filter((device) => device.traffic?.wifi_associated).length },
+    { label: 'With router byte totals', count: observedDevices.filter((device) => device.traffic).length },
+  ];
 
   async function review(id: string) {
     setReviewError(false);
@@ -250,21 +278,19 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
 
   function devicesList(devices: [string, Neighbor[]][], includeRouter = false) {
     const matching = devices.map(([key, records]) => ({
-      key, records, traffic: includeRouter ? trafficByMac.get(macKey(records[0].mac)) : undefined,
-    })).filter(({ key, records, traffic }) => matchesDevice([key, records]) ||
-      (traffic && fits(traffic.router_name ?? '', ...(traffic.router_ips ?? []))));
+      key, records, ...describeDevice(records, includeRouter),
+    })).filter(({ key, records, name, traffic }) => matchesDevice([key, records]) ||
+      fits(name ?? '', ...(traffic?.router_ips ?? [])));
     return <>
       {matching.length > 0 && <div className="router-traffic-table-wrap">
         <table className="investigation-table device-inventory-table" aria-label="Observed devices">
           <thead><tr><th scope="col">Device</th><th scope="col">IP addresses</th><th scope="col">MAC address</th>
             <th scope="col">Observed on</th>{includeRouter && <th scope="col">Router usage</th>}</tr></thead>
-          <tbody>{matching.map(({ key, records, traffic }) => {
+          <tbody>{matching.map(({ key, records, traffic, name, nameSource }) => {
             const { address, mac, network } = records[0];
-            const observedName = records.find((record) => record.name)?.name;
-            const label = traffic?.router_name || observedName;
             return <tr key={key}>
-              <th scope="row">{label || address}
-                <small>{traffic?.router_name ? 'Router DHCP name' : observedName ? 'Observed name' : 'Name unavailable'}</small>
+              <th scope="row">{name || address}
+                <small>{nameSource || 'Name unavailable'}</small>
               </th>
               <td>{records.map((record) => <div key={record.address}>
                 <button type="button" className="atlas-address-button" onClick={() => openEvents(record.address)}
@@ -311,6 +337,12 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {lastRefresh && <small>View updated {lastRefresh}</small>}
     </section>
     <div className="atlas-section-stack" hidden={activeView !== 'devices'}>
+    {observedDevices.length > 0 && <section className="panel" aria-labelledby="atlas-coverage">
+      <h2 id="atlas-coverage">Device coverage</h2>
+      <dl className="health-summary">{coverage.map((item) => <div key={item.label}>
+        <dt>{item.label}</dt><dd>{item.count.toLocaleString()}</dd>
+      </div>)}</dl>
+    </section>}
     <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} openEvents={openEvents} />
     {localDevice && <section className="panel">
       <h2>This computer</h2>
@@ -385,10 +417,13 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     </div>
     <details className="panel">
       <summary>Import a device list</summary>
-      <p>Open a device export as JSON or CSV. For CSV, include an IP Address column. Device Name, MAC Address, Interface, and Status are optional. The file stays in this window.</p>
+      <p>Open a device export from this network as JSON or CSV. Include IP Address and, to match observed devices, Device Name and MAC Address. Imported names are used only when the MAC matches and the name is unambiguous.</p>
       <input type="file" accept=".json,.csv,.tsv" aria-label="Import device inventory"
         onChange={(event) => { const file = event.target.files?.[0]; if (file) void importNeighbors(file); event.target.value = ''; }} />
       {fileMessage && <p role="status">{fileMessage}</p>}
+      {neighbors.length > 0 && <p><button type="button" onClick={() => {
+        setNeighbors([]); setFileMessage('Imported device records cleared.');
+      }}>Clear imported devices</button></p>}
       {devicesList(importedDevices)}
     </details>
     </div>
