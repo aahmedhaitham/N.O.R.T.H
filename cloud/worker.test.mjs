@@ -183,7 +183,8 @@ test('cloud sources keep independent event and investigation history', async (t)
   assert.equal(fallback.provider, 'evidence');
   assert.equal(fallback.reason, 'ai_disabled');
   let modelInput;
-  env.AI = { run: async (_model, input) => {
+  env.AI = { run: async (model, input) => {
+    assert.equal(model, '@cf/meta/llama-3.3-70b-instruct-fp8-fast');
     modelInput = input;
     return { response: { finding_ids: [1] } };
   } };

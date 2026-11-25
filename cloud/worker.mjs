@@ -362,7 +362,7 @@ async function caseDraft(env, source, caseId, account) {
   if (await useQuota(env.DB, account, 'ai-brief', 20, 3600)) return fallback('ai_limit');
   if (await useQuota(env.DB, ':service', 'ai-brief', 200, 3600)) return fallback('ai_capacity');
   try {
-    const answer = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    const answer = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
       prompt: 'Prioritize up to three verified observations based on their likely value for incident triage. Return only JSON such as {"finding_ids":[1]}. Observations: ' +
           JSON.stringify(findings.map((event, index) => ({ id: index + 1, observation: observations.get(event.kind) }))),
       max_tokens: 100, temperature: 0, response_format: { type: 'json_schema', json_schema: {
