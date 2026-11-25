@@ -73,12 +73,14 @@ jobs:
         with:
           python-version: "3.14"
       - run: python -m pip install "websockets==16.0"
-      - name: Build and test the public service
+      - name: Build the public image
+        run: docker build -t north-public .
+      - name: Start the public service and wait for health
         run: |
-          docker build -t north-public .
           docker run -d --name north-public -p 127.0.0.1:8081:10000 north-public
-          curl --fail --retry 15 --retry-delay 2 --retry-connrefused http://127.0.0.1:8081/api/health
-          python backend/smoke_demo.py http://127.0.0.1:8081 --read-only
+          curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 2 --retry-max-time 45 --max-time 3 http://127.0.0.1:8081/api/health
+      - name: Verify the public console
+        run: python backend/smoke_demo.py http://127.0.0.1:8081 --read-only
       - name: Print public service logs on failure
         if: failure()
         run: docker logs north-public || true
