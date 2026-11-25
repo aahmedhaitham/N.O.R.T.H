@@ -47,6 +47,7 @@ Start with a repeatable fixture and a single case. Measure the core app, model a
 | Ollama | Live fixture benchmark verified by user | Qwen2.5-Coder returned six valid drafts with a 0.61-second warm median. Two reported timed Qwen3 attempts were rejected. The README records the comparison. |
 | Docker and PostgreSQL | Hosted check passed | GitHub Actions verified the gateway and PostgreSQL persistence after restarting with seeding disabled. [Passing run](https://github.com/aahmedhaitham/N.O.R.T.H/actions/runs/45588172311) |
 | Portfolio | Core demo verified by user | Capture the walkthrough for the portfolio. Docker, live lab ingestion, and a real Ollama draft are tracked above. |
+| Public hosting | Ready for deployment | The Render Blueprint runs the live console against a bundled synthetic case. The public URL and hosted smoke check are pending. |
 
 ## Progress log
 

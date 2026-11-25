@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.parse import urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
@@ -15,7 +16,7 @@ def read_json(url, data=None):
         return json.load(response)
 
 
-def verify(base):
+def verify(base, read_only=False):
     origin = urlsplit(base)
     websocket_url = urlunsplit((
         "wss" if origin.scheme == "https" else "ws", origin.netloc, "/api/live", "", "",
@@ -38,13 +39,28 @@ def verify(base):
 
     fixture = Path(__file__).with_name("fixtures") / "demo.json"
     alerts = json.loads(fixture.read_text(encoding="utf-8"))
-    assert read_json(base + "/api/ingest", json.dumps({"alerts": alerts}).encode()) == {
-        "inserted": 0,
-    }
-    print("NORTH demo verified: index, health, evidence, WebSocket reconnect, report, and deduplication.")
+    if read_only:
+        for endpoint, body in (
+            ("/api/ingest", {"alerts": alerts}),
+            (f"/api/cases/{case['id']}/draft", {}),
+        ):
+            try:
+                read_json(base + endpoint, json.dumps(body).encode())
+            except HTTPError as error:
+                assert error.code == 403, f"{endpoint} returned HTTP {error.code}"
+            else:
+                raise AssertionError(f"{endpoint} unexpectedly accepted a public request")
+    else:
+        assert read_json(base + "/api/ingest", json.dumps({"alerts": alerts}).encode()) == {
+            "inserted": 0,
+        }
+    print("NORTH demo verified: index, health, evidence, WebSocket reconnect, and report.")
+    print("Public write routes blocked." if read_only else "Duplicate import rejected.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base_url", help="URL of the running NORTH console")
-    verify(parser.parse_args().base_url.rstrip("/"))
+    parser.add_argument("--read-only", action="store_true", help="Verify public mode restrictions")
+    args = parser.parse_args()
+    verify(args.base_url.rstrip("/"), args.read_only)

@@ -33,6 +33,12 @@ Open [the console](http://127.0.0.1:5173). Select the PowerShell case, inspect t
 
 With Docker and Compose available, run `docker compose up --build` at the repository root and open [the Docker console](http://127.0.0.1:8080). Compose uses PostgreSQL and keeps the database on a named volume.
 
+## Deploy the public portfolio demo
+
+Create a [Render Blueprint](https://render.com/docs/infrastructure-as-code) connected to this repository. The included `render.yaml` deploys a single Docker web service. It serves the React console and the FastAPI routes from the same HTTPS origin, including the live WebSocket, timeline replay and report export. Visitors can use the bundled synthetic case without an account. Ingestion and live model calls are disabled on the public instance. The demo uses an ephemeral SQLite database seeded at startup. The PostgreSQL configuration remains available through Docker Compose.
+
+After deployment, run the smoke check against the assigned URL with `python backend/smoke_demo.py https://YOUR-SERVICE.onrender.com --read-only` from a Python environment with the backend requirements installed.
+
 ## Add lab data or use local AI
 
 - **Wazuh and Sysmon.** Import a sanitized JSON array or JSON Lines export from an authorized, isolated lab with `python backend/ingest.py path/to/alerts.json`. The importer expects Wazuh Windows event alerts for Sysmon IDs 1, 3, and 11. For Docker, add `--base-url http://127.0.0.1:8080`. Set `NORTH_SEED_DEMO=0` before booting with a fresh database to start without the bundled case.

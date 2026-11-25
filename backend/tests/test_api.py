@@ -81,3 +81,17 @@ def test_draft_rejects_unverified_model_output(body):
     with pytest.raises(HTTPException) as error:
         main.validated_draft({"response": body}, [{"text": "Process started", "evidence_ids": ["a"]}])
     assert error.value.status_code == 502
+
+
+def test_public_demo_blocks_write_routes(tmp_path, monkeypatch):
+    monkeypatch.setenv("NORTH_PUBLIC_DEMO", "1")
+    store = Store(path=tmp_path / "test.sqlite3")
+    store.initialize()
+    app = main.make_app(store)
+    endpoints = {route.path: route.endpoint for route in app.routes}
+    with pytest.raises(HTTPException) as ingest_error:
+        endpoints["/api/ingest"](main.Batch(alerts=[{}]))
+    with pytest.raises(HTTPException) as draft_error:
+        endpoints["/api/cases/{case_id}/draft"]("example")
+    assert ingest_error.value.status_code == draft_error.value.status_code == 403
+    assert store.events() == []

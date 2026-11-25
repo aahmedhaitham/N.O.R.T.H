@@ -17,6 +17,7 @@ type Claim = { text: string; evidence_ids: string[] };
 const eventNames: Record<number, string> = {
   1: 'Process created', 3: 'Network connection observed', 11: 'File created',
 };
+const publicDemo = import.meta.env.MODE === 'hosted';
 
 function App() {
   const [cases, setCases] = useState<Case[]>([]);
@@ -59,7 +60,7 @@ function App() {
         <a className="brand" href="/">NORTH</a>
         <span>Investigation console</span>
         <span role="status" className={online ? 'status online' : 'status'}>
-          {online ? 'Live feed connected' : 'Connecting to live feed'}
+          {online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
         </span>
       </header>
       <div className="workspace">
@@ -179,9 +180,11 @@ function Investigation({ incident }: { incident: Case }) {
     </div>
     <section className="panel">
       <span className="module">IRIS / ANALYST REVIEW</span>
-      <h2>Local AI draft</h2>
-      <p>Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.</p>
-      <button type="button" disabled={busy} onClick={requestDraft}>{busy ? 'Drafting…' : 'Generate draft'}</button>
+      <h2>{publicDemo ? 'Review case evidence' : 'Local AI draft'}</h2>
+      {publicDemo ? <p>This demo uses a bundled case. Open the original events in ECHO to verify the findings. Live AI drafts are available when running NORTH with Ollama.</p> : <>
+        <p>Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.</p>
+        <button type="button" disabled={busy} onClick={requestDraft}>{busy ? 'Drafting…' : 'Generate draft'}</button>
+      </>}
       {message && <p role="status">{message}</p>}
       {claims.length > 0 && <ul>{claims.map((claim, index) => (
         <li key={index}>{claim.text}{' '}{claim.evidence_ids.map((id, position) => (

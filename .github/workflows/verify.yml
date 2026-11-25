@@ -62,3 +62,23 @@ jobs:
       - name: Tear down disposable stack
         if: always()
         run: docker compose down --volumes
+
+  hosted-demo:
+    name: Public demo image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: python -m pip install "websockets==16.0"
+      - name: Build and test the public service
+        run: |
+          docker build -t north-public .
+          docker run -d --name north-public -p 127.0.0.1:8081:10000 north-public
+          curl --fail --retry 15 --retry-delay 2 --retry-connrefused http://127.0.0.1:8081/api/health
+          python backend/smoke_demo.py http://127.0.0.1:8081 --read-only
+      - name: Print public service logs on failure
+        if: failure()
+        run: docker logs north-public || true

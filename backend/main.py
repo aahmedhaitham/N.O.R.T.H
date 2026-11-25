@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -20,6 +21,7 @@ class Batch(BaseModel):
 
 def make_app(store=None):
     store = store if store is not None else configured_store()
+    public_demo = os.getenv("NORTH_PUBLIC_DEMO") == "1"
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -29,7 +31,12 @@ def make_app(store=None):
             store.ingest(json.loads(fixture.read_text(encoding="utf-8")))
         yield
 
-    app = FastAPI(title="NORTH", lifespan=lifespan)
+    app = FastAPI(
+        title="NORTH", lifespan=lifespan,
+        docs_url=None if public_demo else "/docs",
+        redoc_url=None if public_demo else "/redoc",
+        openapi_url=None if public_demo else "/openapi.json",
+    )
 
     def get_case(case_id):
         for case in build_cases(store.events()):
@@ -47,6 +54,8 @@ def make_app(store=None):
 
     @app.post("/api/ingest")
     def ingest(batch: Batch):
+        if public_demo:
+            raise HTTPException(403, "Public demo is read-only")
         try:
             return {"inserted": store.ingest(batch.alerts)}
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
@@ -61,6 +70,8 @@ def make_app(store=None):
 
     @app.post("/api/cases/{case_id}/draft")
     def draft(case_id: str):
+        if public_demo:
+            raise HTTPException(403, "AI drafts are disabled in the public demo")
         case = get_case(case_id)
         findings = observed_findings(case)
         instruction = (
@@ -128,6 +139,9 @@ def make_app(store=None):
         except (WebSocketDisconnect, OSError):
             return
 
+    web_root = os.getenv("NORTH_WEB_ROOT")
+    if web_root:
+        app.mount("/", StaticFiles(directory=web_root, html=True), name="console")
     return app
 
 
