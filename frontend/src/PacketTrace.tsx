@@ -15,11 +15,12 @@ export function PacketTrace() {
     setPage(0);
     setMessage('Reading packet headers…');
     try {
-      if (file.size > maxTraceBytes) throw new Error('Choose a PCAP file up to 8 MiB.');
+      if (file.size > maxTraceBytes) throw new Error('Choose a capture up to 8 MiB.');
       const result = readPacketTrace(await file.arrayBuffer());
       if (request !== load.current) return;
       setTrace(result);
-      setMessage(result.limited ? 'Showing the first 5,000 packets.' : `${result.packets.length} packets loaded.`);
+      setMessage((result.limited ? 'Showing the first 5,000 supported packets.' : `${result.packets.length} packets loaded.`) +
+        (result.skipped ? ` Skipped ${result.skipped} unsupported packet records.` : ''));
     } catch (error) {
       if (request === load.current) setMessage(error instanceof Error ? error.message : 'Could not read the capture.');
     }
@@ -27,8 +28,8 @@ export function PacketTrace() {
 
   return <details className="panel">
     <summary>Inspect a packet trace</summary>
-    <p>Open a classic Ethernet PCAP from an authorized network. NORTH displays headers and keeps the file in this window.</p>
-    <input type="file" accept=".pcap" aria-label="Open local PCAP" onChange={(event) => {
+    <p>Open an Ethernet PCAP or PCAPNG from an authorized network. NORTH displays packet headers and keeps the file in this window.</p>
+    <input type="file" accept=".pcap,.pcapng" aria-label="Open local packet capture" onChange={(event) => {
       const file = event.currentTarget.files?.[0];
       if (file) void open(file);
       event.currentTarget.value = '';
