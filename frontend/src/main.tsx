@@ -309,6 +309,9 @@ function Investigation({ incident, sourceQuery }: { incident: Case; sourceQuery:
       {draftProvider && <p role="status">{draftProvider === 'cloud-ai' ? 'Prioritized by cloud AI' :
         draftProvider === 'ai_limit' ? 'The workspace reached its hourly AI limit. This brief uses recorded evidence.' :
           draftProvider === 'ai_capacity' ? 'Cloud AI is at capacity. This brief uses recorded evidence.' :
+          draftProvider === 'ai_disabled' ? 'Cloud AI is disabled. This brief uses recorded evidence.' :
+          draftProvider === 'ai_output' ? 'Cloud AI returned an invalid ranking. This brief uses recorded evidence.' :
+          draftProvider === 'ai_unavailable' ? 'Cloud AI did not complete the request. This brief uses recorded evidence.' :
           'Generated from recorded evidence'}</p>}
       {message && <p role="status">{message}</p>}
       {claims.length > 0 && <ul>{claims.map((claim, index) => (

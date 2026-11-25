@@ -358,27 +358,31 @@ async function caseDraft(env, source, caseId, account) {
       .filter(Boolean).join(' · '), evidence_ids: [event.id] };
   };
   const fallback = (reason) => json({ claims: findings.slice(0, 3).map(claim), provider: 'evidence', reason });
-  if (!env.AI) return fallback();
+  if (!env.AI) return fallback('ai_disabled');
   if (await useQuota(env.DB, account, 'ai-brief', 20, 3600)) return fallback('ai_limit');
   if (await useQuota(env.DB, ':service', 'ai-brief', 200, 3600)) return fallback('ai_capacity');
   try {
     const answer = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [{
-        role: 'user',
-        content: 'Prioritize up to three verified observations based on their likely value for incident triage. Return only JSON with a finding_ids array of distinct 1-based numbers. ' +
+      prompt: 'Prioritize up to three verified observations based on their likely value for incident triage. Return only JSON such as {"finding_ids":[1]}. Observations: ' +
           JSON.stringify(findings.map((event, index) => ({ id: index + 1, observation: observations.get(event.kind) }))),
-      }],
-      max_tokens: 60, temperature: 0, response_format: { type: 'json_object' },
+      max_tokens: 100, temperature: 0, response_format: { type: 'json_schema', json_schema: {
+        type: 'object', additionalProperties: false, required: ['finding_ids'],
+        properties: { finding_ids: { type: 'array', minItems: 1, maxItems: Math.min(3, findings.length),
+          items: { type: 'integer', minimum: 1, maximum: findings.length } } },
+      } },
     });
-    const result = typeof answer?.response === 'string' ? JSON.parse(answer.response) : answer?.response;
+    let result = answer?.response;
+    if (typeof result === 'string') {
+      try { result = JSON.parse(result); } catch { return fallback('ai_output'); }
+    }
     const ids = result?.finding_ids;
     if (!Array.isArray(ids) || ids.length < 1 || ids.length > 3 || new Set(ids).size !== ids.length ||
       !ids.every((id) => Number.isInteger(id) && id >= 1 && id <= findings.length)) {
-      throw new Error('Invalid observation selection');
+      return fallback('ai_output');
     }
     return json({ claims: ids.map((id) => claim(findings[id - 1])), provider: 'cloud-ai' });
   } catch {
-    return fallback();
+    return fallback('ai_unavailable');
   }
 }
 

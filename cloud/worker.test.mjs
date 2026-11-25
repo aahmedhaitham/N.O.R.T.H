@@ -181,6 +181,7 @@ test('cloud sources keep independent event and investigation history', async (t)
   assert.equal((await call(draft, post({}, headers))).status, 403);
   const fallback = await (await call(draft, post({}, operator))).json();
   assert.equal(fallback.provider, 'evidence');
+  assert.equal(fallback.reason, 'ai_disabled');
   let modelInput;
   env.AI = { run: async (_model, input) => {
     modelInput = input;
@@ -191,7 +192,11 @@ test('cloud sources keep independent event and investigation history', async (t)
   assert.deepEqual(ranked.claims[0].evidence_ids, [id]);
   assert.doesNotMatch(JSON.stringify(modelInput), /never-sent-to-ai|192\.0\.2\.25|desk/);
   env.AI = { run: async () => ({ response: '{"finding_ids":[99]}' }) };
-  assert.deepEqual(await (await call(draft, post({}, operator))).json(), fallback);
+  assert.deepEqual(await (await call(draft, post({}, operator))).json(), { ...fallback, reason: 'ai_output' });
+  assert.equal(typeof modelInput.prompt, 'string');
+  assert.equal(modelInput.response_format.type, 'json_schema');
+  env.AI = { run: async () => { throw new Error('provider unavailable'); } };
+  assert.deepEqual(await (await call(draft, post({}, operator))).json(), { ...fallback, reason: 'ai_unavailable' });
 
   const accountKey = 'c'.repeat(64);
   sqlite.prepare('INSERT INTO cloud_accounts (id, access_key_hash) VALUES (?, ?)')
