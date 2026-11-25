@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 LOCAL-AUDIT.md
+.north-launcher/
 
 # Dependencies and build output
 .venv/

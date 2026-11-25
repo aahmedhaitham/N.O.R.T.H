@@ -10,6 +10,8 @@ NORTH is a local investigation console. Its bundled, synthetic Windows incident 
 
 ## Run the demo on Windows
 
+After installing the dependencies below once, double-click **Start NORTH.cmd** in the repository folder to start the backend and frontend. Double-click it again to restart both. If they were started manually, stop those tabs with **Ctrl+C** the first time. Open or refresh [the console](http://127.0.0.1:5173/). To stop servers started by the launcher, run `& '.\Start NORTH.cmd' -Stop` from PowerShell in the repository folder.
+
 From the repository root, use two PowerShell terminals. The native setup uses SQLite and works without Docker or Ollama.
 
 Terminal 1:
