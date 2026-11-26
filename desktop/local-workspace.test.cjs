@@ -56,6 +56,38 @@ test('failed Sysmon access leaves the local network view available', async () =>
   assert.equal(page.coverage, 'sysmon_unavailable');
 });
 
+test('TCP reader caches a bounded passive snapshot without adding it to the inventory payload', async () => {
+  const row = { state: 'Listen', local_address: '::', local_port: 8443, remote_address: '::',
+    remote_port: 0, pid: 42, process: 'test-process' };
+  let reads = 0;
+  const api = makeLocalWorkspace('tools', async (file, args) => {
+    if (file.endsWith('Read-NorthTcp.ps1')) {
+      reads++;
+      assert.deepEqual(args, []);
+      return { state: 'ready', limited: true, rows: [row, { ...row, local_port: 99999 }, { ...row, local_address: 'invalid' }] };
+    }
+    return file.endsWith('Read-NorthSysmon.ps1') ? { alerts: [] } : [];
+  });
+  const request = new Request('north://app/api/local/tcp');
+  const result = await api(request);
+  assert.equal(result.headers.get('Cache-Control'), 'no-store');
+  const sample = await result.json();
+  assert.deepEqual(sample.rows, [row]);
+  assert.equal(sample.limited, true);
+  assert.deepEqual(await (await api(request)).json(), sample);
+  assert.equal(reads, 1);
+  const network = await (await api(new Request('north://app/api/network'))).json();
+  assert.equal(JSON.stringify(network).includes('test-process'), false);
+  assert.equal((await api(new Request(request, { method: 'POST' }))).status, 405);
+});
+
+test('TCP permission failure is distinct from an empty snapshot', async () => {
+  const api = makeLocalWorkspace('tools', async () => ({ state: 'access_denied', rows: [], limited: false }));
+  const sample = await (await api(new Request('north://app/api/local/tcp'))).json();
+  assert.equal(sample.state, 'access_denied');
+  assert.deepEqual(sample.rows, []);
+});
+
 test('local device review persists across desktop sessions', async (t) => {
   const folder = await fs.mkdtemp(path.join(tmpdir(), 'north-history-'));
   t.after(() => fs.rm(folder, { recursive: true, force: true }));

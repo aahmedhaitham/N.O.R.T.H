@@ -6,6 +6,7 @@ import { AtlasMap } from './AtlasMap';
 import { pollVisible } from './pollVisible';
 import { PacketTrace } from './PacketTrace';
 import { RemoteEndpointMap } from './RemoteEndpointMap';
+import { LocalTcp } from './LocalTcp';
 import { readRouterCsv } from './routerCsv';
 import { formatTraffic, type TrafficTotals } from './formatTraffic';
 
@@ -167,6 +168,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
   const targetView = target === 'atlas-windows-events' || target === 'atlas-linux-events' ? 'health' : 'devices';
   const activeView = target ? targetView : atlasView;
+  const showLocalTcp = activeView === 'traffic' && location.protocol === 'north:' && location.pathname === '/';
   const [reviewing, setReviewing] = useState('');
   const [reviewError, setReviewError] = useState(false);
   const [deviceLabels, setDeviceLabels] = useState<Map<string, string> | null>(null);
@@ -419,8 +421,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     {fetchError && activeView !== 'traces' && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
     {endpoint && !inventory && !fetchError && activeView !== 'traces' && <p role="status">Loading network observations…</p>}
     {activeView !== 'traces' && activeView !== 'remote' && <section className="panel atlas-toolbar" aria-label="Network inventory controls">
-      <label className="network-search">Find device
-        <input type="search" placeholder="Host, IP or MAC address" value={search} onChange={(event) => setSearch(event.target.value)} />
+      <label className="network-search">{showLocalTcp ? 'Find process or address' : 'Find device'}
+        <input type="search" placeholder={showLocalTcp ? 'Process, PID, IP or port' : 'Host, IP or MAC address'}
+          value={search} onChange={(event) => setSearch(event.target.value)} />
       </label>
       {endpoint.startsWith('/api/') && <span className="atlas-live-state" data-state={fetchError || oldSnapshot ? 'waiting' : 'automatic'}>
         {fetchError ? 'Connection interrupted · retrying' : oldSnapshot ? 'Automatic updates · no new snapshot in 3 minutes' : 'Automatic updates'}
@@ -527,6 +530,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     </details>
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'traffic'}>
+    {visible && showLocalTcp && <LocalTcp query={query} />}
     {adapterTraffic && <section className="panel">
       <h2>Windows adapter traffic</h2>
       <p>Traffic through the selected endpoint’s network adapters. Rates are averages between samples.</p>

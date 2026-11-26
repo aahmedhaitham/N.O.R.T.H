@@ -1,6 +1,7 @@
 const { execFile } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const { hostname, networkInterfaces } = require('node:os');
+const { isIP } = require('node:net');
 const path = require('node:path');
 const { promisify } = require('node:util');
 
@@ -22,7 +23,7 @@ function cachedReader(read, fallback) {
   return (refresh = false) => {
     if (!cached || Date.now() >= expires || (refresh && Date.now() >= expires - 12000)) {
       cached = read().then((data) => ({
-        ...data, state: 'ready', updated_at: new Date().toISOString(),
+        ...data, state: data.state ?? 'ready', updated_at: new Date().toISOString(),
       })).catch(() => ({ ...fallback, state: 'unavailable', updated_at: null }));
       expires = Date.now() + 15000;
     }
@@ -78,6 +79,23 @@ function activity(events) {
 }
 
 function makeLocalWorkspace(scripts, read = readScript, history) {
+  const states = new Set(['Listen', 'Established', 'SynSent', 'SynReceived', 'CloseWait']);
+  const tcp = cachedReader(async () => {
+    const sample = await read(path.join(scripts, 'Read-NorthTcp.ps1'), []);
+    if (!sample || !Array.isArray(sample.rows) || sample.rows.length > 200 ||
+        !['ready', 'access_denied', 'unavailable', 'read_failed'].includes(sample.state)) {
+      throw new Error('Invalid TCP snapshot');
+    }
+    const rows = sample.state === 'ready' ? sample.rows.filter((row) => row && states.has(row.state) &&
+      [row.local_address, row.remote_address].every((address) => typeof address === 'string' && isIP(address)) &&
+      [row.local_port, row.remote_port].every((port) => Number.isInteger(port) && port >= 0 && port <= 65535) &&
+      Number.isInteger(row.pid) && row.pid >= 0 && row.pid <= 4294967295 &&
+      typeof row.process === 'string' && row.process.length <= 256).map((row) => ({
+      state: row.state, local_address: row.local_address, local_port: row.local_port,
+      remote_address: row.remote_address, remote_port: row.remote_port, pid: row.pid, process: row.process,
+    })) : [];
+    return { state: sample.state, limited: sample.limited === true, rows };
+  }, { rows: [], limited: false });
   const neighbors = cachedReader(async () => ({
     records: await read(path.join(scripts, 'Export-NorthNeighbors.ps1'), ['-AsJson']),
   }), { records: [] });
@@ -129,6 +147,7 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
       return reviewed ? Response.json({ reviewed }) : Response.json({ detail: 'Device not found' }, { status: 404 });
     }
     if (request.method !== 'GET') return Response.json({ detail: 'Method unavailable' }, { status: 405 });
+    if (pathname === '/api/local/tcp') return Response.json(await tcp(), { headers: { 'Cache-Control': 'no-store' } });
     if (pathname === '/api/cases') return Response.json(scriptCases((await sysmon()).events));
     const reportId = /^\/api\/cases\/([a-f0-9]{24})\/report$/.exec(pathname)?.[1];
     if (reportId) {
