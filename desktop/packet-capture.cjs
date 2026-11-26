@@ -8,8 +8,9 @@ const maxCapture = 8 * 1024 * 1024;
 
 function parseWindowsInterfaces(output) {
   return output.split(/\r?\n/).flatMap((line) => {
-    const match = /^\s*(\d+)\. (\\Device\\NPF_\{[0-9a-f-]{36}\})(?: \((.*)\))?\s*$/i.exec(line);
-    return match ? [{ id: Number(match[1]), device: match[2], label: match[3] || 'Network adapter ' + match[1] }] : [];
+    const match = /^\s*(\d+)\. (\\Device\\NPF_(?:\{[0-9a-f-]{36}\}|Loopback))(?: \((.*)\))?\s*$/i.exec(line);
+    return match ? [{ id: Number(match[1]), device: match[2], label: match[3] || 'Network adapter ' + match[1],
+      link: /loopback$/i.test(match[2]) ? 'NULL' : 'EN10MB' }] : [];
   });
 }
 
@@ -53,7 +54,7 @@ function makePacketCapture({ confirm, execute = run, locate = dumpcapPath, isWin
         return new Response(null, { status: 204 });
       }
       const { stdout: capture } = await execute(executable, [
-        '-i', adapter.device, '-y', 'EN10MB', '-p', '-s', '96', '-a', 'duration:' + selection.seconds,
+        '-i', adapter.device, '-y', adapter.link, '-p', '-s', '96', '-a', 'duration:' + selection.seconds,
         '-a', 'filesize:7000', '-c', '5000', '-w', '-',
       ], {
         windowsHide: true, timeout: (selection.seconds + 15) * 1000, maxBuffer: maxCapture,
@@ -61,10 +62,12 @@ function makePacketCapture({ confirm, execute = run, locate = dumpcapPath, isWin
       });
       if (capture.length < 28 || capture.length > maxCapture) throw new Error('Invalid capture.');
       return new Response(capture, { headers: { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' } });
-    } catch {
+    } catch (error) {
+      const denied = /permission to capture|admin.only mode/i.test(String(error?.stderr ?? ''));
       return Response.json({ detail: listing ?
         'NORTH could not list adapters. Check that Wireshark’s Dumpcap and its capture driver are installed.' :
-        'Capture could not finish. Check the adapter and capture permissions.' }, { status: 503 });
+        denied ? 'Windows capture permissions denied access to this adapter.' :
+        'Capture could not finish. Check the adapter and capture permissions.' }, { status: denied ? 403 : 503 });
     } finally {
       if (!listing) active = false;
     }

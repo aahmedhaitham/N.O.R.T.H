@@ -133,7 +133,7 @@ export function PacketTrace() {
 
   return <details className="panel">
     <summary>Inspect a packet trace</summary>
-    <p>Open a PCAP or PCAPNG from an authorized network. NORTH reads Ethernet, raw IP, and Linux cooked headers and keeps the file in this window.</p>
+    <p>Open a PCAP or PCAPNG from an authorized network. NORTH reads Ethernet, loopback, raw IP, and Linux cooked headers and keeps the file in this window.</p>
     {desktop ? <details>
       <summary>Capture on this computer</summary>
       <p>Record a short trace on an authorized local adapter. Packet prefixes can contain payload bytes and stay in this app window.</p>

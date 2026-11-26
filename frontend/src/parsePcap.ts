@@ -6,6 +6,7 @@ type Packet = { time: string; source: string; destination: string; protocol: str
 const protocols: Record<number, string> = { 1: 'ICMP', 6: 'TCP', 17: 'UDP', 58: 'ICMPv6' };
 const sectionHeader = 0x0a0d0d0a;
 const linkTypes = new Map([
+  [0, { label: 'Loopback', headerLength: 4, typeOffset: null }],
   [1, { label: 'Ethernet', headerLength: 14, typeOffset: 12 }],
   [101, { label: 'Raw IP', headerLength: 0, typeOffset: null }],
   [113, { label: 'Linux cooked', headerLength: 16, typeOffset: 14 }],
@@ -31,10 +32,10 @@ function parsePacket(data: DataView, start: number, end: number, time: string, b
   const ip = (offset: number, version: 4 | 6) => version === 4 ?
     Array.from({ length: 4 }, (_, index) => data.getUint8(offset + index)).join('.') :
     ipv6Address(data, offset);
-  const version = data.getUint8(start) >> 4;
+  let header = start + link.headerLength;
+  const version = header < end ? data.getUint8(header) >> 4 : 0;
   let type = link.typeOffset === null ? (version === 4 ? 0x0800 : version === 6 ? 0x86dd : 0) :
     data.getUint16(start + link.typeOffset);
-  let header = start + link.headerLength;
   while ((type === 0x8100 || type === 0x88a8) && header + 4 <= end) {
     type = data.getUint16(header + 2);
     header += 4;
