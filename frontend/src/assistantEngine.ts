@@ -35,7 +35,7 @@ export const intents = [
   intent('host-events', 'events', 'Recorded events matching the specified host.', 'events for host|host events|computer name', 'Show events for a host'),
   intent('technique', 'coverage', 'Matching techniques from bundled rule metadata.', 'attack technique|mitre technique|technique id', 'What is this ATT&CK technique?'),
   intent('report', 'cases', 'Open an investigation in ECHO and choose Export report.', 'export report|download report|report export', 'How do I export a report?'),
-  intent('capture', 'guide', 'Open ATLAS, choose Packet traces, and select an authorized adapter or open a saved capture. Begin capture from that screen.', 'capture traffic|packet capture|pcap', 'How do I capture traffic?'),
+  intent('capture', 'guide', 'Open ATLAS, choose Packet traces, and select an authorized adapter or open a saved capture. Begin capture from that screen.', 'capture traffic|packet capture|capture packets|pcap', 'How do I capture traffic?'),
   intent('privacy', 'guide', 'This assistant reads snapshots already available in NORTH. It sends no requests. Other NORTH features can sync observations when a cloud collector is configured.', 'what leaves|privacy|upload', 'What leaves my PC?'),
   intent('help', 'guide', 'Choose a question below or include a recorded device, app, host, address, or time range.', 'help|capabilities|can north assistant do', 'What can NORTH Assistant do?'),
   intent('glossary-process', 'guide', 'A process is a running instance of a program. A parent process can start another process.', 'what is a process|define process', 'What is a process?'),
@@ -48,13 +48,24 @@ export const intents = [
 ];
 
 const normalize = (value: string) => value.toLowerCase().normalize('NFKC').replace(/att\s*&\s*ck/g, 'attack')
-  .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  .replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+  .replace(/^(?:hey north |please |could you )+/, '').replace(/ (?:please|thanks)$/, '');
 const words = (value: string) => normalize(value).split(/\s+/).filter(Boolean)
   .map((word) => word.length > 4 ? word.replace(/(?:ing|ed|s)$/, '') : word);
 function similarity(a: string, b: string) {
   const x = words(a), y = words(b);
   if (!x.length || !y.length) return 0;
-  const overlap = y.filter((token) => x.includes(token)).length;
+  const overlap = y.reduce((score, token) => {
+    if (x.includes(token)) return score + 1;
+    const transposed = token.length >= 5 && x.some((word) => {
+      if (word.length !== token.length) return false;
+      let index = 0;
+      while (index < token.length && word[index] === token[index]) index++;
+      return index + 1 < token.length && word[index] === token[index + 1] &&
+        word[index + 1] === token[index] && word.slice(index + 2) === token.slice(index + 2);
+    });
+    return score + (transposed ? 0.85 : 0);
+  }, 0);
   const trigrams = (input: string) => new Set(Array.from(
     { length: Math.max(0, input.length - 2) }, (_, i) => input.slice(i, i + 3)));
   const t = trigrams(normalize(a)), u = trigrams(normalize(b));
@@ -62,21 +73,26 @@ function similarity(a: string, b: string) {
   return Math.max(overlap / y.length * 0.78 + overlap / x.length * 0.22, fuzzy * 0.9);
 }
 
-export function answer(question: string, source: Snapshot, context?: { area: Area; row: Row }, now = Date.now()) {
-  const query = question.trim().slice(0, 240);
+export function matchIntent(question: string) {
+  const query = question.slice(0, 240).trim();
   const ranked = intents.map((item) => ({ item, score: Math.max(
     ...item.examples.map((example) => similarity(query, example)),
     ...item.keywords.map((phrase) => similarity(query, phrase) * 0.91),
   ) })).sort((a, b) => b.score - a.score);
   const top = ranked[0];
-  if (!query || top.score < 0.67 || top.score < 0.98 && top.score - ranked[1].score < 0.035) {
-    return { text: 'I couldn’t confidently match that question.', suggestions: ranked.slice(0, 3).map(({item}) => item.examples[0]), rows: [] };
-  }
+  const confident = !!query && top.score >= 0.67 && (top.score >= 0.98 || top.score - ranked[1].score >= 0.035);
+  return { query, intent: confident ? top.item : undefined,
+    suggestions: ranked.slice(0, 3).map(({item}) => item.examples[0]) };
+}
+
+export function answer(question: string, source: Snapshot, context?: { area: Area; row: Row }, now = Date.now()) {
+  const { query, intent, suggestions } = matchIntent(question);
+  if (!intent) return { text: 'I couldn’t confidently match that question.', suggestions, rows: [] };
   const normalized = normalize(query);
   const knownCountry = source.events?.some((row) => row.country &&
     (' ' + normalized + ' ').includes(' ' + normalize(row.country) + ' '));
-  const { id, tool, template, follow } = top.item.id === 'domain' && knownCountry
-    ? intents.find((entry) => entry.id === 'country')! : top.item;
+  const { id, tool, template, follow } = intent.id === 'domain' && knownCountry
+    ? intents.find((entry) => entry.id === 'country')! : intent;
   if (tool === 'guide') return { text: template, suggestions: follow, rows: [] };
   const useContext = context?.area === tool && [
     'explain-finding', 'danger', 'false-positive', 'next', 'why-alert', 'known-device', 'new-device',

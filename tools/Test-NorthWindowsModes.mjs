@@ -147,7 +147,7 @@ try {
       }
       if (route === '/api/local/findings') {
         const severe = sessionStorage.getItem('north-smoke-severe') === '1';
-        const findings = severe ? [{ id: device, title: 'Synthetic review finding', severity: 'high', status: 'new',
+        const findings = severe ? [{ id: device, title: 'Synthetic review finding <img data-north-smoke-marker>', severity: 'high', status: 'new',
           last_seen: now, plain_summary: 'A test observation was recorded.', what_to_do: 'Review the test evidence.',
           evidence_ids: [] }] : [];
         return Promise.resolve(Response.json({ findings, monitor: 'running',
@@ -173,10 +173,12 @@ try {
   await call('Page.reload');
   await see('Act now');
   await see('Synthetic review finding');
-  await click('button', 'Assistant');
+  await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true, bubbles: true }))`);
   await see('Built in · works offline · answers from your NORTH data');
   await click('button', 'What needs attention?');
   await see('Unreviewed findings in the available snapshot.');
+  await see('<img data-north-smoke-marker>');
+  assert.equal(await evaluate('document.querySelector("img[data-north-smoke-marker]") === null'), true);
   await click('button', 'Open evidence in Overview');
   await waitFor('the exact cited finding to expand', () => evaluate(
     'document.getElementById("assistant-findings-" + "a".repeat(24))?.open === true'));

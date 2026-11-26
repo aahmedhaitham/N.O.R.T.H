@@ -1,4 +1,5 @@
 import json
+import random
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
@@ -95,6 +96,17 @@ def test_yaml_threshold_does_not_count_duplicate_evidence_or_unidentified_assets
     assert rule.evidence([first, second, {**third, "asset_id": ""}]) == []
 
 
+def test_yaml_threshold_includes_window_boundary_but_excludes_next_microsecond():
+    rule = next(rule for rule in bundled_rules() if rule.id == "repeated-ssh-authentication-failures")
+    first, second, third = [event_contract(item) for item in records(rule.fixtures["positive"])]
+    start = datetime.fromisoformat(first["ts"])
+    boundary = start + rule.correlation.window
+    exact = {**third, "ts": boundary.isoformat(timespec="microseconds")}
+    late = {**third, "ts": (boundary + timedelta(microseconds=1)).isoformat(timespec="microseconds")}
+    assert rule.evidence([first, second, exact]) == [(first["id"], second["id"], third["id"])]
+    assert rule.evidence([first, second, late]) == []
+
+
 @pytest.mark.parametrize(("modifier", "values", "passes"), [
     ("", "example.exe", True),
     ("|contains", ["missing", "ample"], True),
@@ -123,6 +135,20 @@ def test_boolean_precedence_and_grouping():
 def test_rejects_untrusted_yaml_sections(text):
     with pytest.raises(RuleError):
         parse_catalog(text)
+
+
+def test_seeded_mutations_of_rule_yaml_compile_or_fail_with_a_validation_error():
+    sample = (Path(__file__).parents[1] / "rules.yaml").read_text(encoding="utf-8").split("\n- id:", 1)[0]
+    rng = random.Random(1835)
+    tokens = ["[", "}", ":", "?", "\x00", "\n", "[]", "{}", "'x'", "雪"]
+    for _ in range(100):
+        position = rng.randrange(len(sample))
+        text = sample[:position] + rng.choice(tokens) + sample[position + rng.randrange(3):]
+        try:
+            rules = parse_catalog(text)
+        except RuleError:
+            continue
+        assert len(rules) == 1 and rules[0].id
 
 
 def test_timeout_under_negation_is_neither_negative_nor_positive(monkeypatch):

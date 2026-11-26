@@ -21,6 +21,12 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Local-first product brief · Phase 7 quality checks in progress
+
+- Assistant tests route more than 150 distinct phrasings, including typos and unknown requests. Tests cover bounded non-mutating responses, exact evidence IDs, malformed input, and zero requests through fetch during answer generation.
+- Rules now have an exact threshold-window boundary test and seeded malformed YAML tests. The installed Windows walkthrough now checks the Assistant keyboard shortcut and confirms synthetic markup renders as text.
+- Verified 25 desktop tests, the two new backend rule tests, and the desktop UI build. The installed walkthrough, broader UI accessibility checks, performance benchmarks, and remaining quality work are open.
+
 ### Local-first product brief · Phase 6 first-run setup
 
 - First-run setup checks existing source visibility, explains missing logs and denied access, offers Simple or Analyst mode, and explains local storage and cloud sync. Finish or skip without changing permissions, starting monitoring, or pairing a collector.

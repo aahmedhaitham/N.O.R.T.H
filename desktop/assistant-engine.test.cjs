@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { answer, intents } = require('../frontend/src/assistantEngine.ts');
+const { answer, intents, matchIntent } = require('../frontend/src/assistantEngine.ts');
 
 const now = Date.parse('2026-01-15T12:00:00Z');
 const rows = {
@@ -36,4 +36,48 @@ test('structured slots and context preserve exact evidence and do not substitute
   assert.deepEqual(ids('Show events for process imaginary'), []);
   const context = { area: 'findings', row: rows.findings[0] };
   assert.equal(answer('Could this finding be a false positive?', {}, context).rows[0].detail, rows.findings[0].alternative);
+});
+
+test('at least 150 distinct phrasings route to the exact expected intent', () => {
+  const cases = new Map();
+  for (const { id, examples: [question] } of intents) {
+    cases.set(question, id);
+    cases.set(question.toUpperCase(), id);
+    cases.set('Hey NORTH, ' + question, id);
+    cases.set('Please ' + question, id);
+    cases.set(question.replace(/\?$/, '') + ', thanks', id);
+  }
+  for (const [question, expected] of [
+    ['List devcies', 'devices'], ['What is DNs??', 'glossary-dns'],
+    ['Unreviewed alerts', 'attention'], ['Capture packets please', 'capture'],
+    ['help', 'help'], ['', undefined], ['How do I change a bicycle tire?', undefined],
+  ]) cases.set(question, expected);
+  assert.ok(cases.size >= 150);
+  for (const [question, expected] of cases) assert.equal(matchIntent(question).intent?.id, expected, question);
+});
+
+test('answers preserve bounded evidence as text and never call fetch', (t) => {
+  const network = t.mock.method(globalThis, 'fetch', () => { throw new Error('Unexpected network request'); });
+  const label = '<img src=x onerror=alert(1)> [label](https://example.test)';
+  const snapshot = Object.freeze({ devices: Object.freeze(Array.from({ length: 240 }, (_, id) =>
+    Object.freeze({ id: String(id), label, status: 'new', terms: [] }))) });
+  const result = answer('List devices', snapshot);
+  assert.deepEqual(result.rows.map((row) => row.id), ['0', '1', '2', '3', '4', '5', '6', '7']);
+  assert.equal(result.rows[0].label, label);
+  assert.equal(snapshot.devices.length, 240);
+  assert.equal(network.mock.callCount(), 0);
+});
+
+test('deterministic malformed question corpus always returns bounded results', () => {
+  let state = 38217;
+  const alphabet = ['\u0000', 'é', 'ŋ', '👾', 'a', '[', '?', '.', '١', ' '];
+  for (let iteration = 0; iteration < 120; iteration++) {
+    let query = '';
+    for (let index = 0; index < iteration * 7; index++) {
+      state = (state * 48271) % 2147483647;
+      query += alphabet[state % alphabet.length];
+    }
+    const result = answer(query, rows);
+    assert.ok(result.rows.length <= 8 && result.suggestions.length <= 3);
+  }
 });
