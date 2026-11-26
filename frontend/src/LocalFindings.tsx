@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { TimeDisplay } from './TimeDisplay';
+import { useDisplayMode } from './DisplayMode';
 
 type FindingStatus = 'new' | 'reviewed' | 'benign';
 type Finding = {
   id: string; title: string; severity: string; last_seen: string; status: FindingStatus; attack?: string[];
   plain_summary: string; what_to_do: string; evidence_ids: string[];
+  rule_id?: string; falsepositives?: string[];
 };
-type Feed = { findings: Finding[]; has_more?: boolean; monitor?: 'running' | 'stopped' | 'failed' };
+export type FindingHealth = { unreviewed: number; severe: boolean; current: boolean };
+type Feed = {
+  findings: Finding[]; has_more?: boolean; monitor?: 'running' | 'stopped' | 'failed';
+  summary?: { unreviewed: number; severe: number };
+};
+const isSevere = (finding: Finding) => finding.severity === 'critical' || finding.severity === 'high';
 type Evidence = {
   host: string; timestamp?: string; ts?: string; source?: string;
   process?: string | { path?: string }; destination?: string; target?: string;
@@ -48,6 +55,7 @@ function FindingRow({ finding, onReviewed }: {
 }) {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
+  const { mode } = useDisplayMode();
 
   async function review(status: FindingStatus) {
     setPending(true);
@@ -73,9 +81,14 @@ function FindingRow({ finding, onReviewed }: {
     </summary>
     <p>{finding.plain_summary}</p>
     <p>{finding.what_to_do}</p>
-    {!!finding.attack?.length && <ul className="finding-tags" aria-label="ATT&CK techniques">
-      {finding.attack.map((tag) => <li key={tag}><code>{tag.replace(/^attack\./, '').toUpperCase()}</code></li>)}
-    </ul>}
+    {!!finding.falsepositives?.length && <p>{finding.falsepositives[0]}</p>}
+    {(finding.rule_id || !!finding.attack?.length) && <details open={mode === 'analyst' || undefined}>
+      <summary>Technical details</summary>
+      {finding.rule_id && <code>{finding.rule_id}</code>}
+      {!!finding.attack?.length && <ul className="finding-tags" aria-label="ATT&CK techniques">
+        {finding.attack.map((tag) => <li key={tag}><code>{tag.replace(/^attack\./, '').toUpperCase()}</code></li>)}
+      </ul>}
+    </details>}
     {finding.evidence_ids.map((id) => <FindingEvidence key={id} id={id} />)}
     <div className="finding-actions">
       {finding.status === 'new' ? <>
@@ -87,13 +100,23 @@ function FindingRow({ finding, onReviewed }: {
   </details>;
 }
 
-export function LocalFindings({ desktop }: { desktop: boolean }) {
+export function LocalFindings({ desktop, onHealth }: { desktop: boolean; onHealth?: (health: FindingHealth) => void }) {
   const [feed, setFeed] = useState<Feed>();
   const [unavailable, setUnavailable] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(false);
   const [page, setPage] = useState(0);
   const revision = useRef(0);
+
+  useEffect(() => {
+    if (!onHealth || (!feed && page !== 0)) return;
+    const unreviewed = feed?.findings.filter((item) => item.status === 'new') ?? [];
+    onHealth({
+      unreviewed: feed?.summary?.unreviewed ?? unreviewed.length,
+      severe: feed?.summary ? feed.summary.severe > 0 : unreviewed.some(isSevere),
+      current: !!feed && !unavailable && (!desktop || feed.monitor === 'running'),
+    });
+  }, [desktop, feed, onHealth, page, unavailable]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -137,9 +160,18 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
 
   function onReviewed(id: string, status: FindingStatus) {
     revision.current++;
-    setFeed((previous) => previous && ({
-      ...previous, findings: previous.findings.map((finding) => finding.id === id ? { ...finding, status } : finding),
-    }));
+    setFeed((previous) => {
+      const original = previous?.findings.find((finding) => finding.id === id);
+      if (!previous || !original) return previous;
+      const delta = Number(status === 'new') - Number(original.status === 'new');
+      return {
+        ...previous, findings: previous.findings.map((finding) => finding.id === id ? { ...finding, status } : finding),
+        summary: previous.summary && {
+          unreviewed: previous.summary.unreviewed + delta,
+          severe: previous.summary.severe + (isSevere(original) ? delta : 0),
+        },
+      };
+    });
   }
 
   const findings = feed?.findings ?? [];

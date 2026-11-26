@@ -170,7 +170,7 @@ def make_app(store=None):
             @app.get("/api/local/findings")
             def local_findings(limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0, le=2**53-1)):
                 rows = store.detection_findings(limit, offset=offset, lookahead=True)
-                return {"findings": rows[:limit], "has_more": len(rows) > limit}
+                return {"findings": rows[:limit], "has_more": len(rows) > limit, "summary": store.unreviewed_summary()}
 
             @app.get("/api/local/baselines")
             def local_baselines():

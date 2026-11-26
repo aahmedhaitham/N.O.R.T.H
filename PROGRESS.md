@@ -21,6 +21,13 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Local-first product brief · Phase 4 Simple mode
+
+- Simple is the default display mode. Workspace **Settings → Display mode** switches to Analyst and remembers the choice on that device. Both modes use the same observations, findings, and investigations.
+- Simple Overview answers four questions about the computer, nearby devices, recorded connections, and next steps. Its status checks high-severity findings first, then other unreviewed findings and open cases, unrecognized devices, and current telemetry. Missing or stale data cannot show Good. Local finding counts cover every page.
+- New-device answers persist in browser storage for the current desktop or collector. Device labels use observed names and app labels use executable names. The connection card lists observed destinations separately from app activity where the data does not establish a pair.
+- The Simple dashboard and display settings use an English message catalog. Broader catalog migration and installed-app walkthrough remain open. Verified 109 backend tests, 2 subtests, 18 desktop tests, and the desktop UI build.
+
 ### Local-first product brief · Phase 3 visibility, findings and detections
 
 - Overview's **Needs attention** lists local unreviewed findings with severity, status, ATT&CK techniques, and their evidence. Mark a finding reviewed or benign to move it into recent history, or reopen it. History and review state stay in the private database. The list shows unreviewed findings first and supports paging.

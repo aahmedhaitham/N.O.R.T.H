@@ -179,7 +179,9 @@ def test_persisted_findings_keep_reviews_and_link_stored_evidence(tmp_path, monk
     with TestClient(make_app(store), base_url="http://localhost") as client:
         assert client.post("/api/local/findings/evaluate").status_code == 401
         client.post("/api/local-session", headers={"X-North-Local-Session": "start"})
-        assert client.get("/api/local/findings").json() == {"findings": [], "has_more": False}
+        assert client.get("/api/local/findings").json() == {
+            "findings": [], "has_more": False, "summary": {"unreviewed": 0, "severe": 0},
+        }
         assert client.post("/api/local/findings/evaluate").json()["matched_findings"] >= 1
         finding = next(item for item in client.get("/api/local/findings").json()["findings"]
                        if item["rule_id"] == "windows-service-installed")

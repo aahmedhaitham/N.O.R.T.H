@@ -11,6 +11,8 @@ import { eventNames } from './eventNames';
 import { Dashboard } from './Dashboard';
 import { Detections } from './Detections';
 import { ProcessTree } from './ProcessTree';
+import { DisplayModeControl, DisplayModeProvider } from './DisplayMode';
+import { simpleMessages as simpleText } from './simpleMessages';
 import { InstallApp } from './InstallApp';
 import { CloudGate, type CloudToolbar, type CollectorFleet, type WorkspacePanel } from './CloudGate';
 import { CaseReview } from './CaseReview';
@@ -150,6 +152,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
   const [online, setOnline] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [localSettings, setLocalSettings] = useState(false);
   const incident = cases.find((item) => item.id === selected) ?? cases[0];
   const caseQuery = caseSearch.trim().toLowerCase();
   const matchingCases = caseQuery ? cases.filter((item) =>
@@ -163,6 +166,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
 
   function setView(next: View) {
     panel?.close();
+    setLocalSettings(false);
     setNetworkTarget(null);
     updateView(next);
     writeWorkspacePreference('view', next);
@@ -265,7 +269,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
     <div className="shell">
       <header className="topbar">
         <div className="toolbar-left">{controls?.collector ?? <strong className="toolbar-brand">NORTH</strong>}</div>
-        <QuickNavigation view={panel ? undefined : view} open={setView} />
+        <QuickNavigation view={panel || localSettings ? undefined : view} open={setView} />
         <div className="toolbar-right">
           <InstallApp />
           <span role="status" title={controls?.notice || undefined}
@@ -275,19 +279,19 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
             <span>{desktopLocal ? 'Local data' : cloud ? (controls?.interrupted ? 'Cloud interrupted' : online ? 'Cloud ready' : 'Connecting') :
               portfolio || publicDemo ? 'Sample data' : online ? 'Live feed' : 'Connecting'}</span>
           </span>
-          <AccountMenu actions={controls?.actions} />
+          <AccountMenu actions={controls?.actions} localSettings={!controls?.actions ? () => setLocalSettings(true) : undefined} />
         </div>
       </header>
       <Tooltip.Provider delayDuration={220}>
         <nav className="console-nav" aria-label="Console"
           style={{ '--nav-position': Math.max(0, navigation.findIndex((item) => item.id === view)) } as CSSProperties}>
-          {!panel && <span className="rail-indicator" aria-hidden="true" />}
+          {!panel && !localSettings && <span className="rail-indicator" aria-hidden="true" />}
           {navigation.map((item) => {
             const count = item.id === 'cases' && loaded ? cases.length : 0;
             return <Tooltip.Root key={item.id}>
               <Tooltip.Trigger asChild><button type="button" className="nav-item"
                 aria-label={item.label + (count ? ', ' + count + ' investigations' : '')}
-                aria-current={!panel && view === item.id ? 'page' : undefined} onClick={() => setView(item.id)}>
+                aria-current={!panel && !localSettings && view === item.id ? 'page' : undefined} onClick={() => setView(item.id)}>
                 <NavigationIcon view={item.id} />
                 {count > 0 && <span className="rail-badge" aria-hidden="true">{count > 99 ? '99+' : count}</span>}
               </button></Tooltip.Trigger>
@@ -301,9 +305,12 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
       <div className="shell-content">
       <div className="view-content" ref={viewContent}>
       {controls?.notice && <p role="status" className="toolbar-notice">{controls.notice}</p>}
-      <PageMotion page={panel?.title ?? view}>
+      <PageMotion page={panel?.title ?? (localSettings ? 'settings' : view)}>
       {panel?.content}
-      <div className="workspace-pages" hidden={Boolean(panel)}>
+      {localSettings && <main className="dashboard"><header className="dashboard-heading">
+        <h1>{simpleText.settings}</h1><button type="button" onClick={() => setLocalSettings(false)}>{simpleText.back}</button>
+      </header><section className="panel"><DisplayModeControl /></section></main>}
+      <div className="workspace-pages" hidden={Boolean(panel) || localSettings}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} localFindings={!cloud && !publicDemo}
         open={setView} openCase={openCase}
@@ -616,8 +623,8 @@ async function startApp() {
       return;
     }
   }
-  root.render(cloud ?
+  root.render(<DisplayModeProvider>{cloud ?
     <CloudGate>{(source, openCollectors, controls, fleet, panel) =>
-      <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} fleet={fleet} panel={panel} />}</CloudGate> : <App />);
+      <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} fleet={fleet} panel={panel} />}</CloudGate> : <App />}</DisplayModeProvider>);
 }
 void startApp();

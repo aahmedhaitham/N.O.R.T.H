@@ -134,12 +134,19 @@ function makeLocalFindings({ root, data, launch = spawn, supported = process.pla
       if (pathname === '/api/local/findings') {
         const offset = Number(searchParams.get('offset') ?? 0);
         if (!Number.isSafeInteger(offset) || offset < 0) return new Response(null, { status: 422 });
-        const findings = accessStore((db) => db.prepare(`
-          SELECT status, payload FROM local_detection_findings
-          ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, last_seen DESC, id DESC LIMIT 101 OFFSET ?
-        `).all(offset).map(({ status, payload }) => ({ ...JSON.parse(payload), status }))) ?? [];
+        const { findings, summary } = accessStore((db) => ({
+          findings: db.prepare(`
+            SELECT status, payload FROM local_detection_findings
+            ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, last_seen DESC, id DESC LIMIT 101 OFFSET ?
+          `).all(offset).map(({ status, payload }) => ({ ...JSON.parse(payload), status })),
+          summary: db.prepare(`
+            SELECT count(*) AS unreviewed,
+              count(CASE WHEN json_extract(payload, '$.severity') IN ('high', 'critical') THEN 1 END) AS severe
+            FROM local_detection_findings WHERE status = 'new'
+          `).get(),
+        })) ?? { findings: [], summary: { unreviewed: 0, severe: 0 } };
         return Response.json({ findings: findings.slice(0, 100), has_more: findings.length > 100,
-          monitor: child ? 'running' : failed ? 'failed' : 'stopped' });
+          summary, monitor: child ? 'running' : failed ? 'failed' : 'stopped' });
       }
       const id = /^\/api\/local\/evidence\/([a-f0-9]{24})$/.exec(pathname)?.[1];
       if (id) {

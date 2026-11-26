@@ -21,7 +21,7 @@ test('desktop findings use only the private local database and launch one window
     CREATE TABLE events (id, payload);
   `);
   db.prepare('INSERT INTO local_detection_findings VALUES (?, ?, ?, ?)').run(
-    id, 'new', '2026-01-15', JSON.stringify({ id, evidence_ids: [id] }));
+    id, 'new', '2026-01-15', JSON.stringify({ id, severity: 'high', evidence_ids: [id] }));
   db.prepare('INSERT INTO local_windows_events VALUES (?, ?)').run(
     id, JSON.stringify({ source: 'neighbor', host: 'TEST', raw: { addresses: ['192.0.2.1'], internal: 'private' } }));
   db.close();
@@ -48,8 +48,10 @@ test('desktop findings use only the private local database and launch one window
   assert.equal(launches, 1);
   const feed = await json('findings');
   assert.equal(feed.monitor, 'running');
-  assert.deepEqual(feed.findings, [{ id, evidence_ids: [id], status: 'new' }]);
-  assert.deepEqual((await json('findings?offset=1')).findings, []);
+  assert.deepEqual(feed.findings, [{ id, severity: 'high', evidence_ids: [id], status: 'new' }]);
+  const nextPage = await json('findings?offset=1');
+  assert.deepEqual(nextPage.findings, []);
+  assert.deepEqual(nextPage.summary, { unreviewed: 1, severe: 1 });
   assert.equal(feed.has_more, false);
   assert.deepEqual(await json('evidence/' + id), { id, host: 'TEST', source: 'neighbor', addresses: ['192.0.2.1'] });
   assert.equal((await call('evidence/invalid')).status, 404);
@@ -64,6 +66,7 @@ test('desktop findings use only the private local database and launch one window
   const reopenedStore = makeLocalFindings({ root, data: root });
   const stored = await reopenedStore.handle(new Request('north://app/api/local/findings'));
   assert.equal((await stored.json()).findings[0].status, 'benign');
+  assert.deepEqual((await json('findings')).summary, { unreviewed: 0, severe: 0 });
   assert.deepEqual(await json(route, review('new')), { status: 'new' });
   local.stop();
   assert.equal(ended, true);

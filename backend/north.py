@@ -157,6 +157,7 @@ class Store:
                         id TEXT PRIMARY KEY, status TEXT NOT NULL, last_seen TEXT NOT NULL, payload TEXT NOT NULL
                     )
                     """)
+                db.execute("CREATE INDEX IF NOT EXISTS local_findings_by_status ON local_detection_findings (status, last_seen)")
                 db.execute("""
                     CREATE TABLE IF NOT EXISTS local_detection_queue (
                         sequence INTEGER PRIMARY KEY, event_id TEXT NOT NULL UNIQUE,
@@ -434,6 +435,14 @@ class Store:
                 (min(max(1, limit), 100) + int(lookahead), offset),
             ).fetchall()
         return [{**json.loads(payload), "status": status} for status, payload in rows]
+
+    def unreviewed_summary(self):
+        with self.connect() as db:
+            total, severe = db.execute("""
+                SELECT count(*), count(CASE WHEN json_extract(payload, '$.severity') IN ('high', 'critical') THEN 1 END)
+                FROM local_detection_findings WHERE status = 'new'
+                """).fetchone()
+        return {"unreviewed": total, "severe": severe}
 
     def detection_baselines(self):
         with self.connect() as db:

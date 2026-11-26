@@ -104,18 +104,19 @@ export function CollectorPicker({ current, options, choose }: {
 
 export type WorkspaceActions = { settings: () => void; collectors: () => void; signOut: () => void };
 
-export function AccountMenu({ actions }: { actions?: WorkspaceActions }) {
+export function AccountMenu({ actions, localSettings }: { actions?: WorkspaceActions; localSettings?: () => void }) {
   useEffect(() => {
-    if (!actions) return;
+    if (!actions && !localSettings) return;
     function shortcuts(event: KeyboardEvent) {
       if (event.defaultPrevented || event.repeat || !event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey ||
           document.querySelector('dialog[open]')) return;
-      const action = event.code === 'KeyC' ? actions?.collectors : event.code === 'KeyS' ? actions?.settings : undefined;
+      const action = event.code === 'KeyC' ? actions?.collectors :
+        event.code === 'KeyS' ? actions?.settings ?? localSettings : undefined;
       if (action) { event.preventDefault(); action(); }
     }
     window.addEventListener('keydown', shortcuts);
     return () => window.removeEventListener('keydown', shortcuts);
-  }, [actions]);
+  }, [actions, localSettings]);
 
   return <Menu.Root>
     <Menu.Trigger asChild><button type="button" className="avatar-trigger" aria-label="Workspace menu"><UserRound size={16} /></button></Menu.Trigger>
@@ -124,6 +125,9 @@ export function AccountMenu({ actions }: { actions?: WorkspaceActions }) {
         <Menu.Item className="shell-menu-item" onSelect={actions.settings}><Settings size={16} />Settings<kbd>Alt Shift S</kbd></Menu.Item>
         <Menu.Item className="shell-menu-item" onSelect={actions.collectors}><Server size={16} />Collectors<kbd>Alt Shift C</kbd></Menu.Item>
       </Menu.Group><Menu.Separator className="menu-separator" /></>}
+      {!actions && localSettings && <Menu.Item className="shell-menu-item" onSelect={localSettings}>
+        <Settings size={16} />Settings<kbd>Alt Shift S</kbd>
+      </Menu.Item>}
       <Appearance />
       {actions && <><Menu.Separator className="menu-separator" />
         <Menu.Item className="shell-menu-item" onSelect={actions.signOut}><LogOut size={16} />Sign out</Menu.Item></>}

@@ -1,12 +1,16 @@
-import { Activity, CircleAlert, Clock3, Network, Server } from 'lucide-react';
+import { useState } from 'react';
+import { Activity, CircleAlert, Clock3, Laptop, Network, Server, ShieldCheck } from 'lucide-react';
 import { groupNeighbors, useNetworkInventory, type AtlasTarget } from './Network';
 import type { CollectorFleet } from './CloudGate';
 import { AnimatedCount, MotionCard } from './InterfaceMotion';
 import { TimeDisplay } from './TimeDisplay';
 import { investigationSeverity } from './investigationSeverity';
 import { OverviewCharts, type ChartSelection } from './OverviewCharts';
-import { LocalFindings } from './LocalFindings';
+import { LocalFindings, type FindingHealth } from './LocalFindings';
 import { LocalCoverage } from './Detections';
+import { useDisplayMode } from './DisplayMode';
+import { simpleMessages as t } from './simpleMessages';
+import { simpleStatus } from './simpleStatus';
 
 type CaseSummary = {
   id: string; title: string; host: string; evidence: { id: string; timestamp: string; kind: number }[];
@@ -15,6 +19,11 @@ type CaseSummary = {
 type Section = 'cases' | 'network' | 'events';
 
 const collectorStatus = { starting: 'Connecting', ready: 'Collecting', unavailable: 'Needs attention', disabled: 'Disabled' };
+type Trust = 'yes' | 'no' | 'unsure';
+const appNames: Record<string, string> = {
+  'chrome.exe': 'Google Chrome', 'msedge.exe': 'Microsoft Edge', 'firefox.exe': 'Firefox',
+  'powershell.exe': 'Windows PowerShell', 'pwsh.exe': 'PowerShell', 'svchost.exe': 'Windows Service Host',
+};
 
 export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings, open, openCase, openAtlas, connect, fleet, source, manageCollectors, openChart, openDetections }: {
   endpoint: string;
@@ -34,6 +43,18 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings,
   openDetections: () => void;
 }) {
   const { inventory, fetchError } = useNetworkInventory(endpoint);
+  const { mode, setMode } = useDisplayMode();
+  const [findingHealth, setFindingHealth] = useState<FindingHealth>();
+  const trustKey = 'north.device-trust.' + (source ?? (local ? 'desktop' : 'workspace'));
+  const [trust, setTrust] = useState<Record<string, Trust>>(() => {
+    try { return JSON.parse(localStorage.getItem(trustKey) || '{}') ?? {}; } catch { return {}; }
+  });
+
+  function decide(id: string, answer: Trust) {
+    const next = { ...trust, [id]: answer };
+    setTrust(next);
+    try { localStorage.setItem(trustKey, JSON.stringify(next)); } catch { /* Keep the current session decision. */ }
+  }
   const newDevices = inventory?.device_findings?.unreviewed ?? 0;
   const openCases = cases.filter((item) => item.review_status !== 'resolved');
   const recent = [...cases].sort((a, b) =>
@@ -52,6 +73,82 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings,
     { label: 'Collected events', count: inventory?.assets.reduce((sum, asset) => sum + asset.events, 0), to: 'events' },
     { label: 'Observed connections', count: inventory?.links.length, to: 'network' },
   ] as const;
+
+  if (mode === 'simple') {
+    const fresh = (date?: string | null) => !!date && Date.now() - Date.parse(date) < 180_000;
+    const currentEvents = [inventory?.sysmon, inventory?.linux_journal]
+      .some((item) => item?.state === 'ready' && fresh(item.updated_at));
+    const activeDevices = inventory?.device_findings?.items.filter((item) => !item.reviewed_at) ?? [];
+    const status = simpleStatus({
+      ready: !demo && loaded && !fetchError && (currentEvents || fresh(inventory?.collector_synced_at)) &&
+        (!localFindings || findingHealth?.current === true),
+      openCases: openCases.length,
+      unreviewed: findingHealth?.unreviewed ?? 0,
+      severe: findingHealth?.severe ?? false,
+      unknownDevices: Math.max(0, newDevices - activeDevices.filter((item) => trust[item.id] === 'yes').length),
+    });
+    const nearby = groupNeighbors(inventory?.neighbors?.records ?? []).map(([, records]) => records);
+    const routerNames = new Map(inventory?.router_usage?.devices
+      .filter((device) => device.router_name)
+      .map((device) => [device.mac.replace(/[:-]/g, '').toLowerCase(), device.router_name]));
+    const deviceName = (group: typeof nearby[number]) => group.find((item) => item.name)?.name ||
+      routerNames.get(group[0].mac.replace(/[:-]/g, '').toLowerCase());
+    const destinationNames = new Map<string, string>();
+    for (const device of nearby) {
+      const name = deviceName(device);
+      if (name) for (const item of device) destinationNames.set(item.address, name);
+    }
+    const destinations = [...new Set(inventory?.links.filter((link) => link.direction === 'outbound')
+      .map((link) => link.address) ?? [])].slice(0, 5);
+    const apps = inventory?.app_connections?.slice(0, 5) ?? [];
+    return <main className="dashboard simple-grid">
+      <header className="dashboard-heading"><h1>{t.overview}</h1>{demo && <p className="reference">{t.synthetic}</p>}</header>
+      <section className="panel simple-hero" data-level={status.level}>
+        <ShieldCheck size={28} aria-hidden="true" />
+        <div><h2>{t.pc}</h2><strong>{t[status.level]}</strong><p>{t[status.reason]}</p></div>
+        <button type="button" onClick={() => setMode('analyst')}>{t.details}</button>
+      </section>
+      <section className="panel">
+        <h2>{t.devices}</h2>
+        {!nearby.length && !activeDevices.length && <p>{t.noDevices}</p>}
+        <ul className="simple-list">{nearby.slice(0, 6).map((device) => <li key={device[0].network + ':' + device[0].address}>
+          <Laptop size={16} aria-hidden="true" />
+          <span><strong>{deviceName(device) || t.unknownDevice}</strong><small>{device[0].address}</small></span>
+        </li>)}</ul>
+        {activeDevices.slice(0, 5).map((item) => {
+          const device = nearby.find((group) => group.some((row) => item.addresses.includes(row.address)));
+          return <div className="simple-device" key={item.id}>
+            <strong>{(device && deviceName(device)) || item.addresses[0] || t.unknownDevice}</strong>
+            <p>{t.isThisYou}</p>
+            <div className="finding-actions">{(['yes', 'no', 'unsure'] as const).map((answer) =>
+              <button key={answer} type="button" aria-pressed={trust[item.id] === answer}
+                onClick={() => decide(item.id, answer)}>{t[answer]}</button>)}</div>
+          </div>;
+        })}
+        <button type="button" onClick={() => openAtlas(activeDevices.length ? 'atlas-new-devices' : 'atlas-local-devices')}>{t.deviceList}</button>
+      </section>
+      <section className="panel">
+        <h2>{t.connections}</h2>
+        {apps.length > 0 && <><h3>{t.apps}</h3><ul>{apps.map(({ process }) => {
+          const name = process.split(/[\\/]/).at(-1) || process;
+          return <li key={process} title={process}>{appNames[name.toLowerCase()] ?? name}</li>;
+        })}</ul></>}
+        {destinations.length > 0 && <><h3>{t.destinations}</h3><ul>{destinations.map((address) =>
+          <li key={address}>{destinationNames.get(address) && <>{destinationNames.get(address)} · </>}<code>{address}</code></li>)}</ul></>}
+        {!destinations.length && <p>{t.noConnections}</p>}
+        <button type="button" onClick={() => open('network')}>{t.details}</button>
+      </section>
+      <section className="panel simple-next">
+        <h2>{t.actions}</h2>
+        {connect && <button type="button" onClick={connect}>{t.setup}</button>}
+        {!openCases.length && loaded && <p>{t.noActions}</p>}
+        {openCases.map((item) => <div className="simple-case" key={item.id}>
+          <span>{item.title} · {item.host}</span><button type="button" onClick={() => openCase(item.id)}>{t.investigate}</button>
+        </div>)}
+        {localFindings && <LocalFindings desktop={local} onHealth={setFindingHealth} />}
+      </section>
+    </main>;
+  }
 
   return <main className="dashboard overview-grid">
     <header className="dashboard-heading"><h1>Security overview</h1>{demo && <p className="reference">Synthetic telemetry</p>}</header>
