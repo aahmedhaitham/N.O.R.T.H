@@ -70,6 +70,7 @@ try {
       socket.send(JSON.stringify({ id, method, params }));
     });
   }
+  await call('Page.enable');
   async function evaluate(expression) {
     const result = await call('Runtime.evaluate', { expression, returnByValue: true });
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
@@ -109,20 +110,24 @@ try {
   function installFixtures() {
     const nativeFetch = window.fetch.bind(window);
     const device = 'a'.repeat(24);
+    window.northWalkthroughFixture = { network: 0 };
     window.fetch = (input, options) => {
       const route = new URL(typeof input === 'string' ? input : input.url, location.href).pathname;
       const now = new Date().toISOString();
       if (route === '/api/cases') return Promise.resolve(Response.json([]));
-      if (route === '/api/network') return Promise.resolve(Response.json({
+      if (route === '/api/network') {
+        window.northWalkthroughFixture.network++;
+        return Promise.resolve(Response.json({
         assets: [], links: [], sysmon: { state: 'ready', updated_at: now },
         neighbors: { state: 'ready', updated_at: now, records: [
-          { address: '192.0.2.10', mac: '02:00:00:00:00:10', network: 'Fixture LAN', state: 'Reachable', name: 'Fixture phone' },
+          { address: '192.0.2.10', mac: '02:00:00:00:00:10', interface: 'Fixture LAN', state: 'Reachable', name: 'Fixture phone' },
         ] },
         device_findings: { baseline_at: now, unreviewed: 1, items: [
           { id: device, first_seen: now, last_seen: now, reviewed_at: null, mac: '02:00:00:00:00:10',
             interface: 'Fixture LAN', addresses: ['192.0.2.10'] },
         ] },
-      }));
+        }));
+      }
       if (route === '/api/local/findings') {
         const severe = sessionStorage.getItem('north-smoke-severe') === '1';
         const findings = severe ? [{ id: device, title: 'Synthetic review finding', severity: 'high', status: 'new',
@@ -137,6 +142,8 @@ try {
 
   await call('Page.addScriptToEvaluateOnNewDocument', { source: `(${installFixtures.toString()})()` });
   await call('Page.reload');
+  await waitFor('the fixture script to run in the reloaded window', () => evaluate('Boolean(window.northWalkthroughFixture)'));
+  await waitFor('the dashboard to request fixture network data', () => evaluate('window.northWalkthroughFixture?.network > 0'));
   await see('Fixture phone');
   await see('Needs a look');
   await click('button', 'Yes');
