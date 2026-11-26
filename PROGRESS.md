@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+- Windows installer builds compile a standalone collector, bundle it with the app, and smoke-test the runtime before packaging and after installation. Guided setup uses the bundled executable when present and falls back to the Python launcher in development builds.
 - NORTH for Windows can guide collector pairing and manage background startup from the app. The installer bundles the collector scripts, uses an existing Python 3.11+ installation, and sends the key to the launcher through standard input.
 - Overview lists the workspace collector fleet, including pending pairings, known platforms, last syncs, and direct collector switching.
 - NORTH offers a Linux collector bundle. It reads existing neighbor observations and collects recent supported OpenSSH and sudo journal events accessible to the signed-in Linux user, with a Diagnostics status in ATLAS.

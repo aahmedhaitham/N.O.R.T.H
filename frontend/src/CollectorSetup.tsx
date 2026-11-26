@@ -135,7 +135,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
   const keyPanel = created && <div className="pairing-secret">
         <h3>{created.issued_at ? 'Reconnect ' : 'Connect '}{created.label}</h3>
         {desktop && <>
-          <p>Set up the collector on this Windows PC. Requires Python 3.11 or newer with the Windows Python launcher.</p>
+          <p>Set up the collector on this Windows PC. If this build has no bundled runtime, setup uses Python 3.11 or newer and the Windows Python launcher.</p>
           <button type="button" className="primary-action" disabled={desktopSetupBusy || busy}
             onClick={() => void setupDesktop(created)}>Set up on this PC</button>
           {desktopSetupMessage && <p role="status">{desktopSetupMessage}</p>}

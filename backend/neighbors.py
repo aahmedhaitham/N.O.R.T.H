@@ -6,16 +6,16 @@ import sqlite3
 import subprocess
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
 from starlette.concurrency import run_in_threadpool
 
 from device_watch import record_snapshot
+from north import collector_tool
 
 
 def read_neighbors():
     if sys.platform == "win32":
-        exporter = Path(__file__).resolve().parents[1] / "tools" / "Export-NorthNeighbors.ps1"
+        exporter = collector_tool("Export-NorthNeighbors.ps1")
         command = [
             "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
             "-File", str(exporter), "-AsJson",

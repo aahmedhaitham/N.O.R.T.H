@@ -9,12 +9,24 @@ permissions:
 jobs:
   package:
     runs-on: windows-2025
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: "26"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build the standalone collector
+        shell: pwsh
+        run: |
+          python -m pip install -r backend/requirements.txt pyinstaller==6.22.3
+          if ($LASTEXITCODE -ne 0) { throw 'Collector build dependencies could not install.' }
+          python -m PyInstaller --onefile --noconfirm --noupx --name NORTH-Collector --distpath backend --workpath "$env:RUNNER_TEMP/north-collector-build" --specpath "$env:RUNNER_TEMP" --hidden-import anyio._backends._asyncio backend/run_collector.py
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone collector build failed.' }
+          & ./backend/NORTH-Collector.exe --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone collector runtime check failed.' }
       - name: Test the desktop client
         working-directory: desktop
         run: npm test
@@ -31,6 +43,10 @@ jobs:
           $installer = (Resolve-Path 'desktop/dist/NORTH-Setup-Windows-x64.exe').Path
           $setup = Start-Process -FilePath $installer -ArgumentList "/S /D=$installDir" -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "Installer failed with exit code $($setup.ExitCode)." }
+          $collector = Join-Path $installDir 'resources/north-collector/backend/NORTH-Collector.exe'
+          if (!(Test-Path -LiteralPath $collector)) { throw 'Installer did not include the collector runtime.' }
+          & $collector --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Installed collector runtime check failed.' }
           $app = Start-Process -FilePath (Join-Path $installDir 'NORTH.exe') -PassThru
           try {
             $deadline = [DateTime]::UtcNow.AddSeconds(45)

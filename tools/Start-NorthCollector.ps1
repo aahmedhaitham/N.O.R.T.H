@@ -15,6 +15,8 @@ $environment = Join-Path $runtime 'collector-python'
 $python = Join-Path $environment 'Scripts/python.exe'
 $requirements = Join-Path $root 'backend/requirements.txt'
 $requirementsStamp = Join-Path $environment 'north-requirements.sha256'
+$nativeCollector = Join-Path $root 'backend/NORTH-Collector.exe'
+$bundledRuntime = Test-Path -LiteralPath $nativeCollector -PathType Leaf
 if ($OpenWrtHost -and $DisableOpenWrt) { throw 'Choose an OpenWrt host or disable OpenWrt collection.' }
 if ($Workspace -and !$Source) { throw 'Supply a pairing source when setting the workspace address.' }
 if ($PairFromStdin -and (!$Source -or !$Workspace)) { throw 'Guided setup requires a source and workspace.' }
@@ -29,7 +31,7 @@ try {
     throw 'NORTH Collector is already running in this folder.'
 }
 try {
-    if (!(Test-Path -LiteralPath $python)) {
+    if (!$bundledRuntime -and !(Test-Path -LiteralPath $python)) {
         $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
         if (!$launcher) { throw 'Install Python 3.11 or newer with the Windows Python launcher, then reopen NORTH Collector.' }
         & $launcher.Source -3 -c "import sys; sys.exit(sys.version_info < (3, 11))"
@@ -37,11 +39,13 @@ try {
         & $launcher.Source -3 -m venv $environment
         if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the collector Python environment.' }
     }
-    $hash = (Get-FileHash -LiteralPath $requirements).Hash
-    if (!(Test-Path -LiteralPath $requirementsStamp) -or (Get-Content -LiteralPath $requirementsStamp) -ne $hash) {
-        & $python -m pip install --no-input --disable-pip-version-check -r $requirements
-        if ($LASTEXITCODE -ne 0) { throw 'Could not install the collector dependencies.' }
-        Set-Content -LiteralPath $requirementsStamp -Value $hash
+    if (!$bundledRuntime) {
+        $hash = (Get-FileHash -LiteralPath $requirements).Hash
+        if (!(Test-Path -LiteralPath $requirementsStamp) -or (Get-Content -LiteralPath $requirementsStamp) -ne $hash) {
+            & $python -m pip install --no-input --disable-pip-version-check -r $requirements
+            if ($LASTEXITCODE -ne 0) { throw 'Could not install the collector dependencies.' }
+            Set-Content -LiteralPath $requirementsStamp -Value $hash
+        }
     }
     if ($Source) {
         $destination = if ($Workspace) { $Workspace } else { Read-Host 'NORTH Cloud HTTPS address' }
@@ -80,7 +84,11 @@ try {
     }
     Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
     Write-Host 'NORTH Collector is running. Leave this window open. Press Ctrl+C to stop.'
-    & $python (Join-Path $root 'backend/run_collector.py')
+    if ($bundledRuntime) {
+        & $nativeCollector
+    } else {
+        & $python (Join-Path $root 'backend/run_collector.py')
+    }
     if ($LASTEXITCODE -ne 0) { throw 'NORTH Collector stopped with an error.' }
 } finally {
     $collectorLock.Dispose()

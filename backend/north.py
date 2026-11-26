@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 from collections import deque
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,11 @@ SSH_FAILURE_MESSAGE = re.compile(
     r"(?:invalid user )?\S+ from (?P<address>\S+) port \d+(?:\s|$)"
 )
 SUDO_COMMAND_MESSAGE = re.compile(r"(?:^|;\s*)COMMAND=(?P<command>/\S+)(?:\s|$)")
+
+
+def collector_tool(name):
+    location = sys.executable if getattr(sys, "frozen", False) else __file__
+    return Path(location).resolve().parents[1] / "tools" / name
 
 
 def journal_activity(entry):

@@ -5,9 +5,9 @@ import json
 import sqlite3
 import subprocess
 from datetime import datetime, timezone
-from pathlib import Path
 
 from starlette.concurrency import run_in_threadpool
+from north import collector_tool
 
 
 SOURCE = "windows-sysmon"
@@ -25,7 +25,7 @@ def collection_problem(error):
 
 def collect(store):
     after = store.collection_offset(SOURCE)
-    reader = Path(__file__).resolve().parents[1] / "tools" / "Read-NorthSysmon.ps1"
+    reader = collector_tool("Read-NorthSysmon.ps1")
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
          "-File", str(reader), "-After", str(after)],

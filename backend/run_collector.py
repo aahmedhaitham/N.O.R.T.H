@@ -5,13 +5,17 @@ import logging
 import os
 import socket
 import sys
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from starlette.concurrency import run_in_threadpool
 
 from cloud_sync import collector_source, snapshot_target, sync_loop
 from adapter_traffic import AdapterTraffic
 from internet_health import InternetHealth
 from journal_monitor import JournalMonitor
 from neighbors import NeighborMonitor
-from north import configured_store
+from north import Store, collector_tool, configured_store
 from router_usage import RouterUsage
 from sysmon import SysmonMonitor
 
@@ -47,9 +51,32 @@ async def collect():
         ))
 
 
+async def self_test():
+    with TemporaryDirectory() as folder:
+        store = Store(path=Path(folder) / "smoke.sqlite3")
+        await run_in_threadpool(store.initialize)
+        if await run_in_threadpool(store.events):
+            raise RuntimeError("Collector self-test expected an empty database")
+    for script in ("Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "Read-NorthAdapterTraffic.ps1"):
+        if not collector_tool(script).is_file():
+            raise RuntimeError("Collector script is missing: " + script)
+    print("NORTH Collector runtime checks passed.")
+
+
+async def main():
+    if sys.platform == "win32" and getattr(sys, "frozen", False):
+        import ctypes
+
+        await run_in_threadpool(lambda: None)
+        # Load the async backend first, then restore normal DLL lookup for system commands.
+        if not ctypes.windll.kernel32.SetDllDirectoryW(None):
+            raise OSError("Could not restore the Windows DLL search path")
+    await (self_test() if sys.argv[1:] == ["--self-test"] else collect())
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     try:
-        asyncio.run(collect())
+        asyncio.run(main())
     except KeyboardInterrupt:
         pass

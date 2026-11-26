@@ -34,3 +34,4 @@ raw-logs/
 *-journal.jsonl
 *.sqlite3
 *.sqlite3-*
+backend/NORTH-Collector.exe

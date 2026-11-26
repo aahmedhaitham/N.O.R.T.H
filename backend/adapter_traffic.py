@@ -5,14 +5,14 @@ import json
 import re
 import subprocess
 from datetime import datetime, timezone
-from pathlib import Path
 from time import monotonic
 
 from starlette.concurrency import run_in_threadpool
+from north import collector_tool
 
 
 def read_adapters():
-    script = Path(__file__).resolve().parents[1] / "tools" / "Read-NorthAdapterTraffic.ps1"
+    script = collector_tool("Read-NorthAdapterTraffic.ps1")
     output = subprocess.check_output(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(script)],
         encoding="utf-8", timeout=12, creationflags=subprocess.CREATE_NO_WINDOW,

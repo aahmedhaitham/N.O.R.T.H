@@ -74,12 +74,15 @@ function makeCollectorInstall({ root, data, confirm, execute = runPowerShell, is
         await mkdir(path.dirname(target), { recursive: true });
         await copyFile(path.join(root, file), target);
       }
+      const executable = 'backend/NORTH-Collector.exe';
+      const bundled = await access(path.join(root, executable)).then(() => true, () => false);
+      if (bundled) await copyFile(path.join(root, executable), path.join(destination, executable));
       await execute(path.join(destination, 'tools', 'Start-NorthCollector.ps1'),
         ['-Source', pairing.source, '-Workspace', origin, '-PairFromStdin'], pairing.token + '\n');
       await execute(path.join(destination, 'tools', 'Set-NorthCollectorStartup.ps1'), ['-Action', 'Enable']);
       return Response.json({ started: true }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
     } catch {
-      return Response.json({ detail: 'Collector setup could not finish. Check that Python 3.11 or newer and the Windows Python launcher are installed, then try again.' }, { status: 503 });
+      return Response.json({ detail: 'Collector setup could not finish. Check the Windows Task Scheduler and your collector prerequisites, then try again.' }, { status: 503 });
     } finally {
       installing = false;
     }
