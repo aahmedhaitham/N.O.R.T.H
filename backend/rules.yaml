@@ -69,3 +69,34 @@
   what_to_do: Confirm the startup entry belongs to software you installed or manage.
   requires: ['sysmon:13']
   tests: {positive: detections_positive.json, negative: detections_negative.json}
+- id: powershell-script-write
+  title: PowerShell process wrote a script file
+  tags: [attack.t1059.001]
+  severity: low
+  logsource: {source: sysmon}
+  detection:
+    started: {EventID: 1, ProcessName: [powershell.exe, pwsh.exe]}
+    script_write: {EventID: 11, 'TargetFilename|endswith': '.ps1'}
+    connection: {EventID: 3}
+    condition: script_write
+  correlation: {type: sequence, group_by: [AssetId, ProcessGuid], window_seconds: 120, start: started, context: connection}
+  falsepositives: [Authorized administration and software installers can write scripts.]
+  plain_summary: A PowerShell process wrote a script within two minutes of starting.
+  what_to_do: Review the script path and process context against expected changes.
+  requires: ['sysmon:1', 'sysmon:11']
+  tests: {positive: demo.json, negative: correlation_negative.json}
+
+- id: repeated-ssh-authentication-failures
+  title: Repeated SSH authentication failures
+  tags: [attack.t1110]
+  severity: medium
+  logsource: {source: journalctl}
+  detection:
+    failure: {EventID: 1001}
+    condition: failure
+  correlation: {type: threshold, group_by: [AssetId, SourceIp], window_seconds: 300, count: 3}
+  falsepositives: [A legitimate user can mistype a password or reuse an expired credential.]
+  plain_summary: SSH recorded three failures from one address within five minutes.
+  what_to_do: Check the user and address against expected access and look for a later successful login.
+  requires: ['journalctl:1001']
+  tests: {positive: correlation_ssh_positive.json, negative: correlation_negative.json}

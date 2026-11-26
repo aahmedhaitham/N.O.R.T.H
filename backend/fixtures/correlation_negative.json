@@ -1,0 +1,63 @@
+[
+  {
+    "agent": {
+      "id": "001",
+      "name": "WIN-LAB-01"
+    },
+    "data": {
+      "win": {
+        "system": {
+          "eventID": "1",
+          "eventRecordID": "1",
+          "systemTime": "2026-01-15T10:00:01Z"
+        },
+        "eventdata": {
+          "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "processGuid": "{00000000-0000-0000-0000-000000000001}"
+        }
+      }
+    }
+  },
+  {
+    "agent": {
+      "id": "001",
+      "name": "WIN-LAB-01"
+    },
+    "data": {
+      "win": {
+        "system": {
+          "eventID": "3",
+          "eventRecordID": "2",
+          "systemTime": "2026-01-15T10:00:02Z"
+        },
+        "eventdata": {
+          "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "processGuid": "{00000000-0000-0000-0000-000000000001}",
+          "destinationIp": "192.0.2.42"
+        }
+      }
+    }
+  },
+  {
+    "source": "journalctl",
+    "entry": {
+      "_HOSTNAME": "KALI-DEMO",
+      "_MACHINE_ID": "north-synthetic-linux",
+      "_COMM": "sshd",
+      "__CURSOR": "north-demo-1",
+      "__REALTIME_TIMESTAMP": "1768471200000000",
+      "MESSAGE": "Failed password for demo from 192.0.2.42 port 54321 ssh2"
+    }
+  },
+  {
+    "source": "journalctl",
+    "entry": {
+      "_HOSTNAME": "KALI-DEMO",
+      "_MACHINE_ID": "north-synthetic-linux",
+      "_COMM": "sshd",
+      "__CURSOR": "north-demo-2",
+      "__REALTIME_TIMESTAMP": "1768471201000000",
+      "MESSAGE": "Failed password for demo from 192.0.2.42 port 54321 ssh2"
+    }
+  }
+]

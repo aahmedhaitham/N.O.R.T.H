@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 
 from detection_rules import RuleError, bundled_rules, condition_predicate, evaluate_rules, field_predicate, parse_catalog
 from event_contract import event_contract
-from main import make_app
-from north import Store
+from main import demo_alerts, make_app
+from north import Store, build_cases, normalize
 from windows_sources import normalize_record
 
 
@@ -15,15 +15,33 @@ FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 
 def records(name):
-    return [normalize_record(item["source"], item) for item in json.loads((FIXTURES / name).read_text())]
+    return [normalize_record(item["source"], item) if "event_id" in item else normalize(item)
+            for item in json.loads((FIXTURES / name).read_text(encoding="utf-8"))]
 
 
 @pytest.mark.parametrize("rule", bundled_rules(), ids=lambda rule: rule.id)
 def test_bundled_rule_matches_positive_but_not_negative(rule):
     positive = [event_contract(event) for event in records(rule.fixtures["positive"])]
     negative = [event_contract(event) for event in records(rule.fixtures["negative"])]
-    assert any(rule.matches(event) for event in positive)
-    assert not any(rule.matches(event) for event in negative)
+    assert rule.evidence(positive)
+    assert not rule.evidence(negative)
+
+
+def test_yaml_correlations_preserve_legacy_evidence_groups():
+    normalized = [normalize(item) for item in demo_alerts(include_linux=True)]
+    cases = {case["title"]: tuple(event["id"] for event in case["evidence"]) for case in build_cases(normalized)}
+    rules = [rule for rule in bundled_rules() if rule.correlation]
+    events = [event_contract(item) for item in reversed(normalized)]
+    assert len(rules) == 2
+    for rule in rules:
+        assert rule.evidence(events) == [cases[rule.title]]
+
+
+def test_yaml_threshold_does_not_count_duplicate_evidence_or_unidentified_assets():
+    rule = next(rule for rule in bundled_rules() if rule.id == "repeated-ssh-authentication-failures")
+    first, second, third = [event_contract(item) for item in records(rule.fixtures["positive"])]
+    assert evaluate_rules([rule], [first, second, second])["matches"] == []
+    assert rule.evidence([first, second, {**third, "asset_id": ""}]) == []
 
 
 @pytest.mark.parametrize(("modifier", "values", "passes"), [
@@ -88,12 +106,13 @@ def test_loopback_detections_return_only_stored_evidence_ids(tmp_path):
     store.initialize()
     events = records("detections_positive.json")
     store.ingest_local_windows(events, checkpoint=("fixture", 5))
+    store.ingest(demo_alerts(include_linux=True))
     with TestClient(make_app(store), base_url="http://localhost") as client:
         assert client.get("/api/local/detections").status_code == 401
         assert client.post("/api/local-session", headers={"X-North-Local-Session": "start"}).status_code == 200
         result = client.get("/api/local/detections").json()
         assert len(result["matches"]) == len(bundled_rules())
         assert {identity for item in result["matches"] for identity in item["evidence_ids"]} == {
-            event["id"] for event in events
+            event["id"] for event in [*events, *store.events()]
         }
         assert not result["timed_out_rule_ids"]

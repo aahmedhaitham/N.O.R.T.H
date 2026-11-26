@@ -328,12 +328,12 @@ class Store:
                 )
 
 
-def threshold_groups(events, *, group_key, count, window):
+def threshold_groups(events, *, group_key, count, window, time_key="timestamp"):
     pending_by_key = {}
-    for event in sorted(events, key=lambda item: (item["timestamp"], item["id"])):
+    for event in sorted(events, key=lambda item: (item[time_key], item["id"])):
         key = group_key(event)
         pending = pending_by_key.setdefault(key, deque())
-        instant = datetime.fromisoformat(event["timestamp"])
+        instant = datetime.fromisoformat(event[time_key])
         while pending and instant - pending[0][0] > window:
             pending.popleft()
         pending.append((instant, event))
@@ -342,10 +342,10 @@ def threshold_groups(events, *, group_key, count, window):
             pending.clear()
 
 
-def events_in_window(anchor, candidates, window):
-    started = datetime.fromisoformat(anchor["timestamp"])
+def events_in_window(anchor, candidates, window, *, time_key="timestamp"):
+    started = datetime.fromisoformat(anchor[time_key])
     return [candidate for candidate in candidates
-            if timedelta(0) <= datetime.fromisoformat(candidate["timestamp"]) - started <= window]
+            if timedelta(0) <= datetime.fromisoformat(candidate[time_key]) - started <= window]
 
 
 def windows_cases(events: list[dict]) -> list[dict]:

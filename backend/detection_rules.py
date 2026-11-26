@@ -2,12 +2,15 @@
 
 import re
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 
 import regex
 import yaml
 from yaml.events import AliasEvent, MappingStartEvent, SequenceStartEvent, CollectionEndEvent
+from north import events_in_window, threshold_groups
 
 
 FIELDS = {
@@ -16,6 +19,7 @@ FIELDS = {
     "TargetFilename": "file.path", "TargetObject": "registry.target", "QueryName": "dns.query",
     "SourceIp": "network.src.ip", "DestinationIp": "network.dst.ip", "EventID": "raw.event_type",
     "Host": "host", "User": "user.name", "Action": "action", "TargetImage": "process.target_path",
+    "AssetId": "asset_id", "ProcessGuid": "process.guid",
 }
 IDENTIFIER = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]{0,31}")
 TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*|[()]")
@@ -27,6 +31,16 @@ RULE_FIELDS = {"id", "title", "tags", "severity", "logsource", "detection", "fal
 
 class RuleError(ValueError):
     pass
+
+@dataclass(frozen=True)
+class Correlation:
+    kind: str
+    group_by: tuple[str, ...]
+    window: timedelta
+    count: int | None = None
+    start: object = None
+    context: object = None
+
 
 
 @dataclass(frozen=True)
@@ -42,9 +56,40 @@ class Rule:
     what_to_do: str
     fixtures: dict
     predicate: object
+    correlation: Correlation | None = None
 
     def matches(self, event):
         return all(event.get(key) == value for key, value in self.logsource.items()) and self.predicate(event)
+
+    def evidence(self, events):
+        if not self.correlation:
+            return [(event["id"],) for event in events if self.matches(event)]
+        spec = self.correlation
+        keyed = [(tuple(field_value(event, path) for path in spec.group_by), event) for event in events
+                 if all(event.get(key) == value for key, value in self.logsource.items())]
+        keyed = [(key, event) for key, event in keyed if all(isinstance(value, str) and value for value in key)]
+        if spec.kind == "threshold":
+            return [tuple(event["id"] for event in group) for _, group in threshold_groups(
+                (event for _, event in keyed if self.predicate(event)),
+                group_key=lambda event: tuple(field_value(event, path) for path in spec.group_by),
+                count=spec.count, window=spec.window, time_key="ts")]
+        starts, ends, context = [], defaultdict(list), defaultdict(list)
+        for key, event in keyed:
+            if spec.start(event):
+                starts.append((key, event))
+            if self.predicate(event):
+                ends[key].append(event)
+            if spec.context and spec.context(event):
+                context[key].append(event)
+        groups = []
+        for key, event in sorted(starts, key=lambda row: (row[1]["ts"], row[1]["id"])):
+            later = [candidate for candidate in events_in_window(event, ends[key], spec.window, time_key="ts")
+                     if candidate["id"] != event["id"]]
+            if later:
+                evidence = [event, *later, *events_in_window(event, context[key], spec.window, time_key="ts")]
+                ordered = sorted(evidence, key=lambda item: (item["ts"], item["id"]))
+                groups.append(tuple(dict.fromkeys(item["id"] for item in ordered)))
+        return groups
 
 
 class RuleLoader(yaml.SafeLoader):
@@ -175,7 +220,7 @@ def string_list(value):
 
 
 def compile_rule(data):
-    if not isinstance(data, dict) or set(data) != RULE_FIELDS:
+    if not isinstance(data, dict) or set(data) - {"correlation"} != RULE_FIELDS:
         raise RuleError("Rule fields are missing or unsupported")
     for label in ("id", "title", "plain_summary", "what_to_do"):
         if not isinstance(data[label], str) or not data[label].strip() or len(data[label]) > 512:
@@ -208,8 +253,39 @@ def compile_rule(data):
         if not IDENTIFIER.fullmatch(name) or name in {"and", "or", "not"}:
             raise RuleError("Invalid selection name")
         selections[name] = selection_predicate(selector)
+    correlation = None
+    if "correlation" in data:
+        value = data["correlation"]
+        if not isinstance(value, dict) or value.get("type") not in ("threshold", "sequence"):
+            raise RuleError("Unsupported correlation type")
+        kind = value["type"]
+        field = "count" if kind == "threshold" else "start"
+        extra = {"context"} if kind == "sequence" else set()
+        if set(value) - extra != {"type", "group_by", "window_seconds", field}:
+            raise RuleError("Invalid correlation fields")
+        group_by = string_list(value["group_by"])
+        seconds = value["window_seconds"]
+        if (len(group_by) > 4 or len(set(group_by)) != len(group_by) or any(key not in FIELDS for key in group_by)
+                or type(seconds) is not int or not 1 <= seconds <= 3600):
+            raise RuleError("Invalid correlation grouping or window")
+        paths = tuple(FIELDS[key] for key in group_by)
+        if kind == "threshold":
+            count = value["count"]
+            if type(count) is not int or not 2 <= count <= 100:
+                raise RuleError("Invalid threshold")
+            correlation = Correlation(kind, paths, timedelta(seconds=seconds), count=count)
+        else:
+            start = value["start"]
+            if not isinstance(start, str) or start not in selections:
+                raise RuleError("Unknown start selection")
+            context = value.get("context")
+            if "context" in value and (not isinstance(context, str) or context not in selections):
+                raise RuleError("Unknown context selection")
+            correlation = Correlation(kind, paths, timedelta(seconds=seconds), start=selections[start],
+                                      context=selections.get(context))
     return Rule(data["id"], data["title"], data["severity"], tags, logsource, requires, falsepositives,
-                data["plain_summary"], data["what_to_do"], fixtures, condition_predicate(detection["condition"], selections))
+                data["plain_summary"], data["what_to_do"], fixtures,
+                condition_predicate(detection["condition"], selections), correlation)
 
 
 def parse_catalog(text):
@@ -243,9 +319,11 @@ def bundled_rules():
 def evaluate_rules(rules, events):
     """Return evidence references for successful rules and flag timeouts separately."""
     results, skipped = [], []
+    unique_events = tuple({event["id"]: event for event in events}.values())
     for rule in rules:
         try:
-            matches = tuple(dict.fromkeys(event["id"] for event in events if rule.matches(event)))
+            groups = rule.evidence(unique_events)
+            matches = tuple(dict.fromkeys(evidence for group in groups for evidence in group))
         except TimeoutError:
             skipped.append(rule.id)
             continue
@@ -255,4 +333,6 @@ def evaluate_rules(rules, events):
                 "attack": rule.tags, "evidence_ids": matches, "plain_summary": rule.plain_summary,
                 "what_to_do": rule.what_to_do, "falsepositives": rule.falsepositives,
             })
+            if rule.correlation:
+                results[-1]["evidence_groups"] = groups
     return {"matches": results, "timed_out_rule_ids": skipped}

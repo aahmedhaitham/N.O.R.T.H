@@ -86,6 +86,7 @@ def event_contract(event):
         "category": category,
         "action": action,
         "host": _text(event.get("host"), 512),
+        "asset_id": _text(event.get("asset_id"), 512),
         "process": {
             "guid": _text(event.get("process_guid") or fields.get("processGuid"), 128),
             "pid": _process_id(fields.get("processId") or fields.get("newProcessId")),
