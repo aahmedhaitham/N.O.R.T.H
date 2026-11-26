@@ -110,7 +110,7 @@ def event_contract(event):
             "protocol": _text(fields.get("protocol"), 32).lower(),
             "src": {"ip": _text(fields.get("sourceIp") or fields.get("ipAddress") or event.get("source_ip"), 64),
                     "port": _integer(fields.get("sourcePort") or fields.get("ipPort"), 65535)},
-            "dst": {"ip": _text(event.get("destination"), 64),
+            "dst": {"ip": _text(fields.get("destinationIp") or event.get("destination"), 64),
                     "port": _integer(fields.get("destinationPort"), 65535)},
         },
         "file": {"path": _text(event.get("target")) if kind == 11 else ""},

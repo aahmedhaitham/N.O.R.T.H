@@ -15,7 +15,7 @@ from north import collector_tool
 
 
 SOURCE_EVENTS = {
-    "sysmon": {7, 8, 10, 13, 22},
+    "sysmon": {1, 3, 7, 8, 10, 13, 22},
     "security": {4624, 4625, 4688, 4698},
     "system": {7045},
     "powershell": {4104},
@@ -34,6 +34,7 @@ FIELDS = frozenset((
     "ParentImage", "ParentCommandLine", "User", "TargetImage", "TargetObject", "QueryName", "SourceImage",
     "NewProcessName", "NewProcessId", "TargetUserName", "TargetDomainName", "TargetUserSid", "IpAddress", "IpPort",
     "TaskName", "ServiceName", "ImagePath", "ScriptBlockId", "Path", "Threat Name", "Detection ID",
+    "Initiated", "DestinationIp", "DestinationPort", "Protocol",
 ))
 
 

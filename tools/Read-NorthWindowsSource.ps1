@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $definition = switch ($Source) {
-    'sysmon' { @{ Log = 'Microsoft-Windows-Sysmon/Operational'; Ids = @(7,8,10,13,22) } }
+    'sysmon' { @{ Log = 'Microsoft-Windows-Sysmon/Operational'; Ids = @(1,3,7,8,10,13,22) } }
     'security' { @{ Log = 'Security'; Ids = @(4624,4625,4688,4698) } }
     'system' { @{ Log = 'System'; Ids = @(7045) } }
     'powershell' { @{ Log = 'Microsoft-Windows-PowerShell/Operational'; Ids = @(4104) } }
@@ -14,7 +14,8 @@ $definition = switch ($Source) {
 $allowedFields = @('Image','ImageLoaded','ProcessGuid','ProcessId','CommandLine','ParentProcessGuid',
     'ParentImage','ParentCommandLine','User','TargetImage','TargetObject','QueryName','SourceImage',
     'NewProcessName','NewProcessId','TargetUserName','TargetDomainName','TargetUserSid','IpAddress','IpPort',
-    'TaskName','ServiceName','ImagePath','ScriptBlockId','Path','Threat Name','Detection ID')
+    'TaskName','ServiceName','ImagePath','ScriptBlockId','Path','Threat Name','Detection ID',
+    'Initiated','DestinationIp','DestinationPort','Protocol')
 
 function Read-Records([string]$Query, [int]$Limit, [switch]$Oldest) {
     try {

@@ -155,6 +155,10 @@ def make_app(store=None):
             def local_findings(limit: int = Query(100, ge=1, le=100)):
                 return {"findings": store.detection_findings(limit)}
 
+            @app.get("/api/local/baselines")
+            def local_baselines():
+                return {"baselines": store.detection_baselines()}
+
             @app.post("/api/local/findings/{finding_id}/review")
             def review_finding(finding_id: str, request: FindingReview):
                 if not re.fullmatch(r"[0-9a-f]{24}", finding_id) or not store.set_finding_status(finding_id, request.status):

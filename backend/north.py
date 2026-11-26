@@ -163,6 +163,16 @@ class Store:
                         local_windows INTEGER NOT NULL
                     )
                     """)
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_baseline_scopes (
+                        scope TEXT PRIMARY KEY, learning_until TEXT NOT NULL
+                    )
+                    """)
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_baseline_entities (
+                        scope TEXT NOT NULL, entity TEXT NOT NULL, PRIMARY KEY (scope, entity)
+                    )
+                    """)
             db.execute("""
                 CREATE TABLE IF NOT EXISTS collection_offsets (
                     source TEXT PRIMARY KEY, position BIGINT NOT NULL
@@ -325,8 +335,21 @@ class Store:
                 """, (since, until, since, until)).fetchall()
         return [json.loads(row[0]) for row in rows[:500]], len(rows) > 500
 
-    def complete_detections(self, identities, findings):
+    def complete_detections(self, identities, findings, *, observations=(), now=None, learning_until=None):
         with self.connect() as db:
+            if observations:
+                db.execute("BEGIN IMMEDIATE")
+                for scope, entity, finding in observations:
+                    if not db.execute("SELECT 1 FROM local_detection_queue WHERE event_id = ?",
+                                      (finding["evidence_ids"][0],)).fetchone():
+                        continue
+                    db.execute("INSERT OR IGNORE INTO local_baseline_scopes VALUES (?, ?)", (scope, learning_until))
+                    deadline, = db.execute("SELECT learning_until FROM local_baseline_scopes WHERE scope = ?",
+                                           (scope,)).fetchone()
+                    added = db.execute("INSERT OR IGNORE INTO local_baseline_entities VALUES (?, ?)",
+                                       (scope, entity)).rowcount
+                    if added and now >= deadline and finding["first_seen"] >= deadline:
+                        self._write_findings(db, [finding])
             self._write_findings(db, findings)
             db.executemany("DELETE FROM local_detection_queue WHERE event_id = ?", [(identity,) for identity in identities])
 
@@ -340,6 +363,14 @@ class Store:
                 (min(max(1, limit), 100),),
             ).fetchall()
         return [{**json.loads(payload), "status": status} for status, payload in rows]
+
+    def detection_baselines(self):
+        with self.connect() as db:
+            rows = db.execute("SELECT scope, learning_until FROM local_baseline_scopes ORDER BY scope LIMIT 100").fetchall()
+        now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        return [{"signal": signal, "host": host, "learning_until": deadline,
+                 "state": "learning" if now < deadline else "ready"}
+                for scope, deadline in rows for signal, host in [json.loads(scope)]]
 
     def set_finding_status(self, identity, status):
         if self.url or status not in ("reviewed", "benign", "new"):

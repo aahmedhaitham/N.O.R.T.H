@@ -4,12 +4,15 @@ import asyncio
 import hashlib
 import json
 import logging
+import ntpath
+import os
 import re
 import sqlite3
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from ipaddress import ip_address
 from pathlib import Path
 
 import regex
@@ -377,7 +380,41 @@ def scan_local_findings(store, limit=100):
             "timed_out_rule_ids": result["timed_out_rule_ids"]}
 
 
-def consume_detection_queue(store, rules):
+def baseline_observations(events):
+    for event in sorted(events, key=lambda item: (item["ts"], item["id"])):
+        kind = event["raw"]["event_type"]
+        source = event["source"]
+        path = event["process"]["path"]
+        if source not in ("sysmon", "security") or not event["host"] or not ntpath.isabs(path):
+            continue
+        path = ntpath.normpath(path).casefold()
+        if (source, kind) in {("sysmon", 1), ("security", 4688)}:
+            rule_id = "first-seen-process-path"
+            title = "A process started from a new path"
+            entity = [path]
+        elif (source, kind) == ("sysmon", 3) and event["network"]["direction"] == "outbound":
+            try:
+                address = ip_address(event["network"]["dst"]["ip"])
+            except ValueError:
+                continue
+            if address.is_unspecified or address.is_loopback or address.is_multicast:
+                continue
+            rule_id = "first-seen-process-destination"
+            title = "A process connected to a new destination"
+            entity = [path, str(address)]
+        else:
+            continue
+        scope = json.dumps([rule_id, event["host"].casefold()], separators=(",", ":"))
+        key = hashlib.sha256(json.dumps(entity, separators=(",", ":")).encode()).hexdigest()
+        match = {"rule_id": rule_id, "title": title, "severity": "info", "attack": (),
+                 "evidence_ids": (event["id"],), "plain_summary": title + " for this PC's learned baseline.",
+                 "what_to_do": "Review the recorded process and check whether this matches an expected change.",
+                 "falsepositives": ("New apps, updates, and ordinary network activity can cause this.",)}
+        finding, = findings_from_matches([match], [event])
+        yield scope, key, finding
+
+
+def consume_detection_queue(store, rules, *, now=None, learning_hours=24):
     queued = store.pending_detections()
     if not queued:
         return 0
@@ -402,15 +439,23 @@ def consume_detection_queue(store, rules):
                                                 limited, len(result["timed_out_rule_ids"]))
     else:
         matches = []
-    store.complete_detections(identities, matches)
+    now = now or datetime.now(timezone.utc)
+    observations = list(baseline_observations([event_contract(event) for event in events]))
+    store.complete_detections(identities, matches, observations=observations,
+                              now=now.isoformat(timespec="microseconds"),
+                              learning_until=(now + timedelta(hours=learning_hours)).isoformat(timespec="microseconds"))
     return len(queued)
 
 
 async def run_detection_monitor(store):
     rules = bundled_rules()
+    configured = os.getenv("NORTH_BASELINE_LEARNING_HOURS", "24")
+    learning_hours = int(configured) if re.fullmatch(r"[0-9]{1,3}", configured) else 24
+    if not 1 <= learning_hours <= 720:
+        learning_hours = 24
     while True:
         try:
-            consumed = await run_in_threadpool(consume_detection_queue, store, rules)
+            consumed = await run_in_threadpool(consume_detection_queue, store, rules, learning_hours=learning_hours)
         except sqlite3.Error as error:
             logging.getLogger(__name__).warning("Local detection scan deferred: %s", type(error).__name__)
             consumed = 0

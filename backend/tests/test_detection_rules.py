@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -206,3 +207,45 @@ def test_local_service_consumes_queue_on_startup(tmp_path, monkeypatch):
             time.sleep(.05)
         else:
             pytest.fail("Background detection did not consume the startup queue")
+
+
+def test_first_seen_baselines_learn_then_alert_once_and_stay_local(tmp_path):
+    path = tmp_path / "baseline.sqlite3"
+    store = Store(path=path)
+    store.initialize()
+    start = datetime(2026, 1, 15, 10, tzinfo=timezone.utc)
+    rules = bundled_rules()
+
+    def record(identity, at, image, *, destination=None, outbound=True, host="WIN-SYNTHETIC"):
+        fields = {"Image": image}
+        if destination:
+            fields.update(DestinationIp=destination, Initiated=str(outbound).lower())
+        return normalize_record("sysmon", {
+            "host": host, "event_id": 3 if destination else 1, "record_id": identity,
+            "timestamp": (start + timedelta(hours=at)).isoformat(), "fields": fields,
+        })
+
+    def ingest(records, hours):
+        store.ingest_local_windows(records, checkpoint=("fixture", max(int(event["source_event_id"]) for event in records)))
+        assert consume_detection_queue(store, rules, now=start + timedelta(hours=hours), learning_hours=1) == len(records)
+
+    ingest([record(1, 0, r"C:\Example\baseline.exe"),
+            record(2, 0, r"C:\Example\baseline.exe", destination="192.0.2.42")], 0)
+    assert store.detection_findings() == []
+    store = Store(path=path)
+    new_process = record(3, 1, r"C:\Example\new.exe")
+    new_destination = record(4, 1, r"C:\Example\baseline.exe", destination="192.0.2.43")
+    ingest([new_process, new_destination], 1)
+    assert {finding["rule_id"]: finding["evidence_ids"] for finding in store.detection_findings()} == {
+        "first-seen-process-path": [new_process["id"]],
+        "first-seen-process-destination": [new_destination["id"]],
+    }
+    ingest([record(5, 2, r"c:\example\NEW.exe"),
+            record(6, 2, r"C:\Example\baseline.exe", destination="192.0.2.43"),
+            record(7, 0.5, r"C:\Example\old-import.exe"),
+            record(8, 2, r"C:\Example\baseline.exe", destination="192.0.2.44", outbound=False),
+            record(9, 2, r"C:\Example\other.exe", host="WIN-OTHER-SYNTHETIC")], 2)
+    findings = store.detection_findings()
+    assert len(findings) == 2
+    payload, _, _ = build_snapshot(store, {}, {}, "https://north.example")
+    assert all(finding["id"].encode() not in payload for finding in findings)
