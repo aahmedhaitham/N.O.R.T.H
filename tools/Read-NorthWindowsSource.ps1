@@ -15,7 +15,7 @@ $allowedFields = @('Image','ImageLoaded','ProcessGuid','ProcessId','CommandLine'
     'ParentImage','ParentCommandLine','User','TargetImage','TargetObject','QueryName','SourceImage',
     'NewProcessName','NewProcessId','TargetUserName','TargetDomainName','TargetUserSid','IpAddress','IpPort',
     'TaskName','ServiceName','ImagePath','ScriptBlockId','Path','Threat Name','Detection ID',
-    'Initiated','DestinationIp','DestinationPort','Protocol')
+    'Initiated','DestinationIp','DestinationPort','Protocol','LogonType')
 
 function Read-Records([string]$Query, [int]$Limit, [switch]$Oldest) {
     try {

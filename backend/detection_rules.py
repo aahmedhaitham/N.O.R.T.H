@@ -30,6 +30,7 @@ FIELDS = {
     "SourceIp": "network.src.ip", "DestinationIp": "network.dst.ip", "EventID": "raw.event_type",
     "Host": "host", "User": "user.name", "Action": "action", "TargetImage": "process.target_path",
     "AssetId": "asset_id", "ProcessGuid": "process.guid",
+    "ImageLoaded": "process.loaded_image", "LogonType": "raw.logon_type",
 }
 IDENTIFIER = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]{0,31}")
 TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*|[()]")
@@ -50,6 +51,7 @@ class Correlation:
     count: int | None = None
     start: object = None
     context: object = None
+    jitter: int = 0
 
 
 
@@ -83,6 +85,24 @@ class Rule:
                 (event for _, event in keyed if self.predicate(event)),
                 group_key=lambda event: tuple(field_value(event, path) for path in spec.group_by),
                 count=spec.count, window=spec.window, time_key="ts")]
+        if spec.kind == "interval":
+            buckets = defaultdict(list)
+            for key, event in sorted(keyed, key=lambda row: (row[1]["ts"], row[1]["id"])):
+                if self.predicate(event):
+                    buckets[key].append(event)
+            groups = []
+            for bucket in buckets.values():
+                start = 0
+                while start + spec.count <= len(bucket):
+                    candidates = bucket[start:start + spec.count]
+                    times = [datetime.fromisoformat(item["ts"]) for item in candidates]
+                    gaps = [(b - a).total_seconds() for a, b in zip(times, times[1:])]
+                    if min(gaps) >= 5 and max(gaps) - min(gaps) <= spec.jitter and times[-1] - times[0] <= spec.window:
+                        groups.append(tuple(item["id"] for item in candidates))
+                        start += spec.count
+                    else:
+                        start += 1
+            return groups
         starts, ends, context = [], defaultdict(list), defaultdict(list)
         for key, event in keyed:
             if spec.start(event):
@@ -266,12 +286,13 @@ def compile_rule(data):
     correlation = None
     if "correlation" in data:
         value = data["correlation"]
-        if not isinstance(value, dict) or value.get("type") not in ("threshold", "sequence"):
+        if not isinstance(value, dict) or value.get("type") not in ("threshold", "sequence", "interval"):
             raise RuleError("Unsupported correlation type")
         kind = value["type"]
-        field = "count" if kind == "threshold" else "start"
+        field = "start" if kind == "sequence" else "count"
         extra = {"context"} if kind == "sequence" else set()
-        if set(value) - extra != {"type", "group_by", "window_seconds", field}:
+        required = {"type", "group_by", "window_seconds", field} | ({"jitter_seconds"} if kind == "interval" else set())
+        if set(value) - extra != required:
             raise RuleError("Invalid correlation fields")
         group_by = string_list(value["group_by"])
         seconds = value["window_seconds"]
@@ -279,11 +300,13 @@ def compile_rule(data):
                 or type(seconds) is not int or not 1 <= seconds <= 3600):
             raise RuleError("Invalid correlation grouping or window")
         paths = tuple(FIELDS[key] for key in group_by)
-        if kind == "threshold":
+        if kind in ("threshold", "interval"):
             count = value["count"]
-            if type(count) is not int or not 2 <= count <= 100:
+            jitter = value.get("jitter_seconds", 0)
+            if (type(count) is not int or not (3 if kind == "interval" else 2) <= count <= 100
+                    or type(jitter) is not int or not 0 <= jitter <= 15):
                 raise RuleError("Invalid threshold")
-            correlation = Correlation(kind, paths, timedelta(seconds=seconds), count=count)
+            correlation = Correlation(kind, paths, timedelta(seconds=seconds), count=count, jitter=jitter)
         else:
             start = value["start"]
             if not isinstance(start, str) or start not in selections:
@@ -385,13 +408,19 @@ def baseline_observations(events):
         kind = event["raw"]["event_type"]
         source = event["source"]
         path = event["process"]["path"]
-        if source not in ("sysmon", "security") or not event["host"] or not ntpath.isabs(path):
+        if not event["host"]:
             continue
-        path = ntpath.normpath(path).casefold()
-        if (source, kind) in {("sysmon", 1), ("security", 4688)}:
+        if source == "windows_tcp" and kind == 2001:
+            local = event["network"]["local"]
+            rule_id = "first-seen-listening-endpoint"
+            title = "A new local TCP listener appeared"
+            entity = [local["ip"], local["port"]]
+        elif source not in ("sysmon", "security") or not ntpath.isabs(path):
+            continue
+        elif (source, kind) in {("sysmon", 1), ("security", 4688)}:
             rule_id = "first-seen-process-path"
             title = "A process started from a new path"
-            entity = [path]
+            entity = [ntpath.normpath(path).casefold()]
         elif (source, kind) == ("sysmon", 3) and event["network"]["direction"] == "outbound":
             try:
                 address = ip_address(event["network"]["dst"]["ip"])
@@ -401,17 +430,24 @@ def baseline_observations(events):
                 continue
             rule_id = "first-seen-process-destination"
             title = "A process connected to a new destination"
-            entity = [path, str(address)]
+            entity = [ntpath.normpath(path).casefold(), str(address)]
         else:
             continue
         scope = json.dumps([rule_id, event["host"].casefold()], separators=(",", ":"))
         key = hashlib.sha256(json.dumps(entity, separators=(",", ":")).encode()).hexdigest()
         match = {"rule_id": rule_id, "title": title, "severity": "info", "attack": (),
                  "evidence_ids": (event["id"],), "plain_summary": title + " for this PC's learned baseline.",
-                 "what_to_do": "Review the recorded process and check whether this matches an expected change.",
+                 "what_to_do": "Open the evidence and check whether the observation matches an expected change.",
                  "falsepositives": ("New apps, updates, and ordinary network activity can cause this.",)}
         finding, = findings_from_matches([match], [event])
-        yield scope, key, finding
+        rare = None
+        if rule_id == "first-seen-process-destination":
+            rare, = findings_from_matches([{
+                **match, "rule_id": "rare-process-destination",
+                "title": "A process returned to a rarely observed destination",
+                "plain_summary": "This process and destination pair accounted for at most 5% of this PC's outbound observations during learning.",
+            }], [event])
+        yield scope, key, finding, rare
 
 
 def consume_detection_queue(store, rules, *, now=None, learning_hours=24):
@@ -434,6 +470,13 @@ def consume_detection_queue(store, rules, *, now=None, learning_hours=24):
         result = evaluate_rules(rules, projected)
         matches = [item for item in findings_from_matches(result["matches"], projected)
                    if identities.intersection(item["evidence_ids"])]
+        neighbors = [{"rule_id": "new-lan-neighbor", "title": "New device observed on the local network",
+                      "severity": "info", "attack": (), "evidence_ids": (event["id"],),
+                      "plain_summary": "The local neighbor cache recorded an address after the initial device baseline.",
+                      "what_to_do": "Check whether you recognize the device or recently changed networks.",
+                      "falsepositives": ("A randomized MAC address or a different network can cause this.",)}
+                     for event in projected if event["id"] in identities and event["source"] == "neighbor"]
+        matches.extend(findings_from_matches(neighbors, projected))
         if limited or result["timed_out_rule_ids"]:
             logging.getLogger(__name__).warning("Detection batch limits reached: context_limited=%s timed_out_rules=%d",
                                                 limited, len(result["timed_out_rule_ids"]))

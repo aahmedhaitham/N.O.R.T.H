@@ -20,23 +20,29 @@ from windows_sources import normalize_record
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 
-def records(name):
-    return [normalize_record(item["source"], item) if "event_id" in item else normalize(item)
-            for item in json.loads((FIXTURES / name).read_text(encoding="utf-8"))]
+def records(name, rule_id=None):
+    fixture = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+    if isinstance(fixture, dict):
+        fixture = fixture[rule_id] if rule_id else [item for group in fixture.values() for item in group]
+    return [normalize_record(item["source"], item) if "event_id" in item else normalize(item) for item in fixture]
 
 
 @pytest.mark.parametrize("rule", bundled_rules(), ids=lambda rule: rule.id)
 def test_bundled_rule_matches_positive_but_not_negative(rule):
-    positive = [event_contract(event) for event in records(rule.fixtures["positive"])]
-    negative = [event_contract(event) for event in records(rule.fixtures["negative"])]
+    positive = [event_contract(event) for event in records(rule.fixtures["positive"], rule.id)]
+    negative = [event_contract(event) for event in records(rule.fixtures["negative"], rule.id)]
     assert rule.evidence(positive)
     assert not rule.evidence(negative)
+
+
+def test_catalog_minimum():
+    assert len(bundled_rules()) >= 40
 
 
 def test_yaml_correlations_preserve_legacy_evidence_groups():
     normalized = [normalize(item) for item in demo_alerts(include_linux=True)]
     cases = {case["title"]: tuple(event["id"] for event in case["evidence"]) for case in build_cases(normalized)}
-    rules = [rule for rule in bundled_rules() if rule.correlation]
+    rules = [rule for rule in bundled_rules() if rule.correlation and rule.correlation.kind in ("threshold", "sequence")]
     events = [event_contract(item) for item in reversed(normalized)]
     assert len(rules) == 2
     for rule in rules:
@@ -117,7 +123,7 @@ def test_loopback_detections_return_only_stored_evidence_ids(tmp_path):
         assert client.get("/api/local/detections").status_code == 401
         assert client.post("/api/local-session", headers={"X-North-Local-Session": "start"}).status_code == 200
         result = client.get("/api/local/detections").json()
-        assert len(result["matches"]) == len(bundled_rules())
+        assert len(result["matches"]) == 7
         assert {identity for item in result["matches"] for identity in item["evidence_ids"]} == {
             event["id"] for event in [*events, *store.events()]
         }
@@ -249,3 +255,14 @@ def test_first_seen_baselines_learn_then_alert_once_and_stay_local(tmp_path):
     assert len(findings) == 2
     payload, _, _ = build_snapshot(store, {}, {}, "https://north.example")
     assert all(finding["id"].encode() not in payload for finding in findings)
+
+    ingest([record(i, 2.5, r"C:\Example\other.exe",
+                   destination="192.0.2.50" if i == 29 else "192.0.2.51",
+                   host="WIN-OTHER-SYNTHETIC") for i in range(10, 30)], 2.5)
+    rare = record(30, 3.5, r"C:\Example\other.exe", destination="192.0.2.50", host="WIN-OTHER-SYNTHETIC")
+    ingest([rare, record(31, 3.5, r"C:\Example\other.exe", destination="192.0.2.51",
+                        host="WIN-OTHER-SYNTHETIC")], 3.5)
+    ingest([record(32, 4, r"C:\Example\other.exe", destination="192.0.2.50",
+                   host="WIN-OTHER-SYNTHETIC")], 4)
+    frequency_findings = [item for item in store.detection_findings() if item["rule_id"] == "rare-process-destination"]
+    assert [item["evidence_ids"] for item in frequency_findings] == [[rare["id"]]]

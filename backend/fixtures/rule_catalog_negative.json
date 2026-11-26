@@ -1,0 +1,445 @@
+{
+  "winlogon-shell": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 501,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\winlogon\\shell_other"
+      }
+    }
+  ],
+  "winlogon-userinit": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 502,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\winlogon\\userinit_other"
+      }
+    }
+  ],
+  "ifeo-debugger": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 503,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\image file execution options\\example.exe\\debugger_other"
+      }
+    }
+  ],
+  "appinit-dlls": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 504,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\windows\\appinit_dlls_other"
+      }
+    }
+  ],
+  "lsa-security-packages": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 505,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\control\\lsa\\security packages_other"
+      }
+    }
+  ],
+  "lsa-auth-packages": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 506,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\control\\lsa\\authentication packages_other"
+      }
+    }
+  ],
+  "print-monitor-dll": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 507,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\print\\monitors\\example monitor\\driver_other"
+      }
+    }
+  ],
+  "boot-execute": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 508,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\session manager\\bootexecute_other"
+      }
+    }
+  ],
+  "office-addin": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 509,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\office\\word\\addins\\example\\loadbehavior_other"
+      }
+    }
+  ],
+  "screensaver-path": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 510,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\control panel\\desktop\\scrnsave.exe_other"
+      }
+    }
+  ],
+  "defender-realtime-setting": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 511,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\real-time protection\\disablerealtimemonitoring_other"
+      }
+    }
+  ],
+  "uac-policy-change": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 512,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\policies\\system\\enablelua_other"
+      }
+    }
+  ],
+  "system-information": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 513,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "account-enumeration": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 514,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "network-configuration": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 515,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "network-connections": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 516,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "network-name-lookup": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 517,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "process-inventory": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 518,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "domain-controller-discovery": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 519,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "terminal-shell": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 520,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "windows-script-host": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 521,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "console-script-host": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 522,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "mshta-observed": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 523,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "msiexec-observed": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 524,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "regsvr32-observed": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 525,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "rundll32-observed": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 526,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "installutil-observed": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 527,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "msbuild-observed": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 528,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "remote-desktop-client": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 529,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "ssh-client": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 530,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\different.exe"
+      }
+    }
+  ],
+  "certificate-utility": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 531,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\certutil.exe",
+        "CommandLine": "certutil.exe synthetic-certificate-query"
+      }
+    }
+  ],
+  "remote-interactive-logon-success": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4624,
+      "record_id": 532,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "LogonType": "2"
+      }
+    }
+  ],
+  "remote-interactive-logon-failure": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4625,
+      "record_id": 533,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "LogonType": "2"
+      }
+    }
+  ],
+  "periodic-dns-query": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 22,
+      "record_id": 900,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "Image": "C:\\Example\\client.exe",
+        "QueryName": "example.invalid"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 22,
+      "record_id": 909,
+      "timestamp": "2026-01-15T10:15:08Z",
+      "fields": {
+        "Image": "C:\\Example\\client.exe",
+        "QueryName": "example.invalid"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 22,
+      "record_id": 945,
+      "timestamp": "2026-01-15T10:15:43Z",
+      "fields": {
+        "Image": "C:\\Example\\client.exe",
+        "QueryName": "example.invalid"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 22,
+      "record_id": 991,
+      "timestamp": "2026-01-15T10:16:28Z",
+      "fields": {
+        "Image": "C:\\Example\\client.exe",
+        "QueryName": "example.invalid"
+      }
+    }
+  ]
+}

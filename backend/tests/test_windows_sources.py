@@ -5,9 +5,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from cloud_sync import build_snapshot
+from device_watch import record_snapshot
+from detection_rules import bundled_rules, consume_detection_queue
 from main import demo_alerts, make_app
 from north import Store
-from windows_sources import collect_source
+from windows_sources import collect_source, collect_tcp_sample
 
 
 def sample():
@@ -62,7 +64,37 @@ def test_invalid_windows_batch_does_not_advance_cursor(tmp_path, monkeypatch):
         collect_source(store, "security")
     assert store.local_windows_events() == []
     assert store.collection_offset("local-windows:security") == 0
-
     batch.update(state="access_denied", position=99, events=[])
     assert collect_source(store, "security") == ("access_denied", 0)
     assert store.collection_offset("local-windows:security") == 0
+
+
+def test_local_tcp_snapshot_and_neighbor_cite_stored_evidence(tmp_path, monkeypatch):
+    store = Store(path=tmp_path / "network.sqlite3")
+    store.initialize()
+    rows = [{"state": "Listen", "pid": 12, "process": "synthetic",
+             "local_address": "::", "local_port": 8123, "remote_address": "::", "remote_port": 0}]
+    def run(_args, **_kwargs):
+        return SimpleNamespace(stdout=json.dumps(
+            {"state": "ready", "rows": rows, "limited": False, "listeners_limited": False}))
+
+    monkeypatch.setattr("windows_sources.subprocess.run", run)
+    assert collect_tcp_sample(store) == ("collecting", 1)
+    assert collect_tcp_sample(store) == ("collecting", 1)
+    assert store.tcp_snapshots()[0]["rows"] == rows
+    local, = store.local_windows_events()
+    assert local["source"] == "windows_tcp"
+    assert local["raw"]["LocalPort"] == "8123"
+    record_snapshot(store, [{"address": "192.0.2.1", "interface": "Test LAN", "mac": "02:00:00:00:00:01"}],
+                    "2026-01-15T00:00:00.000000+00:00")
+    record_snapshot(store, [{"address": "192.0.2.2", "interface": "Test LAN", "mac": "02:00:00:00:00:02"}],
+                    "2026-01-15T00:01:00.000000+00:00")
+    assert consume_detection_queue(store, bundled_rules()) == 2
+    finding, = store.detection_findings()
+    assert finding["rule_id"] == "new-lan-neighbor"
+    evidence = store.local_evidence(finding["evidence_ids"][0])
+    assert evidence["raw"]["addresses"] == ["192.0.2.2"]
+    snapshot, _, pending = build_snapshot(store, {}, {}, "https://north.example")
+    assert pending == []
+    assert local["id"].encode() not in snapshot
+    assert evidence["id"].encode() not in snapshot

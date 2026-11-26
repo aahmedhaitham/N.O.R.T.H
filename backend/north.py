@@ -173,6 +173,17 @@ class Store:
                         scope TEXT NOT NULL, entity TEXT NOT NULL, PRIMARY KEY (scope, entity)
                     )
                     """)
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_destination_frequency (
+                        scope TEXT NOT NULL, entity TEXT NOT NULL, samples INTEGER NOT NULL,
+                        reported INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (scope, entity)
+                    )
+                    """)
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_tcp_snapshots (
+                        sampled_at TEXT PRIMARY KEY, payload TEXT NOT NULL
+                    )
+                    """)
             db.execute("""
                 CREATE TABLE IF NOT EXISTS collection_offsets (
                     source TEXT PRIMARY KEY, position BIGINT NOT NULL
@@ -261,27 +272,30 @@ class Store:
         events = [normalize(alert) for alert in alerts]
         return self._store_events(events, checkpoint, local=False, enqueue=enqueue)
 
-    def ingest_local_windows(self, events, *, checkpoint):
+    def ingest_local_windows(self, events, *, checkpoint=None):
         if self.url:
             raise ValueError("Expanded Windows events require the local SQLite store")
         return self._store_events(events, checkpoint, local=True, enqueue=True)
 
-    def _store_events(self, events, checkpoint, *, local, enqueue):
-        table = "local_windows_events" if local else "events"
-        marker = "%s" if self.url else "?"
-        values = ", ".join([marker] * 3)
+    def record_tcp_snapshot(self, sampled_at, sample):
+        if self.url:
+            raise ValueError("TCP telemetry requires local SQLite")
         with self.connect() as db:
-            inserted = 0
-            for event in events:
-                added = db.execute(
-                    f"INSERT INTO {table} (id, timestamp, payload) VALUES ({values}) "
-                    "ON CONFLICT (id) DO NOTHING",
-                    (event["id"], event["timestamp"], json.dumps(event)),
-                ).rowcount
-                inserted += added
-                if added and enqueue and not self.url:
-                    db.execute("INSERT OR IGNORE INTO local_detection_queue (event_id, local_windows) VALUES (?, ?)",
-                               (event["id"], int(local)))
+            db.execute("INSERT OR IGNORE INTO local_tcp_snapshots VALUES (?, ?)", (sampled_at, json.dumps(sample)))
+            db.execute("""DELETE FROM local_tcp_snapshots WHERE sampled_at NOT IN
+                          (SELECT sampled_at FROM local_tcp_snapshots ORDER BY sampled_at DESC LIMIT 96)""")
+
+    def tcp_snapshots(self):
+        if self.url:
+            raise ValueError("TCP telemetry requires local SQLite")
+        with self.connect() as db:
+            return [{"sampled_at": at, **json.loads(payload)} for at, payload in db.execute(
+                "SELECT sampled_at, payload FROM local_tcp_snapshots ORDER BY sampled_at DESC LIMIT 12")]
+
+    def _store_events(self, events, checkpoint, *, local, enqueue):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            inserted = self._insert_events(db, events, local=local, enqueue=enqueue)
             if checkpoint is not None:
                 db.execute(
                     f"INSERT INTO collection_offsets (source, position) VALUES ({marker}, {marker}) "
@@ -289,6 +303,22 @@ class Store:
                     checkpoint,
                 )
             return inserted
+
+    def _insert_events(self, db, events, *, local, enqueue):
+        table = "local_windows_events" if local else "events"
+        marker = "%s" if self.url else "?"
+        values = ", ".join([marker] * 3)
+        inserted = 0
+        for event in events:
+            added = db.execute(
+                f"INSERT INTO {table} (id, timestamp, payload) VALUES ({values}) ON CONFLICT (id) DO NOTHING",
+                (event["id"], event["timestamp"], json.dumps(event)),
+            ).rowcount
+            inserted += added
+            if added and enqueue and not self.url:
+                db.execute("INSERT OR IGNORE INTO local_detection_queue (event_id, local_windows) VALUES (?, ?)",
+                           (event["id"], int(local)))
+        return inserted
 
     def local_windows_events(self, *, limit=100):
         marker = "%s" if self.url else "?"
@@ -339,7 +369,7 @@ class Store:
         with self.connect() as db:
             if observations:
                 db.execute("BEGIN IMMEDIATE")
-                for scope, entity, finding in observations:
+                for scope, entity, finding, rare in observations:
                     if not db.execute("SELECT 1 FROM local_detection_queue WHERE event_id = ?",
                                       (finding["evidence_ids"][0],)).fetchone():
                         continue
@@ -350,8 +380,27 @@ class Store:
                                        (scope, entity)).rowcount
                     if added and now >= deadline and finding["first_seen"] >= deadline:
                         self._write_findings(db, [finding])
+                    if rare is not None:
+                        self._observe_destination_frequency(db, scope, entity, rare, now, deadline)
             self._write_findings(db, findings)
             db.executemany("DELETE FROM local_detection_queue WHERE event_id = ?", [(identity,) for identity in identities])
+
+    def _observe_destination_frequency(self, db, scope, entity, finding, now, deadline):
+        if now < deadline and finding["first_seen"] < deadline:
+            db.execute("""
+                INSERT INTO local_destination_frequency (scope, entity, samples) VALUES (?, ?, 1)
+                ON CONFLICT (scope, entity) DO UPDATE SET samples = samples + 1
+                """, (scope, entity))
+        elif now >= deadline and finding["first_seen"] >= deadline:
+            changed = db.execute("""
+                UPDATE local_destination_frequency SET reported = 1
+                WHERE scope = ? AND entity = ? AND reported = 0
+                  AND samples * 20 <= (
+                    SELECT sum(samples) FROM local_destination_frequency WHERE scope = ?
+                  )
+                """, (scope, entity, scope))
+            if changed.rowcount:
+                self._write_findings(db, [finding])
 
     def detection_findings(self, limit=100):
         if self.url:

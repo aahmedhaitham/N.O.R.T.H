@@ -147,6 +147,10 @@ def make_app(store=None):
             return evaluate_rules(bundled_rules(), recent_detection_events(store, limit))
 
         if not store.url:
+            @app.get("/api/local/tcp-history")
+            def local_tcp_history():
+                return {"snapshots": store.tcp_snapshots()}
+
             @app.post("/api/local/findings/evaluate")
             def evaluate_local_findings(limit: int = Query(100, ge=1, le=100)):
                 return scan_local_findings(store, limit)

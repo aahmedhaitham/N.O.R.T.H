@@ -4,9 +4,11 @@ import asyncio
 import hashlib
 import json
 import os
+import socket
 import sqlite3
 import subprocess
 from datetime import datetime, timezone
+from ipaddress import ip_address
 from pathlib import Path
 
 from starlette.concurrency import run_in_threadpool
@@ -34,7 +36,7 @@ FIELDS = frozenset((
     "ParentImage", "ParentCommandLine", "User", "TargetImage", "TargetObject", "QueryName", "SourceImage",
     "NewProcessName", "NewProcessId", "TargetUserName", "TargetDomainName", "TargetUserSid", "IpAddress", "IpPort",
     "TaskName", "ServiceName", "ImagePath", "ScriptBlockId", "Path", "Threat Name", "Detection ID",
-    "Initiated", "DestinationIp", "DestinationPort", "Protocol",
+    "Initiated", "DestinationIp", "DestinationPort", "Protocol", "LogonType",
 ))
 
 
@@ -93,16 +95,68 @@ def collect_source(store, source):
     return state, len(records)
 
 
+def collect_tcp_sample(store):
+    shell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    result = subprocess.run(
+        [str(shell), "-NoProfile", "-NonInteractive", "-File", str(collector_tool("Read-NorthTcp.ps1"))],
+        capture_output=True, check=True, encoding="utf-8", timeout=15,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    if len(result.stdout) > 400_000:
+        raise ValueError("TCP snapshot is too large")
+    sample = json.loads(result.stdout)
+    state = sample["state"]
+    if state != "ready":
+        if state in {"access_denied", "unavailable", "read_failed"}:
+            return ("not_installed" if state == "unavailable" else state), 0
+        raise ValueError("Unknown TCP source state")
+    if not isinstance(sample["rows"], list) or len(sample["rows"]) > 200:
+        raise ValueError("Invalid TCP snapshot")
+    rows = []
+    for item in sample["rows"]:
+        if item["state"] not in {"Listen", "Established", "SynSent", "SynReceived", "CloseWait"}:
+            raise ValueError("Invalid TCP state")
+        for key, limit in (("pid", 4294967295), ("local_port", 65535), ("remote_port", 65535)):
+            if type(item[key]) is not int or not 0 <= item[key] <= limit:
+                raise ValueError("Invalid TCP metadata")
+        if not isinstance(item["process"], str):
+            raise ValueError("Invalid TCP process")
+        rows.append({**{key: item[key] for key in ("state", "pid", "local_port", "remote_port")},
+                     "local_address": str(ip_address(item["local_address"])),
+                     "remote_address": str(ip_address(item["remote_address"])), "process": item["process"][:256]})
+    at = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    store.record_tcp_snapshot(at, {"rows": rows, "limited": sample.get("limited") is True})
+    if sample.get("listeners_limited", sample.get("limited")) is False:
+        host = socket.gethostname()
+        events = []
+        for row in rows:
+            if row["state"] != "Listen" or not row["local_port"]:
+                continue
+            identity = hashlib.sha256(json.dumps(["windows_tcp", host.casefold(), row["local_address"],
+                                                 row["local_port"]]).encode()).hexdigest()[:24]
+            events.append({"id": identity, "timestamp": at, "kind": 2001, "source": "windows_tcp",
+                           "host": host, "source_event_id": identity,
+                           "raw": {"LocalAddress": row["local_address"], "LocalPort": str(row["local_port"]),
+                                   "ProcessId": str(row["pid"]), "Image": row["process"], "Protocol": "tcp"}})
+        store.ingest_local_windows(events)
+    return ("collecting" if rows else "no_data"), len(rows)
+
+
 class WindowsSources:
     def __init__(self, store, enabled):
         self.store = store
         self.current = {source: {"state": "starting" if enabled else "disabled",
                                  "last_collected_at": None, "fix": FIXES[source]} for source in SOURCE_EVENTS}
+        self.current["tcp"] = {"state": "starting" if enabled else "disabled", "last_collected_at": None,
+                               "fix": "Check whether this account can read the local Windows TCP/IP provider."}
 
     async def watch(self, source):
         while True:
             try:
-                state, count = await run_in_threadpool(collect_source, self.store, source)
+                if source == "tcp":
+                    state, count = await run_in_threadpool(collect_tcp_sample, self.store)
+                else:
+                    state, count = await run_in_threadpool(collect_source, self.store, source)
             except (OSError, TypeError, ValueError, KeyError, AttributeError, sqlite3.Error, subprocess.SubprocessError):
                 state, count = "read_failed", 0
             previous = self.current[source]
@@ -111,9 +165,9 @@ class WindowsSources:
             self.current[source] = {**previous, "state": state,
                                     "last_collected_at": datetime.now(timezone.utc).isoformat() if count
                                     else previous["last_collected_at"]}
-            await asyncio.sleep(2 if count == 100 else 30)
+            await asyncio.sleep(60 if source == "tcp" else 2 if count == 100 else 30)
 
     async def run(self):
         async with asyncio.TaskGroup() as tasks:
-            for source in SOURCE_EVENTS:
+            for source in self.current:
                 tasks.create_task(self.watch(source))

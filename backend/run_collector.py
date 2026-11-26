@@ -66,7 +66,7 @@ async def self_test():
         if await run_in_threadpool(store.events):
             raise RuntimeError("Collector self-test expected an empty database")
     for script in ("Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "Read-NorthAdapterTraffic.ps1",
-                   "Read-NorthWindowsSource.ps1"):
+                   "Read-NorthWindowsSource.ps1", "Read-NorthTcp.ps1"):
         if not collector_tool(script).is_file():
             raise RuntimeError("Collector script is missing: " + script)
     print("NORTH Collector runtime checks passed.")

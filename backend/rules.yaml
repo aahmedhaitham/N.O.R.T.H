@@ -100,3 +100,413 @@
   what_to_do: Check the user and address against expected access and look for a later successful login.
   requires: ['journalctl:1001']
   tests: {positive: correlation_ssh_positive.json, negative: correlation_negative.json}
+
+- id: "winlogon-shell"
+  title: "Winlogon shell registry setting was written"
+  tags: ["attack.t1547.004"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\winlogon\\shell"}, "condition": "observed"}
+  falsepositives: ["Desktop customization can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "winlogon-userinit"
+  title: "Winlogon user initialization registry setting was written"
+  tags: ["attack.t1547.004"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\winlogon\\userinit"}, "condition": "observed"}
+  falsepositives: ["Managed Windows configuration can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "ifeo-debugger"
+  title: "Image execution debugger registry setting was written"
+  tags: ["attack.t1546.012"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|contains": "\\image file execution options\\", "TargetObject|endswith": "\\debugger"}, "condition": "observed"}
+  falsepositives: ["Application debugging can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "appinit-dlls"
+  title: "AppInit DLLs registry setting was written"
+  tags: ["attack.t1546.010"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\windows\\appinit_dlls"}, "condition": "observed"}
+  falsepositives: ["Legacy compatibility software can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "lsa-security-packages"
+  title: "LSA security packages registry setting was written"
+  tags: ["attack.t1547.005"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\control\\lsa\\security packages"}, "condition": "observed"}
+  falsepositives: ["Enterprise authentication provider installation can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "lsa-auth-packages"
+  title: "LSA authentication packages registry setting was written"
+  tags: ["attack.t1547.002"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\control\\lsa\\authentication packages"}, "condition": "observed"}
+  falsepositives: ["Enterprise authentication setup can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "print-monitor-dll"
+  title: "Print monitor driver registry setting was written"
+  tags: ["attack.t1547.010"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|contains": "\\print\\monitors\\", "TargetObject|endswith": "\\driver"}, "condition": "observed"}
+  falsepositives: ["Printer driver installation can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "boot-execute"
+  title: "BootExecute registry setting was written"
+  tags: ["attack.t1547.001"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\session manager\\bootexecute"}, "condition": "observed"}
+  falsepositives: ["Disk maintenance or operating-system repair can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "office-addin"
+  title: "Office add-in registration registry setting was written"
+  tags: ["attack.t1137.006"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|contains": "\\office\\word\\addins\\", "TargetObject|endswith": "\\loadbehavior"}, "condition": "observed"}
+  falsepositives: ["Authorized Office add-in installation can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "screensaver-path"
+  title: "Screen saver executable registry setting was written"
+  tags: ["attack.t1546.002"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\control panel\\desktop\\scrnsave.exe"}, "condition": "observed"}
+  falsepositives: ["Personalization or desktop policy can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "defender-realtime-setting"
+  title: "Defender real-time protection registry setting was written"
+  tags: ["attack.t1562.001"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\real-time protection\\disablerealtimemonitoring"}, "condition": "observed"}
+  falsepositives: ["Managed Defender policy or troubleshooting can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "uac-policy-change"
+  title: "User Account Control registry setting was written"
+  tags: ["attack.t1548.002"]
+  severity: "low"
+  logsource: {"source": "sysmon"}
+  detection: {"observed": {"EventID": 13, "TargetObject|endswith": "\\policies\\system\\enablelua"}, "condition": "observed"}
+  falsepositives: ["An approved Windows security policy change can cause this observation."]
+  plain_summary: "Sysmon recorded a write to the named registry setting. The event does not establish which value was applied."
+  what_to_do: "Compare the setting and initiating process with recently approved changes."
+  requires: ["sysmon:13"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "system-information"
+  title: "System information utility started"
+  tags: ["attack.t1082"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "systeminfo.exe"}, "condition": "observed"}
+  falsepositives: ["Support and hardware inventory can cause this observation."]
+  plain_summary: "Windows recorded a process start for systeminfo.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "account-enumeration"
+  title: "Account identity utility started"
+  tags: ["attack.t1087.001"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "whoami.exe"}, "condition": "observed"}
+  falsepositives: ["Troubleshooting account permissions can cause this observation."]
+  plain_summary: "Windows recorded a process start for whoami.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "network-configuration"
+  title: "Network configuration utility started"
+  tags: ["attack.t1016"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "ipconfig.exe"}, "condition": "observed"}
+  falsepositives: ["Routine network troubleshooting can cause this observation."]
+  plain_summary: "Windows recorded a process start for ipconfig.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "network-connections"
+  title: "Network connection inventory utility started"
+  tags: ["attack.t1049"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "netstat.exe"}, "condition": "observed"}
+  falsepositives: ["Troubleshooting local sockets can cause this observation."]
+  plain_summary: "Windows recorded a process start for netstat.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "network-name-lookup"
+  title: "NetBIOS name utility started"
+  tags: ["attack.t1018"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "nbtstat.exe"}, "condition": "observed"}
+  falsepositives: ["Legacy network troubleshooting can cause this observation."]
+  plain_summary: "Windows recorded a process start for nbtstat.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "process-inventory"
+  title: "Process inventory utility started"
+  tags: ["attack.t1057"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "tasklist.exe"}, "condition": "observed"}
+  falsepositives: ["Support and performance investigation can cause this observation."]
+  plain_summary: "Windows recorded a process start for tasklist.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "domain-controller-discovery"
+  title: "Domain diagnostics utility started"
+  tags: ["attack.t1018"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "nltest.exe"}, "condition": "observed"}
+  falsepositives: ["Domain maintenance can cause this observation."]
+  plain_summary: "Windows recorded a process start for nltest.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "terminal-shell"
+  title: "Windows command shell started"
+  tags: ["attack.t1059.003"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "cmd.exe"}, "condition": "observed"}
+  falsepositives: ["Interactive support and ordinary automation can cause this observation."]
+  plain_summary: "Windows recorded a process start for cmd.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "windows-script-host"
+  title: "Windows Script Host started"
+  tags: ["attack.t1059.005"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "wscript.exe"}, "condition": "observed"}
+  falsepositives: ["Enterprise logon scripts and automation can cause this observation."]
+  plain_summary: "Windows recorded a process start for wscript.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "console-script-host"
+  title: "Console Script Host started"
+  tags: ["attack.t1059.005"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "cscript.exe"}, "condition": "observed"}
+  falsepositives: ["Routine Windows scripting can cause this observation."]
+  plain_summary: "Windows recorded a process start for cscript.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "mshta-observed"
+  title: "HTML application host started"
+  tags: ["attack.t1218.005"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "mshta.exe"}, "condition": "observed"}
+  falsepositives: ["Legacy HTML application launch can cause this observation."]
+  plain_summary: "Windows recorded a process start for mshta.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "msiexec-observed"
+  title: "Windows Installer process started"
+  tags: ["attack.t1218.007"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "msiexec.exe"}, "condition": "observed"}
+  falsepositives: ["Software installation and updates can cause this observation."]
+  plain_summary: "Windows recorded a process start for msiexec.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "regsvr32-observed"
+  title: "Component registration utility started"
+  tags: ["attack.t1218.010"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "regsvr32.exe"}, "condition": "observed"}
+  falsepositives: ["Component installation can cause this observation."]
+  plain_summary: "Windows recorded a process start for regsvr32.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "rundll32-observed"
+  title: "Windows DLL launcher started"
+  tags: ["attack.t1218.011"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "rundll32.exe"}, "condition": "observed"}
+  falsepositives: ["Supported Windows and application functions can cause this observation."]
+  plain_summary: "Windows recorded a process start for rundll32.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "installutil-observed"
+  title: "Managed installer utility started"
+  tags: ["attack.t1218.004"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "installutil.exe"}, "condition": "observed"}
+  falsepositives: ["Developer or enterprise deployment can cause this observation."]
+  plain_summary: "Windows recorded a process start for installutil.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "msbuild-observed"
+  title: "Build utility started"
+  tags: ["attack.t1127.001"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "msbuild.exe"}, "condition": "observed"}
+  falsepositives: ["Compiling software can cause this observation."]
+  plain_summary: "Windows recorded a process start for msbuild.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "remote-desktop-client"
+  title: "Remote Desktop client started"
+  tags: ["attack.t1021.001"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "mstsc.exe"}, "condition": "observed"}
+  falsepositives: ["Authorized remote administration can cause this observation."]
+  plain_summary: "Windows recorded a process start for mstsc.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "ssh-client"
+  title: "SSH client started"
+  tags: ["attack.t1021.004"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "ssh.exe"}, "condition": "observed"}
+  falsepositives: ["Authorized management or development can cause this observation."]
+  plain_summary: "Windows recorded a process start for ssh.exe. The executable name alone does not establish intent."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "certificate-utility"
+  title: "Certificate utility recorded a decode-related argument"
+  tags: ["attack.t1140"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "certutil.exe", "CommandLine|contains": "decode"}, "condition": "observed"}
+  falsepositives: ["Certificate enrollment and diagnostics can cause this observation."]
+  plain_summary: "Windows recorded a certutil process with decode-related text in its command line."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "remote-interactive-logon-success"
+  title: "Remote-interactive Windows sign-in succeeded"
+  tags: ["attack.t1021.001"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4624, "LogonType": "10"}, "condition": "observed"}
+  falsepositives: ["Ordinary Remote Desktop access can cause this observation."]
+  plain_summary: "Windows recorded a remote-interactive sign-in that succeeded."
+  what_to_do: "Check the account, time and source against expected access."
+  requires: ["security:4624"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "remote-interactive-logon-failure"
+  title: "Remote-interactive Windows sign-in failed"
+  tags: ["attack.t1110"]
+  severity: "info"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4625, "LogonType": "10"}, "condition": "observed"}
+  falsepositives: ["Ordinary Remote Desktop access can cause this observation."]
+  plain_summary: "Windows recorded a remote-interactive sign-in that failed."
+  what_to_do: "Check the account, time and source against expected access."
+  requires: ["security:4625"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+- id: periodic-dns-query
+  title: A process queried the same DNS name at regular intervals
+  tags: [attack.t1071.004]
+  severity: low
+  logsource: {source: sysmon}
+  detection:
+    query: {EventID: 22}
+    condition: query
+  correlation: {type: interval, group_by: [Host, ProcessName, QueryName], window_seconds: 300, count: 4, jitter_seconds: 2}
+  falsepositives: [Update checks and ordinary health polling often use regular intervals.]
+  plain_summary: Sysmon recorded repeated DNS queries by the same named process at similar intervals.
+  what_to_do: Compare the process and domain with expected software and corroborate suspicious patterns with other events.
+  requires: ['sysmon:22']
+  tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}

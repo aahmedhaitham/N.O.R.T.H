@@ -16,7 +16,7 @@ $files = @(
 if ($Platform -eq 'Windows') {
     $files += @('Start NORTH Collector.cmd', 'tools/Start-NorthCollector.ps1', 'tools/Export-NorthNeighbors.ps1',
         'tools/Read-NorthAdapterTraffic.ps1', 'tools/Set-NorthCollectorStartup.ps1',
-        'tools/Read-NorthSysmon.ps1', 'tools/SysmonFormat.ps1', 'tools/Read-NorthWindowsSource.ps1')
+        'tools/Read-NorthSysmon.ps1', 'tools/SysmonFormat.ps1', 'tools/Read-NorthWindowsSource.ps1', 'tools/Read-NorthTcp.ps1')
 } else {
     $files += 'tools/Start-NorthCollectorLinux.sh'
 }

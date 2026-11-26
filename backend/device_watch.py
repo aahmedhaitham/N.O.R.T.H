@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+import socket
 from datetime import datetime, timezone
 from ipaddress import ip_address
 
@@ -61,6 +62,13 @@ def record_snapshot(store, records, observed_at):
                 "WHERE excluded.last_seen >= neighbor_devices.last_seen",
                 (device_id, observed_at, observed_at, json.dumps(payload), seeded_baseline),
             )
+            if not store.url and not seeded_baseline:
+                row = db.execute("SELECT baseline, first_seen FROM neighbor_devices WHERE id = ?", (device_id,)).fetchone()
+                if row and not row[0] and row[1] == observed_at:
+                    identity = hashlib.sha256(("north-neighbor|" + device_id).encode()).hexdigest()[:24]
+                    store._insert_events(db, [{"id": identity, "timestamp": observed_at, "kind": 2002,
+                                              "source": "neighbor", "source_event_id": device_id,
+                                              "host": socket.gethostname(), "raw": payload}], local=True, enqueue=True)
 
 
 def findings(store):

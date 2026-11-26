@@ -24,6 +24,8 @@ _CLASSIFICATIONS = {
     1119: ("antimalware", "remediation_failed"),
     5001: ("antimalware", "disable"),
     5007: ("antimalware", "configuration_change"),
+    2001: ("network", "listen"),
+    2002: ("network", "neighbor_first_seen"),
     1001: ("authentication", "failure"),
     1002: ("privilege", "sudo"),
 }
@@ -98,6 +100,7 @@ def event_contract(event):
             "parent_path": parent_path,
             "parent_cmdline": _text(fields.get("parentCommandLine")),
             "target_path": _text(fields.get("targetImage")),
+            "loaded_image": _text(fields.get("imageLoaded")),
             "user": username,
         },
         "user": {
@@ -112,9 +115,16 @@ def event_contract(event):
                     "port": _integer(fields.get("sourcePort") or fields.get("ipPort"), 65535)},
             "dst": {"ip": _text(fields.get("destinationIp") or event.get("destination"), 64),
                     "port": _integer(fields.get("destinationPort"), 65535)},
+            **({"local": {"ip": _text(fields.get("localAddress"), 64),
+                           "port": _integer(fields.get("localPort"), 65535)}} if kind == 2001 else {}),
         },
         "file": {"path": _text(event.get("target")) if kind == 11 else ""},
         "registry": {"target": _text(fields.get("targetObject"))},
         "dns": {"query": _text(fields.get("queryName"), 253)},
-        "raw": {"event_type": kind, "channel": _text(system.get("channel"), 128)},
+        **({"neighbor": {"interface": _text(fields.get("interface"), 256),
+                         "mac": _text(fields.get("mac"), 32),
+                         "addresses": [_text(address, 64) for address in fields.get("addresses", [])[:12]]}}
+           if kind == 2002 else {}),
+        "raw": {"event_type": kind, "channel": _text(system.get("channel"), 128),
+                **({"logon_type": _text(fields.get("logonType"), 12)} if fields.get("logonType") else {})},
     }
