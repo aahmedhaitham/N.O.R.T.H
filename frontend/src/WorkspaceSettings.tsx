@@ -1,3 +1,4 @@
+import { WorkspaceSettingsMessages as strings, formatMessage } from './messages';
 import { useEffect, useState } from 'react';
 import { TimezoneControl } from './TimeDisplay';
 import { DisplayModeControl } from './DisplayMode';
@@ -21,7 +22,7 @@ export function WorkspaceSettings({ back, openCollectors }: { back: () => void; 
       if (!response.ok) throw new Error();
       const value: Settings = await response.json();
       if (!controller.signal.aborted) setSettings(value);
-    }).catch(() => { if (!controller.signal.aborted) setError('Workspace settings could not load. Reopen this page to retry.'); });
+    }).catch(() => { if (!controller.signal.aborted) setError(strings.workspaceSettingsCouldNotLoadReopenThis); });
     return () => controller.abort();
   }, []);
 
@@ -37,36 +38,36 @@ export function WorkspaceSettings({ back, openCollectors }: { back: () => void; 
       setSettings((current) => current && { ...current, ai_enabled: aiEnabled });
       setSaved(true);
     } catch {
-      setError('NORTH could not save the AI setting. Try again.');
+      setError(strings.northCouldNotSaveTheAiSetting);
     } finally { setBusy(false); }
   }
 
   return <main className="collector-settings collector-workspace">
-    <header className="collector-heading dashboard-heading"><h1>Workspace settings</h1><button type="button" onClick={back}>Back to workspace</button></header>
+    <header className="collector-heading dashboard-heading"><h1>{strings.workspaceSettings}</h1><button type="button" onClick={back}>{strings.backToWorkspace}</button></header>
     {error && <p role="alert">{error}</p>}
     <section className="panel"><DisplayModeControl /></section>
-    <section className="panel"><h2>Timezone</h2><TimezoneControl /></section>
-    {!settings && !error && <p role="status">Loading workspace settings…</p>}
+    <section className="panel"><h2>{strings.timezone}</h2><TimezoneControl /></section>
+    {!settings && !error && <p role="status">{strings.loadingWorkspaceSettings}</p>}
     {settings && <>
       <section className="panel">
-        <h2>Cloud AI briefs</h2>
+        <h2>{strings.cloudAiBriefs}</h2>
         <label><input type="checkbox" checked={settings.ai_enabled} disabled={busy}
-          onChange={(event) => void update(event.target.checked)} /> Allow cloud AI to prioritize evidence briefs</label>
-        <p>Cloud AI receives generic observation descriptions. The workspace adds event citations and details after it ranks them.</p>
-        <p>{settings.ai_available ? `Up to ${settings.ai_hourly_limit} requests per hour in this workspace.` :
-          'This server has no cloud AI provider configured.'} Evidence briefs remain available with AI off.</p>
-        {saved && <p role="status">AI preference saved.</p>}
+          onChange={(event) => void update(event.target.checked)} />{strings.allowCloudAiToPrioritizeEvidenceBriefs}</label>
+        <p>{strings.cloudAiReceivesGenericObservationDescriptionsThe}</p>
+        <p>{settings.ai_available ? formatMessage(strings.upTo0RequestsPerHourIn, settings.ai_hourly_limit) :
+          strings.thisServerHasNoCloudAiProvider}{strings.evidenceBriefsRemainAvailableWithAiOff}</p>
+        {saved && <p role="status">{strings.aiPreferenceSaved}</p>}
       </section>
       <section className="panel">
-        <h2>Data retention</h2>
-        <p>{settings.retention_days ? `The server schedules events, investigations, and reports for deletion after ${settings.retention_days} days.` :
-          'This workspace has no automatic expiry configured for events, investigations, or reports.'}</p>
-        <p>Collector settings and the latest network inventory have a separate lifecycle.</p>
+        <h2>{strings.dataRetention}</h2>
+        <p>{settings.retention_days ? formatMessage(strings.theServerSchedulesEventsInvestigationsAndReports, settings.retention_days) :
+          strings.thisWorkspaceHasNoAutomaticExpiryConfigured}</p>
+        <p>{strings.collectorSettingsAndTheLatestNetworkInventory}</p>
       </section>
       <section className="panel">
-        <h2>Collector access</h2>
-        <p>Paired collectors can upload up to {settings.upload_hourly_limit} snapshots per hour across this workspace. Revoke a pairing to stop future uploads from that collector.</p>
-        <button onClick={openCollectors}>Manage collectors</button>
+        <h2>{strings.collectorAccess}</h2>
+        <p>{strings.pairedCollectorsCanUploadUpTo}{settings.upload_hourly_limit}{strings.snapshotsPerHourAcrossThisWorkspaceRevoke}</p>
+        <button onClick={openCollectors}>{strings.manageCollectors}</button>
       </section>
     </>}
   </main>;

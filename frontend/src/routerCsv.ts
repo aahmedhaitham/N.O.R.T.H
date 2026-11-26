@@ -1,3 +1,4 @@
+import { clientMessages } from './messages';
 const aliases = {
   address: ['ip', 'ipaddress', 'ipv4', 'ipv4address', 'address'],
   mac: ['mac', 'macaddress', 'lladdr', 'hardwareaddress'],
@@ -24,19 +25,19 @@ function parseRows(text: string, delimiter: string) {
       closed = false;
       if (next !== delimiter) {
         if (row.some(Boolean)) rows.push(row);
-        if (rows.length > 5001) throw new Error('Choose a file with at most 5,000 device records.');
+        if (rows.length > 5001) throw new Error(clientMessages.chooseAFileWithAtMostDevice);
         row = [];
         if (next === '\r' && text[offset + 1] === '\n') offset++;
       }
     } else if (next === '"' && !field && !closed) {
       quoted = true;
     } else if (closed || next === '"') {
-      throw new Error('The file contains an invalid quoted field.');
+      throw new Error(clientMessages.theFileContainsAnInvalidQuotedField);
     } else {
       field += next;
     }
   }
-  if (quoted) throw new Error('The file contains an unclosed quoted field.');
+  if (quoted) throw new Error(clientMessages.theFileContainsAnUnclosedQuotedField);
   row.push(field.trim());
   if (row.some(Boolean)) rows.push(row);
   return rows;
@@ -50,6 +51,6 @@ export function readRouterCsv(text: string) {
   const indices = Object.entries(aliases).map(([field, names]) => [
     field, columns.findIndex((column) => (names as readonly string[]).includes(column)),
   ] as const);
-  if (indices[0][1] < 0) throw new Error('The device export needs an IP Address column.');
+  if (indices[0][1] < 0) throw new Error(clientMessages.theDeviceExportNeedsAnIpAddress);
   return rows.map((row) => Object.fromEntries(indices.map(([field, index]) => [field, row[index] ?? ''])));
 }

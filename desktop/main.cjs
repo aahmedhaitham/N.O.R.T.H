@@ -11,6 +11,7 @@ const { deviceHistory } = require('./device-history.cjs');
 const { listenerHistory } = require('./listener-history.cjs');
 const { makePacketCapture } = require('./packet-capture.cjs');
 const { makeCollectorInstall } = require('./collector-install.cjs');
+const strings = require('./messages.js');
 
 let activeWindow;
 let setupWindow;
@@ -31,9 +32,9 @@ const collectorInstall = makeCollectorInstall({
   async confirm() {
     if (!activeWindow || activeWindow.isDestroyed()) return false;
     const { response } = await dialog.showMessageBox(activeWindow, {
-      type: 'question', title: 'Set up NORTH Collector', message: 'Install the collector on this computer?',
-      detail: 'NORTH will prepare its Python environment and start the collector in the background at Windows sign-in. Only install it on a computer you manage.',
-      buttons: ['Cancel', 'Set up collector'], defaultId: 0, cancelId: 0,
+      type: 'question', title: strings.collectorTitle, message: strings.collectorQuestion,
+      detail: strings.collectorDetail,
+      buttons: [strings.cancel, strings.setupCollector], defaultId: 0, cancelId: 0,
     });
     return response === 1;
   },
@@ -121,7 +122,7 @@ function show(window) {
 
 function configureWindow() {
   const window = new BrowserWindow({
-    title: 'NORTH — Connect workspace', icon, width: 560, height: 410, minWidth: 400, minHeight: 350,
+    title: strings.setupWindow, icon, width: 560, height: 410, minWidth: 400, minHeight: 350,
     backgroundColor: '#0c1018',
     webPreferences: {
       sandbox: true, contextIsolation: true, nodeIntegration: false,
@@ -134,7 +135,7 @@ function configureWindow() {
   window.on('closed', () => { if (setupWindow === window) setupWindow = undefined; });
   show(window);
   void window.loadFile(path.join(__dirname, 'setup.html')).catch(() => {
-    dialog.showErrorBox('NORTH', 'The workspace setup screen could not open.');
+    dialog.showErrorBox('NORTH', strings.setupFailed);
   });
 }
 
@@ -204,14 +205,14 @@ ipcMain.handle('north:connect', async (event, value) => {
   const expected = pathToFileURL(path.join(__dirname, 'setup.html')).href;
   if (hostedOrigin || !setupWindow || event.sender !== setupWindow.webContents ||
       event.senderFrame !== event.sender.mainFrame || event.senderFrame?.url !== expected) {
-    return 'Workspace setup is unavailable.';
+    return strings.setupUnavailable;
   }
   try {
     const nextOrigin = parseWorkspaceConnection(value);
     await openWorkspace(nextOrigin, true);
     return null;
   } catch (error) {
-    return error instanceof Error ? error.message : 'Could not open the workspace.';
+    return error instanceof Error ? error.message : strings.openFailed;
   }
 });
 
@@ -235,17 +236,17 @@ if (!app.requestSingleInstanceLock()) {
     }
     session.fromPartition(cloudPartition).protocol.handle('north', (request) => handleLocalRequest(request, cloudProxy, connectedOrigin));
     Menu.setApplicationMenu(Menu.buildFromTemplate([
-      { label: 'Workspace', submenu: [
+      { label: strings.workspace, submenu: [
         ...(startup.cloudOnly ? [] : [
-          { label: 'This computer', click: () => void openWorkspace().catch(showStartupError) },
-          { label: 'Open cloud workspace', click: openSavedWorkspace },
-          { label: 'Connect to a different workspace…', click: configureWindow },
+          { label: strings.thisComputer, click: () => void openWorkspace().catch(showStartupError) },
+          { label: strings.openCloudWorkspace, click: openSavedWorkspace },
+          { label: strings.changeWorkspace, click: configureWindow },
         ]),
-        { label: 'Reload', accelerator: 'Ctrl+R', click: () => activeWindow?.reload() },
+        { label: strings.reload, accelerator: 'Ctrl+R', click: () => activeWindow?.reload() },
         { role: 'quit' },
       ] },
-      { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-      { label: 'View', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
+      { label: strings.edit, submenu: [{ role: 'undo' }, { role: 'redo' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+      { label: strings.view, submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
     ]));
     await openWorkspace(hostedOrigin);
     startupComplete = true;
@@ -258,5 +259,5 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 function showStartupError() {
-  dialog.showErrorBox('NORTH', 'The dashboard could not open.');
+  dialog.showErrorBox('NORTH', strings.dashboardFailed);
 }

@@ -1,3 +1,5 @@
+import { feedbackMessages } from './messages';
+import { CaseReviewMessages as strings } from './messages';
 import { TimeDisplay } from './TimeDisplay';
 import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
@@ -18,7 +20,7 @@ export function CaseReview({ endpoint }: { endpoint: string }) {
       const value: Review = await response.json();
       if (!controller.signal.aborted) { setReview(value); setOriginal(value); }
     }).catch(() => {
-      if (!controller.signal.aborted) { setError(true); setMessage('Case review unavailable.'); }
+      if (!controller.signal.aborted) { setError(true); setMessage(strings.caseReviewUnavailable); }
     });
     return () => controller.abort();
   }, [endpoint, revision]);
@@ -32,33 +34,33 @@ export function CaseReview({ endpoint }: { endpoint: string }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value),
       });
       if (!response.ok) {
-        throw new Error(response.status === 409 ? 'This review changed in another session. Copy any unsaved notes before reloading.' : 'Could not save case review.');
+        throw new Error(response.status === 409 ? feedbackMessages.thisReviewChangedInAnotherSessionCopy : feedbackMessages.couldNotSaveCaseReview);
       }
       const saved: Review = await response.json();
       setReview(saved);
       setOriginal(saved);
-      setMessage('Review saved.');
+      setMessage(strings.reviewSaved);
     } catch (exception) {
       setError(true);
-      setMessage(exception instanceof Error ? exception.message : 'Could not save case review.');
+      setMessage(exception instanceof Error ? exception.message : strings.couldNotSaveCaseReview);
     } finally { setBusy(false); }
   }
 
   const changed = review && (review.status !== original?.status || review.notes !== original?.notes);
   return <section className="panel">
-    <h2>Case review</h2>
-    {!review && !error && <p role="status">Loading review…</p>}
+    <h2>{strings.caseReview}</h2>
+    {!review && !error && <p role="status">{strings.loadingReview}</p>}
     {review && <form className="case-review" onSubmit={(event) => { event.preventDefault(); void save(review); }}>
-      <label>Status <SelectControl label="Case status" disabled={busy} value={review.status}
+      <label>{strings.status}<SelectControl label={strings.caseStatus} disabled={busy} value={review.status}
         onChange={(value) => setReview({ ...review, status: value as Review['status'] })}
-        options={[{ value: 'open', label: 'Open' }, { value: 'investigating', label: 'Investigating' },
-          { value: 'resolved', label: 'Resolved' }]} /></label>
-      <label>Analyst notes <textarea disabled={busy} maxLength={2000} rows={4} value={review.notes}
+        options={[{ value: 'open', label: strings.open }, { value: 'investigating', label: strings.investigating },
+          { value: 'resolved', label: strings.resolved }]} /></label>
+      <label>{strings.analystNotes}<textarea disabled={busy} maxLength={2000} rows={4} value={review.notes}
         onChange={(event) => setReview({ ...review, notes: event.target.value })} /></label>
-      <div className="case-links"><button type="submit" disabled={busy || !changed}>Save review</button>
-        {review.updated_at && <small>Saved <TimeDisplay value={review.updated_at} /></small>}</div>
+      <div className="case-links"><button type="submit" disabled={busy || !changed}>{strings.saveReview}</button>
+        {review.updated_at && <small>{strings.saved}<TimeDisplay value={review.updated_at} /></small>}</div>
     </form>}
     {message && <p role={error ? 'alert' : 'status'}>{message}</p>}
-    {error && <button onClick={() => { setMessage(''); setError(false); setReview(null); setRevision((value) => value + 1); }}>Reload review</button>}
+    {error && <button onClick={() => { setMessage(''); setError(false); setReview(null); setRevision((value) => value + 1); }}>{strings.reloadReview}</button>}
   </section>;
 }

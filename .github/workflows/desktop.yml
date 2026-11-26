@@ -48,32 +48,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Portable package build failed.' }
           npm --prefix desktop run package:installer
           if ($LASTEXITCODE -ne 0) { throw 'Windows installer build failed.' }
-      - name: Smoke test first launch from the installer
+      - name: Smoke test Simple and Analyst modes from the installer
         shell: pwsh
         run: |
           $installDir = Join-Path $env:RUNNER_TEMP 'north-install-smoke'
           $installer = (Resolve-Path 'desktop/dist/NORTH-Setup-Windows-x64.exe').Path
-          $setup = Start-Process -FilePath $installer -ArgumentList "/S /D=$installDir" -Wait -PassThru
+          $setup = Start-Process -FilePath $installer -ArgumentList "/S /D=$installDir" -WindowStyle Hidden -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "Installer failed with exit code $($setup.ExitCode)." }
           $collector = Join-Path $installDir 'resources/north-collector/backend/NORTH-Collector.exe'
           if (!(Test-Path -LiteralPath $collector)) { throw 'Installer did not include the collector runtime.' }
           & $collector --self-test
           if ($LASTEXITCODE -ne 0) { throw 'Installed collector runtime check failed.' }
-          $app = Start-Process -FilePath (Join-Path $installDir 'NORTH.exe') -PassThru
-          try {
-            $deadline = [DateTime]::UtcNow.AddSeconds(45)
-            do {
-              Start-Sleep -Milliseconds 500
-              $app.Refresh()
-              if ($app.HasExited) { throw "NORTH closed before opening its dashboard (exit $($app.ExitCode))." }
-              if ($app.MainWindowTitle -eq 'NORTH | This computer') { break }
-            } while ([DateTime]::UtcNow -lt $deadline)
-            if ($app.MainWindowTitle -ne 'NORTH | This computer') {
-              throw "Expected the local dashboard. Last window title was '$($app.MainWindowTitle)'."
-            }
-          } finally {
-            if (!$app.HasExited) { Stop-Process -Id $app.Id }
-          }
+          node tools/Test-NorthWindowsModes.mjs (Join-Path $installDir 'NORTH.exe')
+          if ($LASTEXITCODE -ne 0) { throw 'Windows mode walkthrough failed.' }
       - name: Write download checksums
         shell: pwsh
         run: |

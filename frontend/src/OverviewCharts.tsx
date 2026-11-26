@@ -1,3 +1,4 @@
+import { OverviewChartsMessages as strings, formatMessage } from './messages';
 import { useEffect, useState } from 'react';
 import { ChartBar } from './InterfaceMotion';
 import { investigationSeverity } from './investigationSeverity';
@@ -33,7 +34,7 @@ function Ranked({ title, items, open }: { title: string; items: Bucket[]; open: 
     {items.length ? <ul>{items.map((item) => <li key={item.label}><button type="button" onClick={() => open(item)}>
       <span>{item.label}</span><strong>{item.events.length}</strong>
       <span className="analytics-track" style={{ '--ratio': item.events.length / items[0].events.length } as React.CSSProperties} aria-hidden="true" />
-    </button></li>)}</ul> : <p className="reference">No matching fields in this event sample.</p>}
+    </button></li>)}</ul> : <p className="reference">{strings.noMatchingFieldsInThisEventSample}</p>}
   </section>;
 }
 
@@ -61,10 +62,10 @@ export function OverviewCharts({ endpoint, source, demo, cases, open }: {
     return () => request.abort();
   }, [endpoint, retry, source]);
 
-  if (error) return <div role="status">Chart data could not load. <button type="button" onClick={() => { setError(false); setRetry(retry + 1); }}>Retry</button></div>;
-  if (!events) return <p role="status"><span className="loading-skeleton" /> Loading chart data…</p>;
+  if (error) return <div role="status">{strings.chartDataCouldNotLoad}<button type="button" onClick={() => { setError(false); setRetry(retry + 1); }}>{strings.retry}</button></div>;
+  if (!events) return <p role="status"><span className="loading-skeleton" />{strings.loadingChartData}</p>;
   const sample = events.filter((event) => Number.isFinite(Date.parse(event.timestamp)));
-  if (!sample.length) return <p className="reference">Charts appear once a collector reports timestamped events.</p>;
+  if (!sample.length) return <p className="reference">{strings.chartsAppearOnceACollectorReportsTimestamped}</p>;
 
   const times = sample.map((event) => Date.parse(event.timestamp));
   const start = Math.floor(Math.min(...times) / hour) * hour;
@@ -102,61 +103,61 @@ export function OverviewCharts({ endpoint, source, demo, cases, open }: {
   const heatMax = Math.max(1, ...[...heat.values()].map((items) => items.length));
 
   return <div className="analytics">
-    <p className="reference">Latest {sample.length} {demo ? 'available' : 'recorded'} events · Up to {limit} per view</p>
+    <p className="reference">{strings.latest}{sample.length} {demo ? strings.available : strings.recorded}{strings.eventsUpTo}{limit}{strings.perView}</p>
     <section className="analytics-chart">
-      <h3>Events over time</h3>
-      <div className="analytics-timeline" aria-label="Events over time">
+      <h3>{strings.eventsOverTime}</h3>
+      <div className="analytics-timeline" aria-label={strings.eventsOverTime}>
         {timeline.map((item, index) => <button type="button" key={item.label} disabled={!item.events.length}
           data-brushed={index >= brush[0] && index <= brush[1]}
-          title={item.label + ' · ' + item.events.length + ' events'} aria-label={item.label + ', ' + item.events.length + ' events'}
+          title={formatMessage(strings.events, item.label, item.events.length)} aria-label={formatMessage(strings.events2, item.label, item.events.length)}
           onClick={() => open(item)}><ChartBar ratio={item.events.length / maxBucket} /></button>)}
       </div>
       <div className="analytics-brush">
-        <label>From <input type="range" min={0} max={11} value={brush[0]} aria-valuetext={timeline[brush[0]].label}
+        <label>{strings.from}<input type="range" min={0} max={11} value={brush[0]} aria-valuetext={timeline[brush[0]].label}
           onChange={(event) => { const value = Number(event.target.value); setBrush([value, Math.max(value, brush[1])]); }} /></label>
-        <label>Through <input type="range" min={0} max={11} value={brush[1]} aria-valuetext={timeline[brush[1]].label}
+        <label>{strings.through}<input type="range" min={0} max={11} value={brush[1]} aria-valuetext={timeline[brush[1]].label}
           onChange={(event) => { const value = Number(event.target.value); setBrush([Math.min(brush[0], value), value]); }} /></label>
         <button type="button" disabled={!brushEvents.length} onClick={() => open({
           label: timeline[brush[0]].label + ' – ' + timeline[brush[1]].label, events: brushEvents,
-        })}>Open range in IRIS</button>
+        })}>{strings.openRangeInIris}</button>
       </div>
     </section>
     <div className="analytics-columns">
-      <Ranked title="Top processes" items={top((event) => event.process)} open={open} />
-      <Ranked title="Top destinations" items={top((event) => event.destination)} open={open} />
+      <Ranked title={strings.topProcesses} items={top((event) => event.process)} open={open} />
+      <Ranked title={strings.topDestinations} items={top((event) => event.destination)} open={open} />
       <section className="analytics-chart">
-        <h3>Evidence severity</h3>
-        <p className="reference">Events outside investigations are shown as informational.</p>
+        <h3>{strings.evidenceSeverity}</h3>
+        <p className="reference">{strings.eventsOutsideInvestigationsAreShownAsInformational}</p>
         <div className="analytics-severity">
-          <svg className="analytics-donut" viewBox="0 0 72 72" role="group" aria-label="Severity segments">
+          <svg className="analytics-donut" viewBox="0 0 72 72" role="group" aria-label={strings.severitySegments}>
             {arcs.map((item) => {
-              const select = () => open({ label: item.label + ' severity', events: item.events });
+              const select = () => open({ label: formatMessage(strings.severity, item.label), events: item.events });
               return <circle key={item.label} role="button" tabIndex={0}
-                aria-label={item.label + ', ' + item.events.length + ' events'} cx={36} cy={36} r={27}
+                aria-label={formatMessage(strings.events2, item.label, item.events.length)} cx={36} cy={36} r={27}
                 pathLength={100} strokeDasharray={item.length + ' ' + (100 - item.length)}
                 strokeDashoffset={-item.offset} stroke={'var(--severity-' + item.label + ')'} onClick={select}
                 onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } }}>
-                <title>{item.label + ' · ' + item.events.length + ' events'}</title>
+                <title>{formatMessage(strings.events, item.label, item.events.length)}</title>
               </circle>;
             })}
           </svg>
           <ul>{levels.map((label) => {
             const events = severity.get(label) ?? [];
             return <li key={label}><button type="button" className="severity-label" data-severity={label}
-              disabled={!events.length} onClick={() => open({ label: label + ' severity', events })}>{label} <strong>{events.length}</strong></button></li>;
+              disabled={!events.length} onClick={() => open({ label: formatMessage(strings.severity, label), events })}>{label} <strong>{events.length}</strong></button></li>;
           })}</ul>
         </div>
       </section>
     </div>
     <section className="analytics-chart">
-      <h3>Activity by day and hour <small>UTC</small></h3>
-      <div className="analytics-heat" role="group" aria-label="Activity by day and hour UTC">
+      <h3>{strings.activityByDayAndHour}<small>{strings.utc}</small></h3>
+      <div className="analytics-heat" role="group" aria-label={strings.activityByDayAndHourUtc}>
         {weekdays.map((day, row) => <div className="analytics-heat-row" key={day}><span>{day}</span>
           {Array.from({ length: 24 }, (_, hour) => {
             const events = heat.get(row + '|' + hour) ?? [];
             const label = day + ' ' + String(hour).padStart(2, '0') + ':00 UTC';
             return <button type="button" key={hour} disabled={!events.length} title={label + ' · ' + events.length}
-              aria-label={label + ', ' + events.length + ' events'} style={{ '--heat': events.length ? 22 + 78 * events.length / heatMax + '%' : '0%' } as React.CSSProperties}
+              aria-label={formatMessage(strings.events2, label, events.length)} style={{ '--heat': events.length ? 22 + 78 * events.length / heatMax + '%' : '0%' } as React.CSSProperties}
               onClick={() => open({ label, events })} />;
           })}
         </div>)}

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { simpleMessages as t } from './simpleMessages';
+import { simpleMessages as t } from './messages';
 
 type Mode = 'simple' | 'analyst';
 const key = 'north.display-mode';

@@ -1,3 +1,4 @@
+import { AtlasMapMessages as strings, formatMessage } from './messages';
 import { SelectControl } from './SelectControl';
 import { TimeDisplay } from './TimeDisplay';
 import { useState } from 'react';
@@ -24,19 +25,19 @@ const pageSize = 8;
 
 function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; stale: boolean }) {
   if (!traffic) return <section className="atlas-traffic">
-    <h4>Router traffic</h4>
-    <p>Traffic totals are unavailable for this device.</p>
+    <h4>{strings.routerTraffic}</h4>
+    <p>{strings.trafficTotalsAreUnavailableForThisDevice}</p>
   </section>;
   const rows = [
-    { label: 'Downloaded', bytes: traffic.download_bytes },
-    { label: 'Uploaded', bytes: traffic.upload_bytes },
+    { label: strings.downloaded, bytes: traffic.download_bytes },
+    { label: strings.uploaded, bytes: traffic.upload_bytes },
   ];
   const scale = Math.max(1, ...rows.map(({ bytes }) => bytes));
   const intervals = Array.isArray(traffic.recent_usage) ? traffic.recent_usage.slice(-12) : [];
   const peak = intervals.reduce((largest, sample) => Math.max(largest, sample.download_bytes + sample.upload_bytes), 1);
   return <section className="atlas-traffic">
-    <h4>Router traffic</h4>
-    <p>{stale ? 'Last available router totals' : 'Router accounting period'}</p>
+    <h4>{strings.routerTraffic}</h4>
+    <p>{stale ? strings.lastAvailableRouterTotals : strings.routerAccountingPeriod}</p>
     <ul>
       {rows.map(({ label, bytes }) => <li className="atlas-traffic-row" key={label}>
         <span>{label}</span><strong>{formatTraffic(bytes)}</strong>
@@ -46,8 +47,8 @@ function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; st
       </li>)}
     </ul>
     {intervals.length > 0 && <details className="atlas-address-context">
-      <summary>Recent usage intervals</summary>
-      <p>Bytes transferred per interval</p>
+      <summary>{strings.recentUsageIntervals}</summary>
+      <p>{strings.bytesTransferredPerInterval}</p>
       <div className="atlas-usage-chart" aria-hidden="true">
         {intervals.map((interval) => <div key={interval.to} className="atlas-usage-column">
           <span style={{ height: `${interval.upload_bytes / peak * 100}%` }} />
@@ -72,17 +73,17 @@ function DeviceLabel({ mac, label, save }: { mac: string; label: string; save: (
     try {
       await save(mac, draft.trim());
       setDraft(draft.trim());
-      setMessage(draft.trim() ? 'Label saved.' : 'Label removed.');
+      setMessage(draft.trim() ? strings.labelSaved : strings.labelRemoved);
     } catch {
-      setMessage('Could not save the label. Try again.');
+      setMessage(strings.couldNotSaveTheLabelTryAgain);
     } finally {
       setBusy(false);
     }
   }
   return <form className="atlas-device-label" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-    <label>Workspace label<input value={draft} maxLength={64} disabled={busy}
-      placeholder="e.g. My iPhone" onChange={(event) => setDraft(event.target.value)} /></label>
-    <button type="submit" disabled={busy || draft.trim() === label}>{draft.trim() ? 'Save label' : 'Remove label'}</button>
+    <label>{strings.workspaceLabel}<input value={draft} maxLength={64} disabled={busy}
+      placeholder={strings.eGMyIphone} onChange={(event) => setDraft(event.target.value)} /></label>
+    <button type="submit" disabled={busy || draft.trim() === label}>{draft.trim() ? strings.saveLabel : strings.removeLabel}</button>
     {message && <p role="status">{message}</p>}
   </form>;
 }
@@ -121,7 +122,7 @@ export function AtlasMap({ devices, staleTraffic, openEvents, saveLabel }: {
       sourcePosition: Position.Right, selectable: false, focusable: false, className: 'atlas-interface' });
     group.forEach((device, index) => {
       const id = 'device:' + device.id;
-      nodes.push({ id, type: 'output', ariaLabel: device.label + ' on ' + name, data: { label: device.label },
+      nodes.push({ id, type: 'output', ariaLabel: formatMessage(strings.on, device.label, name), data: { label: device.label },
         position: { x: 290, y: offset + index * 64 }, targetPosition: Position.Left,
         className: device === selectedDevice ? 'atlas-device atlas-selected' : 'atlas-device' });
       edges.push({ id, source: interfaceId, target: id, selectable: false, focusable: false });
@@ -131,23 +132,23 @@ export function AtlasMap({ devices, staleTraffic, openEvents, saveLabel }: {
 
   return <section className="panel atlas-map">
     <header className="atlas-map-heading">
-      <div><h2>Network map</h2>
-        <p>Devices grouped by the interface that observed them.</p></div>
-      <label>Show <SelectControl label="Network interfaces" value={filter}
+      <div><h2>{strings.networkMap}</h2>
+        <p>{strings.devicesGroupedByTheInterfaceThatObserved}</p></div>
+      <label>{strings.show}<SelectControl label={strings.networkInterfaces} value={filter}
         onChange={(value) => { setFilter(value); setPage(0); setSelected(''); }}
-        options={[{ value: 'all', label: 'All interfaces' }, { value: 'wifi', label: 'Wi-Fi interfaces' },
-          { value: 'virtual', label: 'Virtual adapters' }]} /></label>
+        options={[{ value: 'all', label: strings.allInterfaces }, { value: 'wifi', label: strings.wiFiInterfaces },
+          { value: 'virtual', label: strings.virtualAdapters }]} /></label>
     </header>
-    {!displayed.length ? <p>No device observations match this view.</p> : <>
+    {!displayed.length ? <p>{strings.noDeviceObservationsMatchThisView}</p> : <>
       <div className="atlas-toolbar atlas-pagination">
-        <span className="reference">{currentPage * pageSize + 1}–{currentPage * pageSize + displayed.length} of {matching.length} observed devices</span>
+        <span className="reference">{currentPage * pageSize + 1}–{currentPage * pageSize + displayed.length}{strings.of}{matching.length}{strings.observedDevices}</span>
         {pageCount > 1 && <>
-          <button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button>
-          <button disabled={currentPage + 1 >= pageCount} onClick={() => setPage(currentPage + 1)}>Next</button>
+          <button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>{strings.previous}</button>
+          <button disabled={currentPage + 1 >= pageCount} onClick={() => setPage(currentPage + 1)}>{strings.next}</button>
         </>}
       </div>
       <div className="atlas-layout">
-      <div className="graph atlas-canvas" aria-label="Observed network topology">
+      <div className="graph atlas-canvas" aria-label={strings.observedNetworkTopology}>
         <ReactFlow key={filter + '|' + displayed.map((item) => item.id).join('|')} nodes={nodes} edges={edges}
           onNodeClick={(_, node) => { if (node.id.startsWith('device:')) setSelected(node.id); }}
           onSelectionChange={({ nodes: selection }) => { if (selection[0]?.id.startsWith('device:')) setSelected(selection[0].id); }}
@@ -158,34 +159,34 @@ export function AtlasMap({ devices, staleTraffic, openEvents, saveLabel }: {
       </div>
       {selectedDevice && <aside className="atlas-device-detail">
         <div className="atlas-device-heading">
-          <span>Device inspector</span>
+          <span>{strings.deviceInspector}</span>
           <h3>{selectedDevice.label}</h3>
         </div>
-        <label>Observed device
-          <SelectControl label="Observed device" value={'device:' + selectedDevice.id} onChange={setSelected}
+        <label>{strings.observedDevice}
+          <SelectControl label={strings.observedDevice} value={'device:' + selectedDevice.id} onChange={setSelected}
             options={displayed.map((item) => ({ value: 'device:' + item.id, label: item.label + ' · ' + item.network }))} />
         </label>
         {saveLabel && /^[0-9a-f]{12}$/.test(selectedMac) && selectedMac !== '000000000000' &&
           <DeviceLabel key={selectedMac} mac={selectedMac} label={selectedDevice.savedLabel ?? ''} save={saveLabel} />}
         <dl>
-          <dt>Observed on</dt><dd>{selectedDevice.network}</dd>
-          <dt>MAC address</dt><dd>{selectedDevice.mac || 'Unavailable'}</dd>
-          <dt>IP addresses</dt><dd>{selectedDevice.addresses.length ?
+          <dt>{strings.observedOn}</dt><dd>{selectedDevice.network}</dd>
+          <dt>{strings.macAddress}</dt><dd>{selectedDevice.mac || strings.unavailable}</dd>
+          <dt>{strings.ipAddresses}</dt><dd>{selectedDevice.addresses.length ?
             selectedDevice.addresses.map((address) => <button key={address} type="button" className="atlas-address-button"
-              aria-label={`Search IRIS for ${address}`} onClick={() => openEvents(address)}>
+              aria-label={formatMessage(strings.searchIrisFor0, address)} onClick={() => openEvents(address)}>
               <code>{address}</code><span aria-hidden="true">↗</span>
-            </button>) : 'Unavailable'}</dd>
-          <dt>Last observed state</dt><dd>{selectedDevice.states.join(' · ') || 'Unavailable'}</dd>
+            </button>) : strings.unavailable}</dd>
+          <dt>{strings.lastObservedState}</dt><dd>{selectedDevice.states.join(' · ') || strings.unavailable}</dd>
         </dl>
         <details className="atlas-address-context" key={selectedDevice.id}>
-          <summary>Explain device evidence</summary>
+          <summary>{strings.explainDeviceEvidence}</summary>
           {selectedDevice.observedName && <p><strong>{selectedDevice.observedName}</strong> · {selectedDevice.nameSource}</p>}
           {selectedDevice.addresses.map((address) => <div key={address}>
             <code>{address}</code>
             <p>{explainAddress(address)}</p>
           </div>)}
           {macContext && <p>{macContext}</p>}
-          <p>Device model and physical location require an inventory or another verified source.</p>
+          <p>{strings.deviceModelAndPhysicalLocationRequireAn}</p>
         </details>
         <RouterTraffic traffic={selectedDevice.traffic} stale={staleTraffic} />
       </aside>}

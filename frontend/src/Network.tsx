@@ -1,3 +1,6 @@
+import { feedbackMessages } from './messages';
+import { clientMessages } from './messages';
+import { NetworkMessages as strings, formatMessage } from './messages';
 import { TimeDisplay, formatAbsolute } from './TimeDisplay';
 import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
@@ -44,32 +47,32 @@ type Snapshot = {
 type Neighbor = { address: string; mac: string; network: string; state: string; name: string };
 export type AtlasTarget = 'atlas-new-devices' | 'atlas-windows-events' | 'atlas-linux-events' | 'atlas-local-devices';
 const atlasViews = [
-  { id: 'devices', label: 'Devices' }, { id: 'traffic', label: 'Traffic' },
-  { id: 'health', label: 'Diagnostics' }, { id: 'traces', label: 'Packet traces' },
-  { id: 'remote', label: 'Remote endpoints' },
+  { id: 'devices', label: strings.devices }, { id: 'traffic', label: strings.traffic },
+  { id: 'health', label: strings.diagnostics }, { id: 'traces', label: strings.packetTraces },
+  { id: 'remote', label: strings.remoteEndpoints },
 ] as const;
 type AtlasView = (typeof atlasViews)[number]['id'];
 const coverageFilters = [
-  { id: 'all', label: 'Observed groups' }, { id: 'named', label: 'Named groups' },
-  { id: 'unnamed', label: 'Unnamed groups' }, { id: 'wifi', label: 'Router Wi-Fi confirmed' },
-  { id: 'usage', label: 'With router byte totals' },
+  { id: 'all', label: strings.observedGroups }, { id: 'named', label: strings.namedGroups },
+  { id: 'unnamed', label: strings.unnamedGroups }, { id: 'wifi', label: strings.routerWiFiConfirmed },
+  { id: 'usage', label: strings.withRouterByteTotals },
 ] as const;
 type CoverageFilter = (typeof coverageFilters)[number]['id'];
 
 const sysmonProblems = {
-  access_denied: 'Windows denied this account access to the Sysmon event log.',
-  channel_missing: 'The Sysmon event log was not found.',
-  read_failed: 'NORTH could not read the Sysmon event log. It will retry.',
+  access_denied: feedbackMessages.windowsDeniedThisAccountAccessToThe,
+  channel_missing: feedbackMessages.theSysmonEventLogWasNotFound,
+  read_failed: feedbackMessages.northCouldNotReadTheSysmonEvent,
 };
 
 function httpsResult(sample: HealthSample) {
-  if (sample.https_error === 'tls') return 'TLS failed';
-  if (sample.https_error === 'timeout') return 'Timed out';
-  if (sample.https_ms === null) return 'No response';
-  if (sample.cloud_probe && sample.http_status === 204) return 'Cloud reached';
-  if (sample.http_status === 401 || sample.http_status === 403) return 'Reached · access denied';
-  if (sample.http_status !== null && sample.http_status >= 500) return 'Reached · service error';
-  return 'Response received';
+  if (sample.https_error === 'tls') return feedbackMessages.tlsFailed;
+  if (sample.https_error === 'timeout') return feedbackMessages.timedOut;
+  if (sample.https_ms === null) return feedbackMessages.noResponse;
+  if (sample.cloud_probe && sample.http_status === 204) return feedbackMessages.cloudReached;
+  if (sample.http_status === 401 || sample.http_status === 403) return feedbackMessages.reachedAccessDenied;
+  if (sample.http_status !== null && sample.http_status >= 500) return feedbackMessages.reachedServiceError;
+  return feedbackMessages.responseReceived;
 }
 
 function healthIsStale(sample: HealthSample) {
@@ -77,12 +80,12 @@ function healthIsStale(sample: HealthSample) {
 }
 
 function readNeighbors(value: unknown): Neighbor[] {
-  if (!Array.isArray(value)) throw new Error('Choose a JSON array of device records.');
-  if (value.length > 5000) throw new Error('Choose a file with at most 5,000 device records.');
+  if (!Array.isArray(value)) throw new Error(clientMessages.chooseAJsonArrayOfDeviceRecords);
+  if (value.length > 5000) throw new Error(clientMessages.chooseAFileWithAtMostDevice);
   return value.map((row, index) => {
     const address = row?.address ?? row?.dst;
     if (typeof address !== 'string' || !address.trim()) {
-      throw new Error('Device record ' + (index + 1) + ' is missing an address.');
+      throw new Error(feedbackMessages.deviceRecord + (index + 1) + feedbackMessages.isMissingAnAddress);
     }
     return {
       address: address.trim(),
@@ -122,7 +125,7 @@ export function useNetworkInventory(endpoint: string) {
       setRefreshing(true);
       try {
         const response = await fetch(endpoint, { signal: controller.signal, cache: 'no-store' });
-        if (!response.ok) throw new Error('Inventory unavailable');
+        if (!response.ok) throw new Error(clientMessages.inventoryUnavailable);
         const result: Snapshot = await response.json();
         if (result.neighbors) result.neighbors.records = readNeighbors(result.neighbors.records);
         if (!controller.signal.aborted) {
@@ -190,7 +193,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     const response = await fetch(labelsEndpoint, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mac, label }),
     });
-    if (!response.ok) throw new Error('Device label could not be saved.');
+    if (!response.ok) throw new Error(clientMessages.deviceLabelCouldNotBeSaved);
     const saved: { mac: string; label: string } = await response.json();
     setDeviceLabels((current) => {
       const next = new Map(current);
@@ -265,8 +268,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     const importedName = imported?.size === 1 ? [...imported][0] : undefined;
     const savedLabel = withRouter ? deviceLabels?.get(mac) : undefined;
     const name = savedLabel || traffic?.router_name || observedName || importedName;
-    const nameSource = savedLabel ? 'Workspace label' : traffic?.router_name ? 'Router DHCP' : observedName ? (withRouter ? 'Collector observation' : 'Imported list') :
-      importedName ? 'Imported router list' : undefined;
+    const nameSource = savedLabel ? feedbackMessages.workspaceLabel : traffic?.router_name ? feedbackMessages.routerDhcp : observedName ? (withRouter ? feedbackMessages.collectorObservation : feedbackMessages.importedList) :
+      importedName ? feedbackMessages.importedRouterList : undefined;
     return { traffic, name, nameSource, savedLabel };
   }
   const observedByMac = new Map<string, Neighbor[]>();
@@ -296,7 +299,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     const first = records[0];
     const { name, nameSource, savedLabel, traffic } = describeDevice(records, true);
     const label = name || records.find((record) => !record.address.includes(':'))?.address || first.address;
-    return { id, label, observedName: name, nameSource, savedLabel, network: first.network || 'Unknown interface', mac: first.mac,
+    return { id, label, observedName: name, nameSource, savedLabel, network: first.network || feedbackMessages.unknownInterface, mac: first.mac,
       addresses: records.map((record) => record.address), states: [...new Set(records.map((record) => record.state).filter(Boolean))],
       traffic };
   });
@@ -315,8 +318,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
 
   function exportInventory() {
     const rows = [
-      ['Device', 'Name source', 'Observed IP addresses', 'MAC address', 'Interface', 'Router Wi-Fi confirmed',
-        'Router download bytes', 'Router upload bytes', 'Router sample time'],
+      ['Device', feedbackMessages.nameSource, feedbackMessages.observedIpAddresses, feedbackMessages.macAddress, 'Interface', feedbackMessages.routerWiFiConfirmed,
+        feedbackMessages.routerDownloadBytes, feedbackMessages.routerUploadBytes, feedbackMessages.routerSampleTime],
       ...mapDevices.map((item) => [
         item.label, item.nameSource ?? '', item.addresses.join(' | '), item.mac, item.network,
         item.traffic?.wifi_associated ? 'Yes' : '', item.traffic?.download_bytes ?? '',
@@ -343,7 +346,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       const response = await fetch('/api/network/devices/' + encodeURIComponent(id) + '/review', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewed: true }),
       });
-      if (!response.ok) throw new Error('Review failed');
+      if (!response.ok) throw new Error(clientMessages.reviewFailed);
       reloadAfterChange();
     } catch {
       setReviewError(true);
@@ -354,14 +357,14 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
 
   async function importNeighbors(file: File) {
     try {
-      if (file.size > 2_000_000) throw new Error('Choose a device file smaller than 2 MB.');
+      if (file.size > 2_000_000) throw new Error(clientMessages.chooseADeviceFileSmallerThanMb);
       const text = (await file.text()).replace(/^\uFEFF/, '');
       const records = readNeighbors(/\.json$/i.test(file.name) || text.trimStart().startsWith('[') ?
         JSON.parse(text) : readRouterCsv(text.trimStart()));
       setNeighbors(records);
-      setFileMessage(records.length + ' device records loaded in this tab.');
+      setFileMessage(records.length + feedbackMessages.deviceRecordsLoadedInThisTab);
     } catch (error) {
-      setFileMessage(error instanceof Error ? error.message : 'Could not read that file.');
+      setFileMessage(error instanceof Error ? error.message : feedbackMessages.couldNotReadThatFile);
     }
   }
 
@@ -378,169 +381,169 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       fits(name ?? '', ...(traffic?.router_ips ?? [])));
     return <>
       {matching.length > 0 && <div className="router-traffic-table-wrap">
-        <table className="investigation-table device-inventory-table" aria-label="Observed devices">
-          <thead><tr><th scope="col">Device</th><th scope="col">IP addresses</th><th scope="col">MAC address</th>
-            <th scope="col">Observed on</th>{includeRouter && <th scope="col">Router usage</th>}</tr></thead>
+        <table className="investigation-table device-inventory-table" aria-label={strings.observedDevices}>
+          <thead><tr><th scope="col">{strings.device}</th><th scope="col">{strings.ipAddresses}</th><th scope="col">{strings.macAddress}</th>
+            <th scope="col">{strings.observedOn}</th>{includeRouter && <th scope="col">{strings.routerUsage}</th>}</tr></thead>
           <tbody>{matching.map(({ key, records, traffic, name, nameSource }) => {
             const { address, mac, network } = records[0];
             return <tr key={key}>
               <th scope="row">{name || address}
-                <small>{nameSource || 'Name unavailable'}</small>
+                <small>{nameSource || strings.nameUnavailable}</small>
               </th>
               <td>{records.map((record) => <div key={record.address}>
                 <button type="button" className="atlas-address-button" onClick={() => openEvents(record.address)}
-                  aria-label={`Search IRIS for ${record.address}`}>{record.address}</button>
+                  aria-label={formatMessage(strings.searchIrisFor0, record.address)}>{record.address}</button>
                 {record.state && <small>{record.state}</small>}
               </div>)}
               <details className="device-explanation">
-                <summary>Explain addresses</summary>
+                <summary>{strings.explainAddresses}</summary>
                 {records.map((record) => <p key={record.address}><strong>{record.address}</strong> · {explainAddress(record.address)}</p>)}
               </details></td>
-              <td>{mac ? <code>{mac}</code> : 'Unavailable'}</td>
-              <td>{network || 'Unknown interface'}{traffic?.wifi_associated && <small>Seen on router Wi-Fi</small>}</td>
+              <td>{mac ? <code>{mac}</code> : strings.unavailable}</td>
+              <td>{network || strings.unknownInterface}{traffic?.wifi_associated && <small>{strings.seenOnRouterWiFi}</small>}</td>
               {includeRouter && <td>{traffic ? <>
                 <span>↓ {formatTraffic(traffic.download_bytes)} · ↑ {formatTraffic(traffic.upload_bytes)}</span>
-                {router?.state === 'unavailable' && <small>Last available totals</small>}
-              </> : <small>Unavailable</small>}</td>}
+                {router?.state === 'unavailable' && <small>{strings.lastAvailableTotals}</small>}
+              </> : <small>{strings.unavailable}</small>}</td>}
             </tr>;
           })}</tbody>
         </table>
       </div>}
-      {devices.length > 0 && !matching.length && <p>No devices match this search.</p>}
+      {devices.length > 0 && !matching.length && <p>{strings.noDevicesMatchThisSearch}</p>}
     </>;
   }
 
   return <main className="network atlas-workspace">
     <header className="dashboard-heading">
-      <h1 id="atlas-heading" tabIndex={-1}>ATLAS <span className="workspace-title">Network inventory</span></h1>
+      <h1 id="atlas-heading" tabIndex={-1}>{strings.atlas}<span className="workspace-title">{strings.networkInventory}</span></h1>
     </header>
-    <nav className="atlas-view-bar" aria-label="ATLAS tools">
+    <nav className="atlas-view-bar" aria-label={strings.atlasTools}>
       {atlasViews.map(({ id, label }) => <button key={id} type="button"
         aria-current={activeView === id ? 'page' : undefined} onClick={() => { setAtlasView(id); onTarget(null); }}>{label}</button>)}
     </nav>
-    {fetchError && activeView !== 'traces' && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
-    {endpoint && !inventory && !fetchError && activeView !== 'traces' && <p role="status">Loading network observations…</p>}
-    {activeView !== 'traces' && activeView !== 'remote' && <section className="panel atlas-toolbar" aria-label="Network inventory controls">
-      <label className="network-search">{showLocalTcp ? 'Find process or address' : 'Find device'}
-        <input type="search" placeholder={showLocalTcp ? 'Process, PID, IP or port' : 'Host, IP or MAC address'}
+    {fetchError && activeView !== 'traces' && <p role="status">{strings.theTelemetryInventoryIsTemporarilyUnavailable}</p>}
+    {endpoint && !inventory && !fetchError && activeView !== 'traces' && <p role="status">{strings.loadingNetworkObservations}</p>}
+    {activeView !== 'traces' && activeView !== 'remote' && <section className="panel atlas-toolbar" aria-label={strings.networkInventoryControls}>
+      <label className="network-search">{showLocalTcp ? strings.findProcessOrAddress : strings.findDevice}
+        <input type="search" placeholder={showLocalTcp ? strings.processPidIpOrPort : strings.hostIpOrMacAddress}
           value={search} onChange={(event) => setSearch(event.target.value)} />
       </label>
       {endpoint.startsWith('/api/') && <span className="atlas-live-state" data-state={fetchError || oldSnapshot ? 'waiting' : 'automatic'}>
-        {fetchError ? 'Connection interrupted · retrying' : oldSnapshot ? 'Automatic updates · no new snapshot in 3 minutes' : 'Automatic updates'}
+        {fetchError ? strings.connectionInterruptedRetrying : oldSnapshot ? strings.automaticUpdatesNoNewSnapshotIn3 : strings.automaticUpdates}
       </span>}
-      {inventory?.collector_synced_at ? <small>Collector synced <TimeDisplay value={inventory.collector_synced_at} /></small> :
-        lastRefresh && <small>{demo ? 'Sample data loaded' : <>Last checked <TimeDisplay value={lastRefresh} /></>}</small>}
+      {inventory?.collector_synced_at ? <small>{strings.collectorSynced}<TimeDisplay value={inventory.collector_synced_at} /></small> :
+        lastRefresh && <small>{demo ? strings.sampleDataLoaded : <>{strings.lastChecked}<TimeDisplay value={lastRefresh} /></>}</small>}
     </section>}
     <div className="atlas-section-stack" hidden={activeView !== 'devices'}>
     {observedDevices.length > 0 && <section className="panel" aria-labelledby="atlas-coverage">
-      <h2 id="atlas-coverage">Device coverage</h2>
-      <div className="health-summary device-coverage-actions" role="group" aria-label="Filter observed devices">
+      <h2 id="atlas-coverage">{strings.deviceCoverage}</h2>
+      <div className="health-summary device-coverage-actions" role="group" aria-label={strings.filterObservedDevices}>
         {coverageFilters.map(({ id, label }) => <button key={id} type="button" aria-pressed={coverageFilter === id}
           onClick={() => setCoverageFilter(id)}>
           <span>{label}</span><strong>{observedDevices.filter((device) => matchesCoverage(device, id)).length.toLocaleString()}</strong>
         </button>)}
       </div>
-      <button type="button" disabled={!mapDevices.length} onClick={exportInventory}>Export filtered inventory</button>
+      <button type="button" disabled={!mapDevices.length} onClick={exportInventory}>{strings.exportFilteredInventory}</button>
     </section>}
-    {labelError && <p role="status">Saved device labels are temporarily unavailable.</p>}
+    {labelError && <p role="status">{strings.savedDeviceLabelsAreTemporarilyUnavailable}</p>}
     <AtlasMap devices={mapDevices} staleTraffic={router?.state === 'unavailable'} openEvents={openEvents}
       saveLabel={deviceLabels ? saveDeviceLabel : undefined} />
     {localDevice && <section className="panel">
-      <h2>This computer</h2>
-      <p>{localDevice.host} · {adapters.size} {adapters.size === 1 ? 'network adapter' : 'network adapters'}</p>
+      <h2>{strings.thisComputer}</h2>
+      <p>{localDevice.host} · {adapters.size} {adapters.size === 1 ? strings.networkAdapter : strings.networkAdapters}</p>
       <ul className="network-list">{matchingAdapters.map(([name, addresses]) => <li key={name}>
         <strong>{name}</strong>
         <ul className="adapter-addresses">{[...addresses].sort((a, b) =>
           Number(a.includes(':')) - Number(b.includes(':')) || a.localeCompare(b),
-        ).map((address) => <li key={address}><small>{address.includes(':') ? 'IPv6' : 'IPv4'} <code>{address}</code></small></li>)}</ul>
+        ).map((address) => <li key={address}><small>{address.includes(':') ? strings.ipv6 : strings.ipv4} <code>{address}</code></small></li>)}</ul>
       </li>)}</ul>
-      {!matchingAdapters.length && <p>{query ? 'No local adapters match this search.' : 'No network adapters with addresses were found.'}</p>}
+      {!matchingAdapters.length && <p>{query ? strings.noLocalAdaptersMatchThisSearch : strings.noNetworkAdaptersWithAddressesWereFound}</p>}
     </section>}
     {watch && (watch.baseline_at || collector?.state === 'starting') && <section className="panel">
-      <h2 id="atlas-new-devices" tabIndex={-1}>Newly observed devices</h2>
-      <p>{watch.baseline_at ? <>{watch.unreviewed} awaiting review · Baseline started <TimeDisplay value={watch.baseline_at} /></> :
-        'Waiting for the first usable device snapshot.'}</p>
-      {demo && <p>Sample finding from a synthetic network.</p>}
-      {reviewError && <p role="alert">That finding could not be marked as reviewed.</p>}
-      {!watch.items.length && watch.baseline_at && <p>No new devices have appeared since the first snapshot.</p>}
+      <h2 id="atlas-new-devices" tabIndex={-1}>{strings.newlyObservedDevices}</h2>
+      <p>{watch.baseline_at ? <>{watch.unreviewed}{strings.awaitingReviewBaselineStarted}<TimeDisplay value={watch.baseline_at} /></> :
+        strings.waitingForTheFirstUsableDeviceSnapshot}</p>
+      {demo && <p>{strings.sampleFindingFromASyntheticNetwork}</p>}
+      {reviewError && <p role="alert">{strings.thatFindingCouldNotBeMarkedAs}</p>}
+      {!watch.items.length && watch.baseline_at && <p>{strings.noNewDevicesHaveAppearedSinceThe}</p>}
       <ul className="network-list">{watch.items.filter((item) => fits(item.mac, item.interface, ...item.addresses)).map((item) => (
         <li key={item.id}>
           <strong>{item.addresses.join(', ')}</strong>
-          <small><code>{item.mac}</code> · {item.interface} · First seen <TimeDisplay value={item.first_seen} /></small>
-          <small>{item.reviewed_at ? 'Reviewed' : 'Needs review'} · Last seen <TimeDisplay value={item.last_seen} /></small>
+          <small><code>{item.mac}</code> · {item.interface}{strings.firstSeen}<TimeDisplay value={item.first_seen} /></small>
+          <small>{item.reviewed_at ? strings.reviewed : strings.needsReview}{strings.lastSeen}<TimeDisplay value={item.last_seen} /></small>
           <details className="device-explanation">
-            <summary>Why did this appear?</summary>
-            <p>NORTH saw this hardware address on this interface after the first snapshot. A new device or a randomized hardware address can produce this finding.</p>
+            <summary>{strings.whyDidThisAppear}</summary>
+            <p>{strings.northSawThisHardwareAddressOnThis}</p>
             {item.addresses.map((address) => <p key={address}><strong>{address}</strong> · {explainAddress(address)}</p>)}
           </details>
           {!readOnly && !item.reviewed_at && <button className="network-case" disabled={Boolean(reviewing)}
-            onClick={() => void review(item.id)}>{reviewing === item.id ? 'Saving…' : 'Mark reviewed'}</button>}
+            onClick={() => void review(item.id)}>{reviewing === item.id ? strings.saving : strings.markReviewed}</button>}
         </li>
       ))}</ul>
     </section>}
     {collector && collector.state !== 'disabled' && <section className="panel">
-      <h2 id="atlas-local-devices" tabIndex={-1}>Local network devices</h2>
-      <p role="status">{collector.state === 'starting' ? 'Reading the local neighbor cache…' :
-        collector.state === 'unavailable' ? 'The collector could not read the cache. It will retry automatically.' :
-        <>{liveDevices.length} device groups · Last refreshed <TimeDisplay value={collector.updated_at} /></>}</p>
-      <p>Addresses are grouped by interface and MAC. Router usage appears when the router reports byte totals for that MAC.</p>
+      <h2 id="atlas-local-devices" tabIndex={-1}>{strings.localNetworkDevices}</h2>
+      <p role="status">{collector.state === 'starting' ? strings.readingTheLocalNeighborCache :
+        collector.state === 'unavailable' ? strings.theCollectorCouldNotReadTheCache :
+        <>{liveDevices.length}{strings.deviceGroupsLastRefreshed}<TimeDisplay value={collector.updated_at} /></>}</p>
+      <p>{strings.addressesAreGroupedByInterfaceAndMac}</p>
       {mapDevices.length ? devicesList(liveDevices.filter(([id]) => visibleIds.has(id)), true) :
-        liveDevices.length > 0 && <p>No observed devices match the current filters.</p>}
+        liveDevices.length > 0 && <p>{strings.noObservedDevicesMatchTheCurrentFilters}</p>}
     </section>}
     <div className="columns">
       <section className="panel">
-        <h2>Reporting devices</h2>
+        <h2>{strings.reportingDevices}</h2>
         <ul className="network-list">{matchingHosts.map((asset) => <li key={asset.id}>
           <strong>{asset.host}</strong>
-          <small>{asset.events} events · Last seen <TimeDisplay value={asset.last_seen} /></small>
+          <small>{asset.events}{strings.eventsLastSeen}<TimeDisplay value={asset.last_seen} /></small>
           <div className="case-links">
-            {asset.host && <button type="button" className="network-case" onClick={() => openEvents(asset.host)}>Search host in IRIS</button>}
+            {asset.host && <button type="button" className="network-case" onClick={() => openEvents(asset.host)}>{strings.searchHostInIris}</button>}
             {caseButtons(asset.cases)}
           </div>
         </li>)}</ul>
-        {!matchingHosts.length && <p>{inventory ? 'No reporting devices match.' : 'Loading reporting devices…'}</p>}
+        {!matchingHosts.length && <p>{inventory ? strings.noReportingDevicesMatch : strings.loadingReportingDevices}</p>}
       </section>
       <section className="panel">
-        <h2>Observed connections</h2>
+        <h2>{strings.observedConnections}</h2>
         <ul className="network-list">{matchingLinks.map((link) => <li key={link.asset_id + link.address + link.direction}>
           <strong>{link.address}</strong>
-          <small>{link.direction === 'inbound' ? 'Inbound to' : 'Outbound from'} {hosts.get(link.asset_id)} · {link.source} · {link.events} {link.events === 1 ? 'event' : 'events'}</small>
+          <small>{link.direction === 'inbound' ? strings.inboundTo : strings.outboundFrom} {hosts.get(link.asset_id)} · {link.source} · {link.events} {link.events === 1 ? strings.event : strings.events}</small>
           <details className="device-explanation">
-            <summary>Explain this address</summary>
+            <summary>{strings.explainThisAddress}</summary>
             <p>{explainAddress(link.address)}</p>
           </details>
           <div className="case-links">
-            <button type="button" className="network-case" onClick={() => openEvents(link.address)}>Search address in IRIS</button>
+            <button type="button" className="network-case" onClick={() => openEvents(link.address)}>{strings.searchAddressInIris}</button>
             {caseButtons(link.cases)}
           </div>
         </li>)}</ul>
-        {!matchingLinks.length && <p>{inventory ? 'No observed connections match.' : 'Loading connections…'}</p>}
+        {!matchingLinks.length && <p>{inventory ? strings.noObservedConnectionsMatch : strings.loadingConnections}</p>}
       </section>
     </div>
     <details className="panel">
-      <summary>Import a device list</summary>
-      <p>Open a device export from this network as JSON or CSV. Include IP Address and, to match observed devices, Device Name and MAC Address. Imported names are used only when the MAC matches and the name is unambiguous.</p>
-      <input type="file" accept=".json,.csv,.tsv" aria-label="Import device inventory"
+      <summary>{strings.importADeviceList}</summary>
+      <p>{strings.openADeviceExportFromThisNetwork}</p>
+      <input type="file" accept=".json,.csv,.tsv" aria-label={strings.importDeviceInventory}
         onChange={(event) => { const file = event.target.files?.[0]; if (file) void importNeighbors(file); event.target.value = ''; }} />
       {fileMessage && <p role="status">{fileMessage}</p>}
       {neighbors.length > 0 && <p><button type="button" onClick={() => {
-        setNeighbors([]); setFileMessage('Imported device records cleared.');
-      }}>Clear imported devices</button></p>}
+        setNeighbors([]); setFileMessage(feedbackMessages.importedDeviceRecordsCleared);
+      }}>{strings.clearImportedDevices}</button></p>}
       {devicesList(importedDevices)}
     </details>
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'traffic'}>
     {visible && showLocalTcp && <LocalTcp query={query} />}
     {adapterTraffic && <section className="panel">
-      <h2>Windows adapter traffic</h2>
-      <p>Traffic through the selected endpoint’s network adapters. Rates are averages between samples.</p>
-      {adapterTraffic.updated_at && <p className="reference">Last sample <TimeDisplay value={adapterTraffic.updated_at} /></p>}
-      {adapterTraffic.state === 'unavailable' && <p role="status">Adapter counters could not refresh. Any rows shown are from the last successful sample.</p>}
-      {adapterTraffic.state === 'starting' && <p>Waiting for the first adapter sample…</p>}
-      {adapterTraffic.state === 'ready' && !adapterRows.length && <p>{query ? 'No adapters match the search.' : 'No adapter counters were reported.'}</p>}
+      <h2>{strings.windowsAdapterTraffic}</h2>
+      <p>{strings.trafficThroughTheSelectedEndpointSNetwork}</p>
+      {adapterTraffic.updated_at && <p className="reference">{strings.lastSample}<TimeDisplay value={adapterTraffic.updated_at} /></p>}
+      {adapterTraffic.state === 'unavailable' && <p role="status">{strings.adapterCountersCouldNotRefreshAnyRows}</p>}
+      {adapterTraffic.state === 'starting' && <p>{strings.waitingForTheFirstAdapterSample}</p>}
+      {adapterTraffic.state === 'ready' && !adapterRows.length && <p>{query ? strings.noAdaptersMatchTheSearch : strings.noAdapterCountersWereReported}</p>}
       {adapterRows.length > 0 && <div className="router-traffic-table-wrap">
-        <table className="investigation-table router-traffic-table" aria-label="Windows adapter traffic">
-          <thead><tr><th scope="col">Adapter</th><th scope="col">Receive rate</th><th scope="col">Send rate</th><th scope="col">Received total</th><th scope="col">Sent total</th></tr></thead>
+        <table className="investigation-table router-traffic-table" aria-label={strings.windowsAdapterTraffic}>
+          <thead><tr><th scope="col">{strings.adapter}</th><th scope="col">{strings.receiveRate}</th><th scope="col">{strings.sendRate}</th><th scope="col">{strings.receivedTotal}</th><th scope="col">{strings.sentTotal}</th></tr></thead>
           <tbody>{adapterRows.map((item) => <tr key={item.name}>
             <th scope="row"><button type="button" className="atlas-address-button" aria-pressed={item.name === selectedAdapter?.name}
               onClick={() => setAdapterSelection(item.name)}>{item.name}</button></th>
@@ -549,13 +552,13 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
             <td>{formatTraffic(item.received_bytes)}</td><td>{formatTraffic(item.sent_bytes)}</td>
           </tr>)}</tbody>
         </table>
-        {adapterRows.some((item) => item.receive_rate === null) && <p className="reference">Rates appear after two successful samples with increasing or unchanged counters.</p>}
+        {adapterRows.some((item) => item.receive_rate === null) && <p className="reference">{strings.ratesAppearAfterTwoSuccessfulSamplesWith}</p>}
       </div>}
-      {selectedAdapter && <section className="adapter-rate-history" aria-label={`${selectedAdapter.name} rate history`}>
-        <h3>{selectedAdapter.name} rate history</h3>
-        {adapterRates.length === 0 ? <p>History appears after the adapter reports a measured rate.</p> : <>
-          <p className="reference">Received and sent per second between samples.</p>
-          <div className="atlas-usage-chart" role="list" aria-label="Adapter rates">
+      {selectedAdapter && <section className="adapter-rate-history" aria-label={formatMessage(strings.message0RateHistory, selectedAdapter.name)}>
+        <h3>{selectedAdapter.name}{strings.rateHistory}</h3>
+        {adapterRates.length === 0 ? <p>{strings.historyAppearsAfterTheAdapterReportsA}</p> : <>
+          <p className="reference">{strings.receivedAndSentPerSecondBetweenSamples}</p>
+          <div className="atlas-usage-chart" role="list" aria-label={strings.adapterRates}>
             {adapterRates.map((sample) => {
               const description = `${formatAbsolute(sample.sampled_at)} · ${formatTraffic(sample.receive_rate)}/s received · ${formatTraffic(sample.send_rate)}/s sent`;
               return <div className="atlas-usage-column" role="listitem" aria-label={description} title={description} key={sample.sampled_at}>
@@ -568,29 +571,29 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       </section>}
     </section>}
     {router && <section className="panel">
-      <h2>Router traffic by device</h2>
-      <p>OpenWrt accounting-period totals per MAC, sorted by combined traffic. The Wi-Fi column shows association reported by the router.</p>
+      <h2>{strings.routerTrafficByDevice}</h2>
+      <p>{strings.openwrtAccountingPeriodTotalsPerMacSorted}</p>
       {router.devices.length > 0 && <label className="router-wifi-filter">
         <input type="checkbox" checked={wifiOnly} onChange={(event) => setWifiOnly(event.target.checked)} />
-        Only devices seen on router Wi-Fi
+        {strings.onlyDevicesSeenOnRouterWiFi}
       </label>}
-      {router.state === 'unavailable' && <p role="status">Router data is unavailable. Any figures below are from the last successful refresh.</p>}
-      {router.state === 'starting' && <p>Waiting for the first router update…</p>}
-      {router.updated_at && <p className="reference">Last updated <TimeDisplay value={router.updated_at} /></p>}
-      {router.state === 'ready' && !routerDevices.length && <p>No matching device totals.</p>}
+      {router.state === 'unavailable' && <p role="status">{strings.routerDataIsUnavailableAnyFiguresBelow}</p>}
+      {router.state === 'starting' && <p>{strings.waitingForTheFirstRouterUpdate}</p>}
+      {router.updated_at && <p className="reference">{strings.lastUpdated}<TimeDisplay value={router.updated_at} /></p>}
+      {router.state === 'ready' && !routerDevices.length && <p>{strings.noMatchingDeviceTotals}</p>}
       {routerDevices.length > 0 && <div className="router-traffic-table-wrap">
-        <table className="investigation-table router-traffic-table" aria-label="Router traffic by device">
-          <thead><tr><th scope="col">Device</th><th scope="col">IP addresses</th><th scope="col" className="router-download">Download</th><th scope="col" className="router-upload">Upload</th><th scope="col">Total</th><th scope="col">Wi-Fi</th></tr></thead>
+        <table className="investigation-table router-traffic-table" aria-label={strings.routerTrafficByDevice}>
+          <thead><tr><th scope="col">{strings.device}</th><th scope="col">{strings.ipAddresses}</th><th scope="col" className="router-download">{strings.download}</th><th scope="col" className="router-upload">{strings.upload}</th><th scope="col">{strings.total}</th><th scope="col">{strings.wiFi}</th></tr></thead>
           <tbody>{routerDevices.map((device) => <tr key={device.mac}>
             <th scope="row">
               {device.savedLabel || device.router_name || device.name || device.mac}
               {(device.savedLabel || device.router_name || device.name) &&
-                <small>{device.mac} · {device.savedLabel ? 'Workspace label' : device.router_name ? 'DHCP lease' : 'Collector record'}</small>}
+                <small>{device.mac} · {device.savedLabel ? strings.workspaceLabel : device.router_name ? strings.dhcpLease : strings.collectorRecord}</small>}
             </th>
             <td>{(device.leaseIPs.length ? device.leaseIPs : device.observedIPs).map((address) =>
               <button key={address} type="button" className="atlas-address-button" onClick={() => openEvents(address)}
-                aria-label={`Search IRIS for ${address}`}>{address}</button>)}
-              {device.leaseIPs.length ? <small>DHCP lease</small> : device.observedIPs.length ? <small>Collector observation</small> : '—'}
+                aria-label={formatMessage(strings.searchIrisFor0, address)}>{address}</button>)}
+              {device.leaseIPs.length ? <small>{strings.dhcpLease}</small> : device.observedIPs.length ? <small>{strings.collectorObservation}</small> : '—'}
             </td>
             <td>{formatTraffic(device.download_bytes)}</td>
             <td>{formatTraffic(device.upload_bytes)}</td>
@@ -601,51 +604,51 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
                 <span style={{ width: `${device.upload_bytes / largestTrafficTotal * 100}%` }} />
               </div>
             </td>
-            <td>{device.wifi_associated === true ? 'Seen on router Wi-Fi' : '—'}</td>
+            <td>{device.wifi_associated === true ? strings.seenOnRouterWiFi : '—'}</td>
           </tr>)}</tbody>
         </table>
       </div>}
     </section>}
     {(inventory?.local_device || Array.isArray(inventory?.app_connections)) && <section className="panel">
-      <h2>App network activity</h2>
-      <p>Connection counts from the selected endpoint’s recorded Sysmon events. Byte totals come from separate traffic telemetry.</p>
+      <h2>{strings.appNetworkActivity}</h2>
+      <p>{strings.connectionCountsFromTheSelectedEndpointS}</p>
       {!inventory.app_connections?.length && <p>{windowsEvents?.state === 'unavailable' ?
-        'Allow this Windows account to read the Sysmon event log to see app network activity.' : 'No app connections in the available event history.'}</p>}
+        strings.allowThisWindowsAccountToReadThe : strings.noAppConnectionsInTheAvailableEvent}</p>}
       {inventory.app_connections?.length ? (matchingApps.length ? <div className="router-traffic-table-wrap">
-        <table className="investigation-table" aria-label="App connections">
-          <thead><tr><th scope="col">Process</th><th scope="col">Connections</th><th scope="col">Destinations</th></tr></thead>
+        <table className="investigation-table" aria-label={strings.appConnections}>
+          <thead><tr><th scope="col">{strings.process}</th><th scope="col">{strings.connections}</th><th scope="col">{strings.destinations}</th></tr></thead>
           <tbody>{matchingApps.map((app) => <tr key={app.process}>
             <td><button type="button" className="atlas-address-button" onClick={() => openEvents(app.process)}
-              aria-label={`Search IRIS for ${app.process}`}>{app.process}</button></td>
+              aria-label={formatMessage(strings.searchIrisFor0, app.process)}>{app.process}</button></td>
             <td>{app.events.toLocaleString()}</td><td>{app.destinations.toLocaleString()}</td>
           </tr>)}</tbody>
         </table>
-      </div> : <p>No processes match the search.</p>) : null}
+      </div> : <p>{strings.noProcessesMatchTheSearch}</p>) : null}
     </section>}
-    {inventory && !router && !adapterTraffic && !inventory.local_device && !inventory.app_connections && <p>No traffic source is reporting to this collector.</p>}
+    {inventory && !router && !adapterTraffic && !inventory.local_device && !inventory.app_connections && <p>{strings.noTrafficSourceIsReportingToThis}</p>}
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'health'}>
     {Array.isArray(inventory?.internet_health) && <section className="panel">
-      <h2>Internet health from the collector</h2>
-      <p>Default IPv4 gateway response, plus DNS lookup and HTTPS response time for NORTH Cloud. Some gateways block ping replies.</p>
+      <h2>{strings.internetHealthFromTheCollector}</h2>
+      <p>{strings.defaultIpv4GatewayResponsePlusDnsLookup}</p>
       {latestHealth && <>
-        <p className="reference">Last checked <TimeDisplay value={latestHealth.checked_at} />
-          {!demo && healthIsStale(latestHealth) && <strong className="health-stale"> Older than 12 minutes</strong>}</p>
+        <p className="reference">{strings.lastChecked}<TimeDisplay value={latestHealth.checked_at} />
+          {!demo && healthIsStale(latestHealth) && <strong className="health-stale">{strings.olderThan12Minutes}</strong>}</p>
         <dl className="health-summary">
-          <div><dt>Gateway</dt><dd>{latestHealth.gateway === 'responded' ? 'Replied' : latestHealth.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</dd></div>
-          <div><dt>DNS lookup</dt><dd>{latestHealth.dns_ms === null ? 'Failed' : latestHealth.dns_ms + ' ms'}</dd></div>
-          <div><dt>HTTPS response</dt><dd>{httpsResult(latestHealth)}
-            {latestHealth.https_ms !== null && <small>{latestHealth.https_ms} ms · HTTP {latestHealth.http_status}</small>}</dd></div>
+          <div><dt>{strings.gateway}</dt><dd>{latestHealth.gateway === 'responded' ? strings.replied : latestHealth.gateway === 'no_reply' ? strings.noReply : strings.unavailable}</dd></div>
+          <div><dt>{strings.dnsLookup}</dt><dd>{latestHealth.dns_ms === null ? strings.failed : formatMessage(strings.ms, latestHealth.dns_ms)}</dd></div>
+          <div><dt>{strings.httpsResponse}</dt><dd>{httpsResult(latestHealth)}
+            {latestHealth.https_ms !== null && <small>{latestHealth.https_ms}{strings.msHttp}{latestHealth.http_status}</small>}</dd></div>
         </dl>
       </>}
-      {!inventory.internet_health.length && <p>Waiting for the first check.</p>}
+      {!inventory.internet_health.length && <p>{strings.waitingForTheFirstCheck}</p>}
       {inventory.internet_health.length > 0 && <details>
-        <summary>Recent check history</summary>
-        <label className="router-wifi-filter">Show <SelectControl label="Diagnostic history range" value={String(healthWindow)}
+        <summary>{strings.recentCheckHistory}</summary>
+        <label className="router-wifi-filter">{strings.show}<SelectControl label={strings.diagnosticHistoryRange} value={String(healthWindow)}
           onChange={(value) => setHealthWindow(Number(value))}
-          options={[12, 72].map((value) => ({ value: String(value), label: 'Last ' + value + ' checks' }))} /></label>
-        <p className="reference">HTTPS responded in {respondingChecks} of {healthHistory.length} sampled checks.</p>
-        <div className="diagnostic-history-chart" role="list" aria-label="HTTPS response times">
+          options={[12, 72].map((value) => ({ value: String(value), label: formatMessage(strings.lastChecks, value) }))} /></label>
+        <p className="reference">{strings.httpsRespondedIn}{respondingChecks}{strings.of}{healthHistory.length}{strings.sampledChecks}</p>
+        <div className="diagnostic-history-chart" role="list" aria-label={strings.httpsResponseTimes}>
           {healthHistory.map((sample) => <div key={sample.checked_at} role="listitem"
             aria-label={`${formatAbsolute(sample.checked_at)}, ${httpsResult(sample)}${sample.https_ms === null ? '' : ', ' + sample.https_ms + ' ms'}`}
             title={`${httpsResult(sample)}${sample.https_ms === null ? '' : ' · ' + sample.https_ms + ' ms'}`}>
@@ -654,36 +657,36 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
           </div>)}
         </div>
         <div className="router-traffic-table-wrap">
-        <table className="investigation-table router-traffic-table" aria-label="Collector internet checks">
-          <thead><tr><th scope="col">Checked</th><th scope="col">Gateway</th><th scope="col">DNS</th><th scope="col">HTTPS</th><th scope="col">Response</th></tr></thead>
+        <table className="investigation-table router-traffic-table" aria-label={strings.collectorInternetChecks}>
+          <thead><tr><th scope="col">{strings.checked}</th><th scope="col">{strings.gateway}</th><th scope="col">{strings.dns}</th><th scope="col">{strings.https}</th><th scope="col">{strings.response}</th></tr></thead>
           <tbody>{[...healthHistory].reverse().map((sample) => <tr key={sample.checked_at}>
             <td><TimeDisplay value={sample.checked_at} /></td>
-            <td>{sample.gateway === 'responded' ? 'Replied' : sample.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</td>
-            <td>{sample.dns_ms === null ? 'Lookup failed' : sample.dns_ms + ' ms'}</td>
-            <td>{sample.https_ms === null ? 'No response' : sample.https_ms + ' ms'}</td>
-            <td>{sample.http_status === null ? httpsResult(sample) : `${httpsResult(sample)} (HTTP ${sample.http_status})`}</td>
+            <td>{sample.gateway === 'responded' ? strings.replied : sample.gateway === 'no_reply' ? strings.noReply : strings.unavailable}</td>
+            <td>{sample.dns_ms === null ? strings.lookupFailed : formatMessage(strings.ms, sample.dns_ms)}</td>
+            <td>{sample.https_ms === null ? strings.noResponse : formatMessage(strings.ms, sample.https_ms)}</td>
+            <td>{sample.http_status === null ? httpsResult(sample) : formatMessage(strings.message0Http1, httpsResult(sample), sample.http_status)}</td>
           </tr>)}</tbody>
         </table>
         </div>
       </details>}
     </section>}
     <section className="panel">
-      <h2 id="atlas-windows-events" tabIndex={-1}>Windows event collection</h2>
-      <p className="reference">For connection telemetry, enable NetworkConnect (event ID 3) in the managed Sysmon configuration, then check that the Windows collector can read the Sysmon log.</p>
-      <p role="status">{!windowsEvents || windowsEvents.state === 'disabled' ? 'No Windows event source is active for this view.' :
-        windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
+      <h2 id="atlas-windows-events" tabIndex={-1}>{strings.windowsEventCollection}</h2>
+      <p className="reference">{strings.forConnectionTelemetryEnableNetworkconnectEventId}</p>
+      <p role="status">{!windowsEvents || windowsEvents.state === 'disabled' ? strings.noWindowsEventSourceIsActiveFor :
+        windowsEvents.state === 'starting' ? strings.connectingToTheSysmonLog :
         windowsEvents.state === 'unavailable' ? sysmonProblems[windowsEvents.problem ?? 'read_failed'] :
-        <>{windowsEvents.session_events} {windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked <TimeDisplay value={windowsEvents.updated_at} /></>}</p>
+        <>{windowsEvents.session_events} {windowsEvents.recent ? strings.recentEventsAvailable : strings.newEventsSinceLaunch}{strings.lastChecked2}<TimeDisplay value={windowsEvents.updated_at} /></>}</p>
     </section>
     {inventory?.linux_journal && <section className="panel">
-      <h2 id="atlas-linux-events" tabIndex={-1}>Linux event collection</h2>
-      <p>Collects recent OpenSSH authentication failures and sudo events visible to the Linux account.</p>
+      <h2 id="atlas-linux-events" tabIndex={-1}>{strings.linuxEventCollection}</h2>
+      <p>{strings.collectsRecentOpensshAuthenticationFailuresAndSudo}</p>
       <p role="status">{inventory.linux_journal.state === 'unavailable' ?
-        'The collector could not read the system journal. It will retry.' : inventory.linux_journal.state === 'starting' ?
-        'Waiting for the first journal check…' :
-        <>{inventory.linux_journal.session_events} new events since launch · Last checked <TimeDisplay value={inventory.linux_journal.updated_at} /></>}</p>
+        strings.theCollectorCouldNotReadTheSystem : inventory.linux_journal.state === 'starting' ?
+        strings.waitingForTheFirstJournalCheck :
+        <>{inventory.linux_journal.session_events}{strings.newEventsSinceLaunchLastChecked}<TimeDisplay value={inventory.linux_journal.updated_at} /></>}</p>
     </section>}
-    {inventory && !inventory.internet_health && !inventory.linux_journal && (!windowsEvents || windowsEvents.state === 'disabled') && <p>This collector has not supplied diagnostics.</p>}
+    {inventory && !inventory.internet_health && !inventory.linux_journal && (!windowsEvents || windowsEvents.state === 'disabled') && <p>{strings.thisCollectorHasNotSuppliedDiagnostics}</p>}
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'traces'}>
     <PacketTrace active={visible && activeView === 'traces'} onTrace={setTraceLinks} />

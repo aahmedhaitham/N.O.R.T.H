@@ -1,3 +1,5 @@
+import { feedbackMessages } from './messages';
+import { clientMessages } from './messages';
 export const maxTraceBytes = 8 * 1024 * 1024;
 const maxPackets = 5000;
 
@@ -8,9 +10,9 @@ const sectionHeader = 0x0a0d0d0a;
 const linkTypes = new Map([
   [0, { label: 'Loopback', headerLength: 4, typeOffset: null }],
   [1, { label: 'Ethernet', headerLength: 14, typeOffset: 12 }],
-  [101, { label: 'Raw IP', headerLength: 0, typeOffset: null }],
-  [113, { label: 'Linux cooked', headerLength: 16, typeOffset: 14 }],
-  [276, { label: 'Linux cooked v2', headerLength: 20, typeOffset: 0 }],
+  [101, { label: feedbackMessages.rawIp, headerLength: 0, typeOffset: null }],
+  [113, { label: feedbackMessages.linuxCooked, headerLength: 16, typeOffset: 14 }],
+  [276, { label: feedbackMessages.linuxCookedV, headerLength: 20, typeOffset: 0 }],
 ]);
 
 function ipv6Address(data: DataView, offset: number) {
@@ -86,24 +88,24 @@ function readClassic(data: DataView) {
   const magic = data.getUint32(0);
   const little = magic === 0xd4c3b2a1 || magic === 0x4d3cb2a1;
   const nanos = magic === 0x4d3cb2a1 || magic === 0xa1b23c4d;
-  if (!little && magic !== 0xa1b2c3d4 && !nanos) throw new Error('This viewer supports PCAP and PCAPNG files.');
+  if (!little && magic !== 0xa1b2c3d4 && !nanos) throw new Error(clientMessages.thisViewerSupportsPcapAndPcapngFiles);
   const link = linkTypes.get(data.getUint32(20, little) & 0xffff);
   if (data.getUint16(4, little) !== 2 || data.getUint16(6, little) !== 4 || !link) {
-    throw new Error('Choose a PCAP 2.4 file with Ethernet, raw IP, or Linux cooked headers.');
+    throw new Error(clientMessages.chooseAPcapFileWithEthernetRaw);
   }
 
   const packets: Packet[] = [];
   const u32 = (offset: number) => data.getUint32(offset, little);
   let offset = 24;
   while (offset < data.byteLength && packets.length < maxPackets) {
-    if (offset + 16 > data.byteLength) throw new Error('The packet record header is incomplete.');
+    if (offset + 16 > data.byteLength) throw new Error(clientMessages.thePacketRecordHeaderIsIncomplete);
     const fraction = u32(offset + 4);
     const captured = u32(offset + 8);
     const bytes = u32(offset + 12);
     const start = offset + 16;
     const end = start + captured;
     if (end > data.byteLength || captured > bytes || fraction >= (nanos ? 1e9 : 1e6)) {
-      throw new Error('The file contains an invalid packet record.');
+      throw new Error(clientMessages.theFileContainsAnInvalidPacketRecord);
     }
     const time = new Date(u32(offset) * 1000 + fraction / (nanos ? 1e6 : 1e3)).toISOString();
     packets.push(parsePacket(data, start, end, time, bytes, link));
@@ -119,11 +121,11 @@ function readNextGeneration(data: DataView) {
   let offset = 0;
   let skipped = 0;
   while (offset < data.byteLength && packets.length < maxPackets) {
-    if (offset + 12 > data.byteLength) throw new Error('The PCAPNG block header is incomplete.');
+    if (offset + 12 > data.byteLength) throw new Error(clientMessages.thePcapngBlockHeaderIsIncomplete);
     const section = data.getUint32(offset) === sectionHeader;
     if (section) {
       const marker = data.getUint32(offset + 8);
-      if (marker !== 0x1a2b3c4d && marker !== 0x4d3c2b1a) throw new Error('Invalid PCAPNG byte order.');
+      if (marker !== 0x1a2b3c4d && marker !== 0x4d3c2b1a) throw new Error(clientMessages.invalidPcapngByteOrder);
       little = marker === 0x4d3c2b1a;
       interfaces.length = 0;
     }
@@ -131,13 +133,13 @@ function readNextGeneration(data: DataView) {
     const length = data.getUint32(offset + 4, little);
     const end = offset + length - 4;
     if (length < 12 || length % 4 || end + 4 > data.byteLength || data.getUint32(end, little) !== length) {
-      throw new Error('The file contains an invalid PCAPNG block.');
+      throw new Error(clientMessages.theFileContainsAnInvalidPcapngBlock);
     }
     if (section && (length < 28 || data.getUint16(offset + 12, little) !== 1)) {
-      throw new Error('Unsupported PCAPNG section version.');
+      throw new Error(clientMessages.unsupportedPcapngSectionVersion);
     }
     if (type === 1) {
-      if (length < 20) throw new Error('The PCAPNG interface description is incomplete.');
+      if (length < 20) throw new Error(clientMessages.thePcapngInterfaceDescriptionIsIncomplete);
       const entry = { linkType: data.getUint16(offset + 8, little), ticksPerSecond: 1e6, offsetSeconds: 0 };
       for (let option = offset + 16; option + 4 <= end;) {
         const code = data.getUint16(option, little);
@@ -145,7 +147,7 @@ function readNextGeneration(data: DataView) {
         if (code === 0) break;
         const value = option + 4;
         option = value + Math.ceil(size / 4) * 4;
-        if (option > end) throw new Error('Invalid PCAPNG interface option.');
+        if (option > end) throw new Error(clientMessages.invalidPcapngInterfaceOption);
         if (code === 9 && size === 1) {
           const resolution = data.getUint8(value);
           entry.ticksPerSecond = (resolution & 128 ? 2 : 10) ** (resolution & 127);
@@ -154,19 +156,19 @@ function readNextGeneration(data: DataView) {
       }
       interfaces.push(entry);
     } else if (type === 6) {
-      if (length < 32) throw new Error('The PCAPNG packet block is incomplete.');
+      if (length < 32) throw new Error(clientMessages.thePcapngPacketBlockIsIncomplete);
       const entry = interfaces[data.getUint32(offset + 8, little)];
       const captured = data.getUint32(offset + 20, little);
       const bytes = data.getUint32(offset + 24, little);
       const start = offset + 28;
       if (!entry || start + Math.ceil(captured / 4) * 4 > end || captured > bytes) {
-        throw new Error('The file contains an invalid PCAPNG packet record.');
+        throw new Error(clientMessages.theFileContainsAnInvalidPcapngPacket);
       }
       const link = linkTypes.get(entry.linkType);
       if (link) {
         const ticks = data.getUint32(offset + 12, little) * 2 ** 32 + data.getUint32(offset + 16, little);
         const date = new Date((entry.offsetSeconds + ticks / entry.ticksPerSecond) * 1000);
-        if (!Number.isFinite(date.getTime())) throw new Error('The PCAPNG timestamp is out of range.');
+        if (!Number.isFinite(date.getTime())) throw new Error(clientMessages.thePcapngTimestampIsOutOfRange);
         packets.push(parsePacket(data, start, start + captured, date.toISOString(), bytes, link));
       } else {
         skipped++;
@@ -180,7 +182,7 @@ function readNextGeneration(data: DataView) {
 }
 
 export function readPacketTrace(buffer: ArrayBuffer) {
-  if (buffer.byteLength < 24 || buffer.byteLength > maxTraceBytes) throw new Error('Choose a valid capture up to 8 MiB.');
+  if (buffer.byteLength < 24 || buffer.byteLength > maxTraceBytes) throw new Error(clientMessages.chooseAValidCaptureUpToMib);
   const data = new DataView(buffer);
   return data.getUint32(0) === sectionHeader ? readNextGeneration(data) : readClassic(data);
 }

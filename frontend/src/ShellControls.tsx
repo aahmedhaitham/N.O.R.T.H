@@ -1,3 +1,5 @@
+import { feedbackMessages } from './messages';
+import { ShellControlsMessages as strings, formatMessage } from './messages';
 import { useEffect, useId, useRef, useState } from 'react';
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import * as Popover from '@radix-ui/react-popover';
@@ -9,10 +11,10 @@ type Collector = { id: string; label: string; updated_at?: string; platform?: 'W
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'always' });
 
 function syncLabel(timestamp: string | undefined, now: number) {
-  if (!timestamp) return 'Waiting for first sync';
+  if (!timestamp) return feedbackMessages.waitingForFirstSync;
   const seconds = Math.max(0, Math.floor((now - Date.parse(timestamp)) / 1000));
-  if (!Number.isFinite(seconds)) return 'Sync time unavailable';
-  if (seconds < 10) return 'Synced just now';
+  if (!Number.isFinite(seconds)) return feedbackMessages.syncTimeUnavailable;
+  if (seconds < 10) return feedbackMessages.syncedJustNow;
   if (seconds < 60) return 'Synced ' + relative.format(-seconds, 'second');
   if (seconds < 3600) return 'Synced ' + relative.format(-Math.floor(seconds / 60), 'minute');
   if (seconds < 86400) return 'Synced ' + relative.format(-Math.floor(seconds / 3600), 'hour');
@@ -60,10 +62,10 @@ export function CollectorPicker({ current, options, choose }: {
     if (next) { setSearch(''); setFocused(-1); setNow(Date.now()); }
   }}>
     <Popover.Trigger asChild>
-      <button className="collector-trigger" type="button" aria-label={current ? 'Collector: ' + current.label : 'Choose collector'}>
+      <button className="collector-trigger" type="button" aria-label={current ? formatMessage(strings.collector, current.label) : strings.chooseCollector}>
         <span className="collector-dot" data-active={isActive(current)} />
         <CollectorIcon collector={current} />
-        <strong>{current?.label ?? 'No collector'}</strong>
+        <strong>{current?.label ?? strings.noCollector}</strong>
         {current && <small title={formatAbsolute(current.updated_at ?? '')}>{syncLabel(current.updated_at, now)}</small>}
         <ChevronDown size={14} aria-hidden="true" />
       </button>
@@ -71,9 +73,9 @@ export function CollectorPicker({ current, options, choose }: {
     <Popover.Portal><Popover.Content className="collector-popover" align="start" sideOffset={7} collisionPadding={8}
       onOpenAutoFocus={(event) => { event.preventDefault(); searchInput.current?.focus(); }}>
       <label className="collector-search"><Search size={15} aria-hidden="true" /><input ref={searchInput}
-        role="combobox" aria-label="Search collectors" aria-autocomplete="list" aria-expanded={open} aria-controls={listId}
+        role="combobox" aria-label={strings.searchCollectors} aria-autocomplete="list" aria-expanded={open} aria-controls={listId}
         aria-activedescendant={highlighted ? listId + highlighted.id : undefined}
-        placeholder="Search collectors" value={search} onChange={(event) => { setSearch(event.target.value); setFocused(-1); }}
+        placeholder={strings.searchCollectors} value={search} onChange={(event) => { setSearch(event.target.value); setFocused(-1); }}
         onKeyDown={(event) => {
           if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && enabled.length) {
             event.preventDefault();
@@ -86,7 +88,7 @@ export function CollectorPicker({ current, options, choose }: {
             select((highlighted ?? enabled[0]).id);
           }
         }} /></label>
-      <div id={listId} className="collector-options" role="listbox" aria-label="Collectors">
+      <div id={listId} className="collector-options" role="listbox" aria-label={strings.collectors}>
         {matching.map((item) => <div key={item.id} id={listId + item.id} role="option" aria-selected={current?.id === item.id}
           aria-disabled={!item.updated_at || undefined} data-highlighted={highlighted?.id === item.id || undefined}
           className="collector-option" onMouseDown={(event) => event.preventDefault()}
@@ -95,9 +97,9 @@ export function CollectorPicker({ current, options, choose }: {
           <span><strong>{item.label}</strong><small>{syncLabel(item.updated_at, now)}</small></span>
         </div>)}
       </div>
-      {!matching.length && <p className="collector-empty" role="status">No collectors match.</p>}
+      {!matching.length && <p className="collector-empty" role="status">{strings.noCollectorsMatch}</p>}
       <label className="collector-inactive"><input type="checkbox" checked={showInactive}
-        onChange={(event) => { setShowInactive(event.target.checked); setFocused(-1); }} /> Show inactive</label>
+        onChange={(event) => { setShowInactive(event.target.checked); setFocused(-1); }} />{strings.showInactive}</label>
     </Popover.Content></Popover.Portal>
   </Popover.Root>;
 }
@@ -119,18 +121,18 @@ export function AccountMenu({ actions, localSettings }: { actions?: WorkspaceAct
   }, [actions, localSettings]);
 
   return <Menu.Root>
-    <Menu.Trigger asChild><button type="button" className="avatar-trigger" aria-label="Workspace menu"><UserRound size={16} /></button></Menu.Trigger>
+    <Menu.Trigger asChild><button type="button" className="avatar-trigger" aria-label={strings.workspaceMenu}><UserRound size={16} /></button></Menu.Trigger>
     <Menu.Portal><Menu.Content className="shell-menu" align="end" sideOffset={7} collisionPadding={8}>
       {actions && <><Menu.Group>
-        <Menu.Item className="shell-menu-item" onSelect={actions.settings}><Settings size={16} />Settings<kbd>Alt Shift S</kbd></Menu.Item>
-        <Menu.Item className="shell-menu-item" onSelect={actions.collectors}><Server size={16} />Collectors<kbd>Alt Shift C</kbd></Menu.Item>
+        <Menu.Item className="shell-menu-item" onSelect={actions.settings}><Settings size={16} />{strings.settings}<kbd>{strings.altShiftS}</kbd></Menu.Item>
+        <Menu.Item className="shell-menu-item" onSelect={actions.collectors}><Server size={16} />{strings.collectors}<kbd>{strings.altShiftC}</kbd></Menu.Item>
       </Menu.Group><Menu.Separator className="menu-separator" /></>}
       {!actions && localSettings && <Menu.Item className="shell-menu-item" onSelect={localSettings}>
-        <Settings size={16} />Settings<kbd>Alt Shift S</kbd>
+        <Settings size={16} />{strings.settings}<kbd>{strings.altShiftS}</kbd>
       </Menu.Item>}
       <Appearance />
       {actions && <><Menu.Separator className="menu-separator" />
-        <Menu.Item className="shell-menu-item" onSelect={actions.signOut}><LogOut size={16} />Sign out</Menu.Item></>}
+        <Menu.Item className="shell-menu-item" onSelect={actions.signOut}><LogOut size={16} />{strings.signOut}</Menu.Item></>}
     </Menu.Content></Menu.Portal>
   </Menu.Root>;
 }

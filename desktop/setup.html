@@ -4,18 +4,19 @@
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; form-action 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Connect to NORTH Cloud</title>
+    <title>NORTH</title>
     <link rel="stylesheet" href="setup.css" />
+    <script defer src="messages.js"></script>
     <script defer src="setup.js"></script>
   </head>
   <body>
     <main>
       <strong>NORTH</strong>
-      <h1>Connect your workspace</h1>
-      <p>Enter the HTTPS address of your NORTH Cloud workspace.</p>
+      <h1 data-message="setupHeading"></h1>
+      <p data-message="setupDescription"></p>
       <form>
-        <label>Workspace address <input name="address" type="url" placeholder="https://north.example.com" required /></label>
-        <button>Connect</button>
+        <label><span data-message="workspaceAddress"></span> <input name="address" type="url" placeholder="https://north.example.com" required /></label>
+        <button data-message="connect"></button>
         <p role="alert"></p>
       </form>
     </main>

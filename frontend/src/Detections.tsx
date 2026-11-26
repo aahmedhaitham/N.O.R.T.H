@@ -1,3 +1,6 @@
+import { feedbackMessages } from './messages';
+import { clientMessages } from './messages';
+import { DetectionsMessages as strings, formatMessage } from './messages';
 import { useEffect, useRef, useState } from 'react';
 import { FindingEvidence } from './LocalFindings';
 import { pollVisible } from './pollVisible';
@@ -11,13 +14,13 @@ type Rule = {
 type Catalog = { rules: Rule[]; techniques: Record<string, Coverage> };
 type TestResult = { evaluated_events: number; timed_out_rule_ids: string[]; matches: { evidence_ids: string[] }[] };
 
-const coverageLabels = { covered: 'Covered', partly: 'Partly covered', blind: 'Blind' };
+const coverageLabels = { covered: 'Covered', partly: feedbackMessages.partlyCovered, blind: 'Blind' };
 const techniqueId = (tag: string) => tag.replace(/^attack\./, '').toUpperCase();
 
 async function readCatalog(options?: RequestInit) {
   const response = await fetch('/api/local/rules', { cache: 'no-store', ...options });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.detail || 'The local rule catalog is unavailable.');
+  if (!response.ok) throw new Error(body.detail || feedbackMessages.theLocalRuleCatalogIsUnavailable);
   return body;
 }
 
@@ -42,7 +45,7 @@ function useCatalog() {
 
 function CoverageCounts({ catalog }: { catalog: Catalog }) {
   const levels = Object.values(catalog.techniques);
-  return <ul className="finding-tags" aria-label="ATT&CK coverage totals">
+  return <ul className="finding-tags" aria-label={strings.attCkCoverageTotals}>
     {(Object.keys(coverageLabels) as Coverage[]).map((status) =>
       <li key={status}><strong>{levels.filter((level) => level === status).length}</strong> {coverageLabels[status]}</li>)}
   </ul>;
@@ -51,12 +54,12 @@ function CoverageCounts({ catalog }: { catalog: Catalog }) {
 export function LocalCoverage({ open }: { open: () => void }) {
   const { catalog, failed } = useCatalog();
   return <section>
-    <h3>ATT&CK coverage</h3>
+    <h3>{strings.attCkCoverage}</h3>
     {catalog && <CoverageCounts catalog={catalog} />}
-    {failed ? <p role="status">Coverage could not refresh.</p> :
-      !catalog && <p className="reference">Checking collector sources…</p>}
-    {catalog && <p className="reference">Coverage uses recent source checks and event types observed on this computer.</p>}
-    <button type="button" onClick={open}>Open Detections</button>
+    {failed ? <p role="status">{strings.coverageCouldNotRefresh}</p> :
+      !catalog && <p className="reference">{strings.checkingCollectorSources}</p>}
+    {catalog && <p className="reference">{strings.coverageUsesRecentSourceChecksAndEvent}</p>}
+    <button type="button" onClick={open}>{strings.openDetections}</button>
   </section>;
 }
 
@@ -75,7 +78,7 @@ export function Detections() {
     try {
       let command: Record<string, unknown> = { action, id: rule?.id, enabled: !rule?.enabled };
       if (action === 'import') {
-        if (!importFile || importFile.size > 128_000) throw new Error('Choose a YAML file smaller than 128 KB.');
+        if (!importFile || importFile.size > 128_000) throw new Error(clientMessages.chooseAYamlFileSmallerThanKb);
         command = { action, yaml: await importFile.text() };
       }
       const response = await readCatalog({
@@ -84,7 +87,7 @@ export function Detections() {
       if (action === 'test' && rule) setResult({ id: rule.id, test: response });
       else {
         if (action === 'import') {
-          setMessage(`Imported ${response.imported} rule(s). Enable the rules you want to run automatically.`);
+          setMessage(formatMessage(strings.imported0RuleSEnableTheRules, response.imported));
           setImportFile(undefined);
           if (fileInput.current) fileInput.current.value = '';
         } else if (rule) {
@@ -93,7 +96,7 @@ export function Detections() {
         reload();
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'The request failed.');
+      setMessage(error instanceof Error ? error.message : strings.theRequestFailed);
     } finally {
       setBusy('');
     }
@@ -103,9 +106,9 @@ export function Detections() {
   const rules = catalog?.rules.filter((rule) =>
     [rule.id, rule.title, ...rule.attack].some((value) => value.toLowerCase().includes(search)));
   return <main className="dashboard">
-    <header className="dashboard-heading"><h1>Detections</h1></header>
+    <header className="dashboard-heading"><h1>{strings.detections}</h1></header>
     <section className="panel">
-      <h2>ATT&CK coverage matrix</h2>
+      <h2>{strings.attCkCoverageMatrix}</h2>
       {catalog && <>
         <CoverageCounts catalog={catalog} />
         <div className="coverage-matrix">
@@ -117,35 +120,35 @@ export function Detections() {
           </div>)}
         </div>
       </>}
-      {failed && <p role="status">The local rule catalog could not refresh.</p>}
-      {!catalog && !failed && <p>Loading detection rules…</p>}
+      {failed && <p role="status">{strings.theLocalRuleCatalogCouldNotRefresh}</p>}
+      {!catalog && !failed && <p>{strings.loadingDetectionRules}</p>}
     </section>
     <section className="panel">
-      <h2>Rules</h2>
-      <p className="reference">Enable rules to generate new findings automatically. Testing previews matches against up to 100 stored events.</p>
+      <h2>{strings.rules}</h2>
+      <p className="reference">{strings.enableRulesToGenerateNewFindingsAutomatically}</p>
       <div className="finding-actions">
-        <label>Find a rule <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-        <label>Custom YAML <input ref={fileInput} type="file" accept=".yaml,.yml"
+        <label>{strings.findARule}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+        <label>{strings.customYaml}<input ref={fileInput} type="file" accept=".yaml,.yml"
           onChange={(event) => setImportFile(event.target.files?.[0])} /></label>
         <button type="button" disabled={!catalog || !importFile || !!busy}
-          onClick={() => void submit('import')}>Import rules</button>
+          onClick={() => void submit('import')}>{strings.importRules}</button>
       </div>
       {message && <p role="status">{message}</p>}
-      {rules?.length === 0 && <p>No rules match.</p>}
+      {rules?.length === 0 && <p>{strings.noRulesMatch}</p>}
       {rules?.map((rule) => <details className="local-finding" key={rule.id}>
         <summary><strong>{rule.title}</strong> <span className="severity-label" data-severity={rule.severity}>{rule.severity}</span>
-          {' · '}{rule.enabled ? coverageLabels[rule.coverage] : 'Disabled'}</summary>
+          {' · '}{rule.enabled ? coverageLabels[rule.coverage] : strings.disabled}</summary>
         <ul>{rule.requires.map((need) => <li key={need.id}><code>{need.id}</code> · {need.state}
-          {need.state !== 'Observed' && <details><summary>How to fix</summary><p>{need.fix}</p></details>}</li>)}</ul>
+          {need.state !== 'Observed' && <details><summary>{strings.howToFix}</summary><p>{need.fix}</p></details>}</li>)}</ul>
         <div className="finding-actions">
-          <button type="button" disabled={!!busy} onClick={() => void submit('toggle', rule)}>{rule.enabled ? 'Disable' : 'Enable'}</button>
-          <button type="button" disabled={!!busy} onClick={() => void submit('test', rule)}>Test against stored events</button>
-          {busy === rule.id && <span role="status">Working…</span>}
+          <button type="button" disabled={!!busy} onClick={() => void submit('toggle', rule)}>{rule.enabled ? strings.disable : strings.enable}</button>
+          <button type="button" disabled={!!busy} onClick={() => void submit('test', rule)}>{strings.testAgainstStoredEvents}</button>
+          {busy === rule.id && <span role="status">{strings.working}</span>}
         </div>
         {result?.id === rule.id && <div role="status">
-          <p>{result.test.timed_out_rule_ids.length ? 'The rule reached its evaluation time limit.' :
-            `${result.test.matches.length ? 'Matched' : 'No match in'} ${result.test.matches.length ?
-              result.test.matches.flatMap((match) => match.evidence_ids).length + ' evidence events out of ' : ''}${result.test.evaluated_events} stored events.`}</p>
+          <p>{result.test.timed_out_rule_ids.length ? strings.theRuleReachedItsEvaluationTimeLimit :
+            formatMessage(strings.message012StoredEvents, result.test.matches.length ? 'Matched' : feedbackMessages.noMatchIn, result.test.matches.length ?
+              result.test.matches.flatMap((match) => match.evidence_ids).length + feedbackMessages.evidenceEventsOutOf : '', result.test.evaluated_events)}</p>
           {result.test.matches.flatMap((match) => match.evidence_ids).map((id) => <FindingEvidence key={id} id={id} />)}
         </div>}
       </details>)}

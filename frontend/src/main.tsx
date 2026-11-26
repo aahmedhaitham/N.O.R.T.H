@@ -1,3 +1,6 @@
+import { feedbackMessages } from './messages';
+import { clientMessages } from './messages';
+import { mainMessages as strings, formatMessage } from './messages';
 import { TimeDisplay } from './TimeDisplay';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -7,12 +10,12 @@ import './style.css';
 import './shell.css';
 import { Network, type AtlasTarget } from './Network';
 import { Events } from './Events';
-import { eventNames } from './eventNames';
+import { eventNames } from './messages';
 import { Dashboard } from './Dashboard';
 import { Detections } from './Detections';
 import { ProcessTree } from './ProcessTree';
 import { DisplayModeControl, DisplayModeProvider } from './DisplayMode';
-import { simpleMessages as simpleText } from './simpleMessages';
+import { simpleMessages as simpleText } from './messages';
 import { InstallApp } from './InstallApp';
 import { CloudGate, type CloudToolbar, type CollectorFleet, type WorkspacePanel } from './CloudGate';
 import { CaseReview } from './CaseReview';
@@ -44,14 +47,14 @@ const publicDemo = portfolio || import.meta.env.MODE === 'hosted';
 const desktop = location.protocol === 'north:';
 const desktopLocal = desktop && location.pathname === '/';
 const cloud = import.meta.env.MODE === 'cloud' && !desktopLocal;
-if (desktopLocal) document.title = 'NORTH | This computer';
+if (desktopLocal) document.title = feedbackMessages.northThisComputer;
 
 const allNavigation = [
-  { id: 'dashboard', label: 'Overview', detail: 'Security dashboard' },
-  { id: 'network', label: 'ATLAS', detail: 'Network inventory' },
-  { id: 'events', label: 'IRIS', detail: 'Event explorer' },
-  { id: 'cases', label: 'ECHO', detail: 'Investigations' },
-  { id: 'detections', label: 'Detections', detail: 'Rules and ATT&CK coverage' },
+  { id: 'dashboard', label: strings.overview, detail: strings.securityDashboard },
+  { id: 'network', label: strings.atlas, detail: strings.networkInventory },
+  { id: 'events', label: strings.iris, detail: strings.eventExplorer },
+  { id: 'cases', label: strings.echo, detail: strings.investigations },
+  { id: 'detections', label: strings.detections, detail: strings.rulesAndAttCkCoverage },
 ] as const;
 
 type View = (typeof allNavigation)[number]['id'];
@@ -99,18 +102,18 @@ function QuickNavigation({ view, open }: { view?: View; open: (view: View) => vo
   return <>
     <button className="quick-nav-trigger" type="button" aria-haspopup="dialog"
       aria-keyshortcuts={apple ? 'Meta+K' : 'Control+K'} onClick={show}>
-      <Search size={15} aria-hidden="true" /><span>Search NORTH</span><kbd aria-hidden="true">{apple ? '⌘ K' : 'Ctrl K'}</kbd>
+      <Search size={15} aria-hidden="true" /><span>{strings.searchNorth}</span><kbd aria-hidden="true">{apple ? strings.k : strings.ctrlK}</kbd>
     </button>
     <dialog ref={dialog} className="quick-nav" aria-labelledby="quick-nav-title" onClose={() => setQuery('')}>
       <div className="quick-nav-heading">
-        <h2 id="quick-nav-title">Go to a page</h2>
-        <button type="button" onClick={() => dialog.current?.close()}>Close</button>
+        <h2 id="quick-nav-title">{strings.goToAPage}</h2>
+        <button type="button" onClick={() => dialog.current?.close()}>{strings.close}</button>
       </div>
       <form className="quick-nav-search" onSubmit={(event) => {
         event.preventDefault();
         if (matches[0]) goTo(matches[0].id);
       }}>
-        <input ref={searchInput} type="search" aria-label="Find a page" placeholder="Find a page"
+        <input ref={searchInput} type="search" aria-label={strings.findAPage} placeholder={strings.findAPage}
           value={query} onChange={(event) => setQuery(event.target.value)} />
       </form>
       <ul className="quick-nav-results">
@@ -121,7 +124,7 @@ function QuickNavigation({ view, open }: { view?: View; open: (view: View) => vo
           </button>
         </li>)}
       </ul>
-      {matches.length === 0 && <p role="status">No matching pages.</p>}
+      {matches.length === 0 && <p role="status">{strings.noMatchingPages}</p>}
     </dialog>
   </>;
 }
@@ -214,7 +217,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
       async function update() {
         try {
           const response = await fetch('/api/cases' + sourceQuery, { signal: controller.signal, cache: 'no-store' });
-          if (!response.ok) throw new Error('Cloud case feed unavailable');
+          if (!response.ok) throw new Error(clientMessages.cloudCaseFeedUnavailable);
           const items: Case[] = await response.json();
           if (!controller.signal.aborted) {
             setCases(items); setLoaded(true); setOnline(true); setLoadError(false);
@@ -230,7 +233,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
       const controller = new AbortController();
       fetch('/demo/cases.json', { signal: controller.signal })
         .then((response) => {
-          if (!response.ok) throw new Error('Demo case data unavailable');
+          if (!response.ok) throw new Error(clientMessages.demoCaseDataUnavailable);
           return response.json() as Promise<Case[]>;
         })
         .then((items) => { setCases(items); setLoaded(true); })
@@ -268,22 +271,22 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
   return (
     <div className="shell">
       <header className="topbar">
-        <div className="toolbar-left">{controls?.collector ?? <strong className="toolbar-brand">NORTH</strong>}</div>
+        <div className="toolbar-left">{controls?.collector ?? <strong className="toolbar-brand">{strings.north}</strong>}</div>
         <QuickNavigation view={panel || localSettings ? undefined : view} open={setView} />
         <div className="toolbar-right">
           <InstallApp />
           <span role="status" title={controls?.notice || undefined}
-            aria-label={desktopLocal ? 'Local data' : cloud ? controls?.interrupted ? 'Cloud connection interrupted' :
-              online ? 'Cloud ready' : 'Connecting to cloud' : 'Feed status'}
+            aria-label={desktopLocal ? strings.localData : cloud ? controls?.interrupted ? strings.cloudConnectionInterrupted :
+              online ? strings.cloudReady : strings.connectingToCloud : strings.feedStatus}
             className={(online || portfolio) && !controls?.interrupted ? 'status online' : 'status'}>
-            <span>{desktopLocal ? 'Local data' : cloud ? (controls?.interrupted ? 'Cloud interrupted' : online ? 'Cloud ready' : 'Connecting') :
-              portfolio || publicDemo ? 'Sample data' : online ? 'Live feed' : 'Connecting'}</span>
+            <span>{desktopLocal ? strings.localData : cloud ? (controls?.interrupted ? strings.cloudInterrupted : online ? strings.cloudReady : strings.connecting) :
+              portfolio || publicDemo ? strings.sampleData : online ? strings.liveFeed : strings.connecting}</span>
           </span>
           <AccountMenu actions={controls?.actions} localSettings={!controls?.actions ? () => setLocalSettings(true) : undefined} />
         </div>
       </header>
       <Tooltip.Provider delayDuration={220}>
-        <nav className="console-nav" aria-label="Console"
+        <nav className="console-nav" aria-label={strings.console}
           style={{ '--nav-position': Math.max(0, navigation.findIndex((item) => item.id === view)) } as CSSProperties}>
           {!panel && !localSettings && <span className="rail-indicator" aria-hidden="true" />}
           {navigation.map((item) => {
@@ -329,30 +332,30 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
         chartSelection={chartSelection} clearChartSelection={() => setChartSelection(null)}
         canSave={cloud} openNetwork={() => setView('network')} />}
       {view === 'cases' && <div className="workspace">
-        <aside className="echo-case-list" aria-label="Investigations">
-          <h2>Investigations <span>{loaded ? (caseQuery ? `${matchingCases.length} / ${cases.length}` : cases.length) : ''}</span></h2>
+        <aside className="echo-case-list" aria-label={strings.investigations}>
+          <h2>{strings.investigations2}<span>{loaded ? (caseQuery ? `${matchingCases.length} / ${cases.length}` : cases.length) : ''}</span></h2>
           <label className="echo-case-search">
-            <span>Find an investigation</span>
-            <input type="search" placeholder="Title or host" value={caseSearch}
+            <span>{strings.findAnInvestigation}</span>
+            <input type="search" placeholder={strings.titleOrHost} value={caseSearch}
               onChange={(event) => setCaseSearch(event.target.value)} />
           </label>
-          {caseQuery && !matchingCases.length && <p className="echo-case-empty" role="status">No investigations match.</p>}
+          {caseQuery && !matchingCases.length && <p className="echo-case-empty" role="status">{strings.noInvestigationsMatch}</p>}
           {caseQuery && incident && !matchingCases.includes(incident) &&
-            <p className="echo-case-empty">The open investigation is outside this filter.</p>}
+            <p className="echo-case-empty">{strings.theOpenInvestigationIsOutsideThisFilter}</p>}
           {matchingCases.map((item) => (
             <button type="button" key={item.id} className="case" aria-pressed={item.id === incident?.id}
               onClick={() => setSelected(item.id)}>
               <strong>{item.title}</strong>
-              <small>{item.host} · {item.evidence.length} {item.evidence.length === 1 ? 'event' : 'events'}</small>
+              <small>{item.host} · {item.evidence.length} {item.evidence.length === 1 ? strings.event : strings.events}</small>
             </button>
           ))}
         </aside>
         <main className="echo-workspace">
           {incident ? <Investigation key={incident.id} incident={incident} sourceQuery={sourceQuery} visible={!panel}
             openEvents={openEvents} /> :
-            <section className="panel"><h1>{loadError ? 'Cases could not load' : loaded ? 'No investigations yet' : 'Waiting for telemetry'}</h1>
-              {loaded && !loadError && <p>Investigations appear when NORTH links related events. You can inspect individual events in IRIS.</p>}
-              {(loaded || loadError) && <button onClick={() => setView('events')}>Open IRIS events</button>}
+            <section className="panel"><h1>{loadError ? strings.casesCouldNotLoad : loaded ? strings.noInvestigationsYet : strings.waitingForTelemetry}</h1>
+              {loaded && !loadError && <p>{strings.investigationsAppearWhenNorthLinksRelatedEvents}</p>}
+              {(loaded || loadError) && <button onClick={() => setView('events')}>{strings.openIrisEvents}</button>}
             </section>}
         </main>
       </div>}
@@ -430,7 +433,7 @@ function Investigation({ incident, sourceQuery, openEvents, visible }: {
     const controller = new AbortController();
     void fetch('/api/cases/' + incident.id + '/related' + sourceQuery, { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error('Could not load related events');
+        if (!response.ok) throw new Error(clientMessages.couldNotLoadRelatedEvents);
         return response.json();
       })
       .then((body) => setRelated(body.matches))
@@ -455,11 +458,11 @@ function Investigation({ incident, sourceQuery, openEvents, visible }: {
     try {
       const response = await fetch('/api/cases/' + incident.id + '/draft' + sourceQuery, { method: 'POST' });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.detail || 'Draft request failed.');
+      if (!response.ok) throw new Error(body.detail || feedbackMessages.draftRequestFailed);
       setClaims(body.claims);
       setDraftProvider(body.reason ?? body.provider ?? '');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Draft request failed.');
+      setMessage(error instanceof Error ? error.message : strings.draftRequestFailed);
     } finally {
       setBusy(false);
     }
@@ -488,48 +491,48 @@ function Investigation({ incident, sourceQuery, openEvents, visible }: {
         <p className="echo-case-host">{incident.host}</p>
       </div>
       <div className="case-links">
-        <button onClick={() => openEvents(incident.host)}>Find host events in IRIS</button>
+        <button onClick={() => openEvents(incident.host)}>{strings.findHostEventsInIris}</button>
         <a className="button" download={portfolio ? 'north-' + incident.id + '.md' : undefined}
-          href={portfolio ? '/demo/' + incident.id + '.md' : '/api/cases/' + incident.id + '/report' + sourceQuery}>Export report</a>
+          href={portfolio ? '/demo/' + incident.id + '.md' : '/api/cases/' + incident.id + '/report' + sourceQuery}>{strings.exportReport}</a>
       </div>
       <p className="echo-case-summary">{incident.summary}</p>
     </section>
     <div className="echo-evidence-grid">
       <section className="panel echo-timeline">
-        <h2>Evidence timeline</h2>
-        {last < 0 ? <p>No evidence events in this case.</p> :
-          <div className="replay" role="group" aria-label="Timeline playback">
+        <h2>{strings.evidenceTimeline}</h2>
+        {last < 0 ? <p>{strings.noEvidenceEventsInThisCase}</p> :
+          <div className="replay" role="group" aria-label={strings.timelinePlayback}>
             <div className="replay-actions">
-              <button disabled={active <= 0} onClick={() => seek(active - 1)} aria-label="Previous event">‹</button>
+              <button disabled={active <= 0} onClick={() => seek(active - 1)} aria-label={strings.previousEvent}>‹</button>
               <button disabled={last === 0} onClick={() => {
                 if (!playing && active === last) setCursor(0);
                 setPlaying(!playing);
-              }}>{playing ? 'Pause' : 'Play'}</button>
-              <button disabled={active >= last} onClick={() => seek(active + 1)} aria-label="Next event">›</button>
-              <SelectControl label="Replay speed" value={String(speed)} onChange={(value) => setSpeed(Number(value))}
+              }}>{playing ? strings.pause : strings.play}</button>
+              <button disabled={active >= last} onClick={() => seek(active + 1)} aria-label={strings.nextEvent}>›</button>
+              <SelectControl label={strings.replaySpeed} value={String(speed)} onChange={(value) => setSpeed(Number(value))}
                 options={[0.5, 1, 2].map((value) => ({ value: String(value), label: value + '×' }))} />
             </div>
             <div className="replay-position">
-              <input aria-label="Timeline position" aria-valuetext={`Event ${active + 1} of ${last + 1}`}
+              <input aria-label={strings.timelinePosition} aria-valuetext={formatMessage(strings.event0Of1, active + 1, last + 1)}
                 type="range" min="0" max={last} value={active} disabled={last === 0}
                 onChange={(event) => seek(Number(event.target.value))} />
-              <span>Event {active + 1} of {last + 1}</span>
+              <span>{strings.event2}{active + 1}{strings.of}{last + 1}</span>
             </div>
           </div>}
         <ol className="timeline">
           {incident.evidence.map((item, index) => (
             <li id={'event-' + item.id} key={item.id} aria-current={index === active ? 'step' : undefined}>
               <TimeDisplay value={item.timestamp} />
-              <strong>{eventNames[item.kind] ?? 'Event ' + item.kind}</strong>
+              <strong>{eventNames[item.kind] ?? formatMessage(strings.event3, item.kind)}</strong>
               <small>{item.target || item.destination || item.source_ip || item.process}</small>
-              <details><summary>Raw evidence</summary><pre>{JSON.stringify(item.raw, null, 2)}</pre></details>
+              <details><summary>{strings.rawEvidence}</summary><pre>{JSON.stringify(item.raw, null, 2)}</pre></details>
             </li>
           ))}
         </ol>
       </section>
       <section className="panel echo-connections">
         <ProcessTree evidence={incident.evidence} reveal={revealEvidence} />
-        <h2>Observed connections</h2>
+        <h2>{strings.observedConnections}</h2>
         {incident.links.length > 0 && <div className="graph">
           <ReactFlow key={destinations.join(',')} nodes={nodes} edges={edges}
             fitView fitViewOptions={{ maxZoom: 1 }} nodesDraggable={false} nodesConnectable={false}>
@@ -538,40 +541,40 @@ function Investigation({ incident, sourceQuery, openEvents, visible }: {
         </div>}
         {incident.links.map((link) => <p key={link.evidence_id} className="reference">
           {link.destination}{' '}<a href={evidenceAnchor + link.evidence_id}
-            onClick={(event) => reopenCitation(event, link.evidence_id)}>View evidence</a>
+            onClick={(event) => reopenCitation(event, link.evidence_id)}>{strings.viewEvidence}</a>
         </p>)}
-        {incident.links.length === 0 && <p>No connection events for this case.</p>}
+        {incident.links.length === 0 && <p>{strings.noConnectionEventsForThisCase}</p>}
       </section>
     </div>
     {cloud && <CaseReview endpoint={'/api/cases/' + incident.id + '/review' + sourceQuery} />}
     {cloud && <section className="panel">
-      <h2>Related events across collectors</h2>
-      <p>Matches share an IP address within five minutes of the case’s latest event. Shared addresses alone cannot establish that events are part of the same incident.</p>
-      {relatedError && <p role="status">Related events are unavailable.</p>}
-      {!relatedError && !related && <p>Checking other collectors…</p>}
-      {related?.length === 0 && <p>No matching events from another collector.</p>}
+      <h2>{strings.relatedEventsAcrossCollectors}</h2>
+      <p>{strings.matchesShareAnIpAddressWithinFive}</p>
+      {relatedError && <p role="status">{strings.relatedEventsAreUnavailable}</p>}
+      {!relatedError && !related && <p>{strings.checkingOtherCollectors}</p>}
+      {related?.length === 0 && <p>{strings.noMatchingEventsFromAnotherCollector}</p>}
       <ul className="network-list">{related?.map((event) => <li key={event.source_id + '/' + event.id + '/' + event.address}>
-        <strong>{eventNames[event.kind] ?? 'Event ' + event.kind}</strong>
+        <strong>{eventNames[event.kind] ?? formatMessage(strings.event3, event.kind)}</strong>
         <small>{event.collector}{event.host ? ' · ' + event.host : ''} · {event.address} · <TimeDisplay value={event.timestamp} /></small>
         <RelatedEvidence event={event} />
       </li>)}</ul>
     </section>}
     <section className="panel">
-      <span className="module">IRIS / ANALYST REVIEW</span>
-      <h2>{publicDemo || desktopLocal ? 'Review case evidence' : cloud ? 'Evidence brief' : 'Local AI draft'}</h2>
-      {desktopLocal ? <p>Open any event in the timeline to review the original record.</p> :
-        publicDemo ? <p>This demo uses a bundled case. Open the original events in ECHO to verify the findings. Live AI drafts are available when running NORTH with Ollama.</p> : <>
-        <p>{cloud ? 'Summarize recorded activity and open the cited events to verify each observation.' :
-          'Ollama ranks observations that NORTH derives from case evidence. The available events do not establish intent.'}</p>
-        <button type="button" disabled={busy} onClick={requestDraft}>{busy ? 'Drafting…' : 'Generate draft'}</button>
+      <span className="module">{strings.irisAnalystReview}</span>
+      <h2>{publicDemo || desktopLocal ? strings.reviewCaseEvidence : cloud ? strings.evidenceBrief : strings.localAiDraft}</h2>
+      {desktopLocal ? <p>{strings.openAnyEventInTheTimelineTo}</p> :
+        publicDemo ? <p>{strings.thisDemoUsesABundledCaseOpen}</p> : <>
+        <p>{cloud ? strings.summarizeRecordedActivityAndOpenTheCited :
+          strings.ollamaRanksObservationsThatNorthDerivesFrom}</p>
+        <button type="button" disabled={busy} onClick={requestDraft}>{busy ? strings.drafting : strings.generateDraft}</button>
       </>}
-      {draftProvider && <p role="status">{draftProvider === 'cloud-ai' ? 'Prioritized by cloud AI' :
-        draftProvider === 'ai_limit' ? 'The workspace reached its hourly AI limit. This brief uses recorded evidence.' :
-          draftProvider === 'ai_capacity' ? 'Cloud AI is at capacity. This brief uses recorded evidence.' :
-          draftProvider === 'ai_disabled' ? 'Cloud AI is disabled. This brief uses recorded evidence.' :
-          draftProvider === 'ai_output' ? 'Cloud AI returned an invalid ranking. This brief uses recorded evidence.' :
-          draftProvider === 'ai_unavailable' ? 'Cloud AI did not complete the request. This brief uses recorded evidence.' :
-          'Generated from recorded evidence'}</p>}
+      {draftProvider && <p role="status">{draftProvider === 'cloud-ai' ? strings.prioritizedByCloudAi :
+        draftProvider === 'ai_limit' ? strings.theWorkspaceReachedItsHourlyAiLimit :
+          draftProvider === 'ai_capacity' ? strings.cloudAiIsAtCapacityThisBrief :
+          draftProvider === 'ai_disabled' ? strings.cloudAiIsDisabledThisBriefUses :
+          draftProvider === 'ai_output' ? strings.cloudAiReturnedAnInvalidRankingThis :
+          draftProvider === 'ai_unavailable' ? strings.cloudAiDidNotCompleteTheRequest :
+          strings.generatedFromRecordedEvidence}</p>}
       {message && <p role="status">{message}</p>}
       {claims.length > 0 && <ul>{claims.map((claim, index) => (
         <li key={index}>{claim.text}{' '}{claim.evidence_ids.map((id, position) => (
@@ -592,7 +595,7 @@ function RelatedEvidence({ event }: { event: RelatedEvent }) {
     const request = new AbortController();
     fetch('/api/events/' + event.id + '?source=' + encodeURIComponent(event.source_id),
       { signal: request.signal }).then((response) => {
-      if (!response.ok) throw new Error('Evidence unavailable');
+      if (!response.ok) throw new Error(clientMessages.evidenceUnavailable);
       return response.json();
     }).then(setBody).catch(() => { if (!request.signal.aborted) setFailed(true); });
     return () => request.abort();
@@ -602,9 +605,9 @@ function RelatedEvidence({ event }: { event: RelatedEvent }) {
     setOpen(toggle.currentTarget.open);
     if (toggle.currentTarget.open) setFailed(false);
   }}>
-    <summary>Open evidence</summary>
+    <summary>{strings.openEvidence}</summary>
     {body ? <pre>{JSON.stringify(body.raw ?? body, null, 2)}</pre> :
-      <p>{failed ? 'Evidence is unavailable.' : 'Loading evidence…'}</p>}
+      <p>{failed ? strings.evidenceIsUnavailable : strings.loadingEvidence}</p>}
   </details>;
 }
 
@@ -615,11 +618,11 @@ async function startApp() {
       const response = await fetch('/api/local-session', {
         method: 'POST', headers: { 'X-North-Local-Session': 'start' }, cache: 'no-store',
       });
-      if (!response.ok) throw new Error('Local session unavailable');
+      if (!response.ok) throw new Error(clientMessages.localSessionUnavailable);
     } catch {
-      root.render(<main><h1>Local NORTH is unavailable</h1>
-        <p>Start the local NORTH service, then reload this window.</p>
-        <button type="button" onClick={() => location.reload()}>Reload</button></main>);
+      root.render(<main><h1>{strings.localNorthIsUnavailable}</h1>
+        <p>{strings.startTheLocalNorthServiceThenReload}</p>
+        <button type="button" onClick={() => location.reload()}>{strings.reload}</button></main>);
       return;
     }
   }

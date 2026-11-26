@@ -1,3 +1,4 @@
+import { LocalFindingsMessages as strings, formatMessage } from './messages';
 import { useEffect, useRef, useState } from 'react';
 import { TimeDisplay } from './TimeDisplay';
 import { useDisplayMode } from './DisplayMode';
@@ -46,8 +47,8 @@ export function FindingEvidence({ id }: { id: string }) {
         <span key={index}> · <code>{value}</code></span>)}</p>;
   }
   return <div><button type="button" disabled={loading} onClick={() => void open()}>
-    {loading ? 'Loading evidence…' : 'Open evidence ' + id.slice(0, 8)}
-  </button>{failed && <p role="status">This evidence could not be loaded. It may have expired.</p>}</div>;
+    {loading ? strings.loadingEvidence : formatMessage(strings.openEvidence, id.slice(0, 8))}
+  </button>{failed && <p role="status">{strings.thisEvidenceCouldNotBeLoadedIt}</p>}</div>;
 }
 
 function FindingRow({ finding, onReviewed }: {
@@ -76,27 +77,27 @@ function FindingRow({ finding, onReviewed }: {
   return <details className="local-finding">
     <summary>
       <strong>{finding.title}</strong> <span className="severity-label" data-severity={finding.severity}>{finding.severity}</span>
-      {' '}<span className="review-status">{finding.status === 'new' ? 'Unreviewed' : finding.status}</span>
+      {' '}<span className="review-status">{finding.status === 'new' ? strings.unreviewed : finding.status}</span>
       {' '}<TimeDisplay value={finding.last_seen} />
     </summary>
     <p>{finding.plain_summary}</p>
     <p>{finding.what_to_do}</p>
     {!!finding.falsepositives?.length && <p>{finding.falsepositives[0]}</p>}
     {(finding.rule_id || !!finding.attack?.length) && <details open={mode === 'analyst' || undefined}>
-      <summary>Technical details</summary>
+      <summary>{strings.technicalDetails}</summary>
       {finding.rule_id && <code>{finding.rule_id}</code>}
-      {!!finding.attack?.length && <ul className="finding-tags" aria-label="ATT&CK techniques">
+      {!!finding.attack?.length && <ul className="finding-tags" aria-label={strings.attCkTechniques}>
         {finding.attack.map((tag) => <li key={tag}><code>{tag.replace(/^attack\./, '').toUpperCase()}</code></li>)}
       </ul>}
     </details>}
     {finding.evidence_ids.map((id) => <FindingEvidence key={id} id={id} />)}
     <div className="finding-actions">
       {finding.status === 'new' ? <>
-        <button type="button" disabled={pending} onClick={() => void review('reviewed')}>Mark reviewed</button>
-        <button type="button" disabled={pending} onClick={() => void review('benign')}>Mark benign</button>
-      </> : <button type="button" disabled={pending} onClick={() => void review('new')}>Reopen finding</button>}
+        <button type="button" disabled={pending} onClick={() => void review('reviewed')}>{strings.markReviewed}</button>
+        <button type="button" disabled={pending} onClick={() => void review('benign')}>{strings.markBenign}</button>
+      </> : <button type="button" disabled={pending} onClick={() => void review('new')}>{strings.reopenFinding}</button>}
     </div>
-    {failed && <p role="status">The review could not be saved. Try again.</p>}
+    {failed && <p role="status">{strings.theReviewCouldNotBeSavedTry}</p>}
   </details>;
 }
 
@@ -183,26 +184,26 @@ export function LocalFindings({ desktop, onHealth }: { desktop: boolean; onHealt
     setPage(next);
   }
   return <section aria-labelledby="local-findings-title">
-    <h3 id="local-findings-title">Local findings</h3>
-    {desktop && feed?.monitor === 'running' && <p className="reference">Monitoring this computer</p>}
+    <h3 id="local-findings-title">{strings.localFindings}</h3>
+    {desktop && feed?.monitor === 'running' && <p className="reference">{strings.monitoringThisComputer}</p>}
     {desktop && feed && feed.monitor !== 'running' && <div className="overview-source-row">
-      <p>NORTH can check Windows events and local network observations while this app runs.</p>
+      <p>{strings.northCanCheckWindowsEventsAndLocal}</p>
       <button type="button" disabled={starting} onClick={() => void start()}>
-        {starting ? 'Starting…' : feed?.monitor === 'failed' ? 'Restart monitoring' : 'Start monitoring'}
+        {starting ? strings.starting : feed?.monitor === 'failed' ? strings.restartMonitoring : strings.startMonitoring}
       </button>
     </div>}
-    {(startError || feed?.monitor === 'failed') && <p role="status">The local collector could not run.</p>}
-    {unavailable && <p role="status">Local findings could not refresh.</p>}
-    {!unavailable && !unreviewed.length && <p className="reference">{!feed ? 'Checking local findings…' :
-      'No unreviewed local findings.'}</p>}
+    {(startError || feed?.monitor === 'failed') && <p role="status">{strings.theLocalCollectorCouldNotRun}</p>}
+    {unavailable && <p role="status">{strings.localFindingsCouldNotRefresh}</p>}
+    {!unavailable && !unreviewed.length && <p className="reference">{!feed ? strings.checkingLocalFindings :
+      strings.noUnreviewedLocalFindings}</p>}
     {unreviewed.map((finding) => <FindingRow key={finding.id} finding={finding} onReviewed={onReviewed} />)}
     {reviewed.length > 0 && <details className="finding-history">
-      <summary>Recent reviewed findings ({reviewed.length})</summary>
+      <summary>{strings.recentReviewedFindings}{reviewed.length})</summary>
       {reviewed.map((finding) => <FindingRow key={finding.id} finding={finding} onReviewed={onReviewed} />)}
     </details>}
     {(page > 0 || feed?.has_more) && <div className="finding-actions">
-      <button type="button" disabled={page === 0} onClick={() => goToPage(page - 1)}>Previous findings</button>
-      <button type="button" disabled={!feed?.has_more} onClick={() => goToPage(page + 1)}>More findings</button>
+      <button type="button" disabled={page === 0} onClick={() => goToPage(page - 1)}>{strings.previousFindings}</button>
+      <button type="button" disabled={!feed?.has_more} onClick={() => goToPage(page + 1)}>{strings.moreFindings}</button>
     </div>}
   </section>;
 }

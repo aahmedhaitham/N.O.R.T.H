@@ -1,3 +1,4 @@
+import { TimeDisplayMessages as strings } from './messages';
 import { useState, useSyncExternalStore } from 'react';
 import { SelectControl } from './SelectControl';
 
@@ -46,8 +47,8 @@ export function TimeDisplay({ value }: { value?: string | null }) {
 
 export function TimezoneControl() {
   const [selected, setSelected] = useState(zone);
-  return <SelectControl label="Timezone" value={selected}
-    options={[{ value: 'local', label: 'System timezone' }, { value: 'UTC', label: 'UTC' }]}
+  return <SelectControl label={strings.timezone} value={selected}
+    options={[{ value: 'local', label: strings.systemTimezone }, { value: 'UTC', label: strings.utc }]}
     onChange={(value) => {
       zone = value;
       setSelected(value);

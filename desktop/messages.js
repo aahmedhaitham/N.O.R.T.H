@@ -1,0 +1,27 @@
+const desktopMessages = {
+  setupWindow: 'NORTH — Connect workspace',
+  setupTitle: 'Connect to NORTH Cloud',
+  setupHeading: 'Connect your workspace',
+  setupDescription: 'Enter the HTTPS address of your NORTH Cloud workspace.',
+  workspaceAddress: 'Workspace address',
+  connect: 'Connect',
+  connectFailed: 'Could not connect to the workspace.',
+  setupFailed: 'The workspace setup screen could not open.',
+  setupUnavailable: 'Workspace setup is unavailable.',
+  openFailed: 'Could not open the workspace.',
+  dashboardFailed: 'The dashboard could not open.',
+  collectorTitle: 'Set up NORTH Collector',
+  collectorQuestion: 'Install the collector on this computer?',
+  collectorDetail: 'NORTH will prepare its Python environment and start the collector in the background at Windows sign-in. Only install it on a computer you manage.',
+  cancel: 'Cancel',
+  setupCollector: 'Set up collector',
+  workspace: 'Workspace',
+  thisComputer: 'This computer',
+  openCloudWorkspace: 'Open cloud workspace',
+  changeWorkspace: 'Connect to a different workspace…',
+  reload: 'Reload',
+  edit: 'Edit',
+  view: 'View',
+};
+
+if (typeof module !== 'undefined') module.exports = desktopMessages;

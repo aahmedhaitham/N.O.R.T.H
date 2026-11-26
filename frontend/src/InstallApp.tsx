@@ -1,3 +1,4 @@
+import { InstallAppMessages as strings } from './messages';
 import { useEffect, useState } from 'react';
 
 type InstallPrompt = Event & { prompt: () => Promise<unknown> };
@@ -24,5 +25,5 @@ export function InstallApp() {
   return <button type="button" onClick={async () => {
     setInstaller(null);
     try { await installer.prompt(); } catch { /* The browser withdrew the prompt. */ }
-  }}>Install NORTH</button>;
+  }}>{strings.installNorth}</button>;
 }
