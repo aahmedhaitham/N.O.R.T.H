@@ -21,6 +21,13 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Local-first product brief · Phase 5 NORTH Assistant
+
+- Added a docked panel available through **Assistant**, **Ctrl+J**, and the **Ctrl+K** command palette. It matches 34 question intents, offers autocomplete and follow-ups, and keeps a clearable history for the current workspace session.
+- Answers use a bounded in-memory snapshot of data already loaded by NORTH. The assistant issues no requests and executes no commands. Findings, events, devices, connections, investigations, and rule coverage link back to their corresponding app records. Country answers require a loaded endpoint attribution and an exact destination IP match.
+- Unknown questions offer three suggestions. Missing or inaccessible data is reported as such when source status is available. Changes such as device trust and configuration remain in their existing screens. The assistant itself offers no privileged repair or response actions.
+- The desktop UI build, 20 desktop tests, and 3 cloud tests passed. Added an Assistant evidence-navigation step to the installed Windows walkthrough. That step still needs a GitHub runner result.
+
 ### Local-first product brief · Phase 4 Simple mode
 
 - Simple is the default display mode. Workspace **Settings → Display mode** switches to Analyst and remembers the choice on that device. Both modes use the same observations, findings, and investigations.

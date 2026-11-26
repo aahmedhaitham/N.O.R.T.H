@@ -2,6 +2,7 @@ import { LocalFindingsMessages as strings, formatMessage } from './messages';
 import { useEffect, useRef, useState } from 'react';
 import { TimeDisplay } from './TimeDisplay';
 import { useDisplayMode } from './DisplayMode';
+import { Explain, useAssistant } from './Assistant';
 
 type FindingStatus = 'new' | 'reviewed' | 'benign';
 type Finding = {
@@ -15,6 +16,9 @@ type Feed = {
   summary?: { unreviewed: number; severe: number };
 };
 const isSevere = (finding: Finding) => finding.severity === 'critical' || finding.severity === 'high';
+const findingRow = (finding: Finding) => ({ id: finding.id, label: finding.title, detail: finding.plain_summary,
+  timestamp: finding.last_seen, status: finding.status, guidance: finding.what_to_do,
+  alternative: finding.falsepositives?.[0], terms: [finding.severity, finding.rule_id ?? '', ...(finding.attack ?? [])] });
 type Evidence = {
   host: string; timestamp?: string; ts?: string; source?: string;
   process?: string | { path?: string }; destination?: string; target?: string;
@@ -74,7 +78,7 @@ function FindingRow({ finding, onReviewed }: {
     }
   }
 
-  return <details className="local-finding">
+  return <details className="local-finding" id={'assistant-findings-' + finding.id} tabIndex={-1}>
     <summary>
       <strong>{finding.title}</strong> <span className="severity-label" data-severity={finding.severity}>{finding.severity}</span>
       {' '}<span className="review-status">{finding.status === 'new' ? strings.unreviewed : finding.status}</span>
@@ -91,6 +95,7 @@ function FindingRow({ finding, onReviewed }: {
       </ul>}
     </details>}
     {finding.evidence_ids.map((id) => <FindingEvidence key={id} id={id} />)}
+    <Explain area="findings" question="Why am I seeing this alert?" row={findingRow(finding)} />
     <div className="finding-actions">
       {finding.status === 'new' ? <>
         <button type="button" disabled={pending} onClick={() => void review('reviewed')}>{strings.markReviewed}</button>
@@ -102,12 +107,14 @@ function FindingRow({ finding, onReviewed }: {
 }
 
 export function LocalFindings({ desktop, onHealth }: { desktop: boolean; onHealth?: (health: FindingHealth) => void }) {
+  const publish = useAssistant()?.publish;
   const [feed, setFeed] = useState<Feed>();
   const [unavailable, setUnavailable] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(false);
   const [page, setPage] = useState(0);
   const revision = useRef(0);
+  useEffect(() => { if (feed) publish?.('findings', feed.findings.map(findingRow)); }, [feed, publish]);
 
   useEffect(() => {
     if (!onHealth || (!feed && page !== 0)) return;

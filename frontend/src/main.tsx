@@ -14,6 +14,8 @@ import { eventNames } from './messages';
 import { Dashboard } from './Dashboard';
 import { Detections } from './Detections';
 import { ProcessTree } from './ProcessTree';
+import { AssistantPanel, AssistantProvider, useAssistant } from './Assistant';
+import type { Area, Row } from './assistantEngine';
 import { DisplayModeControl, DisplayModeProvider } from './DisplayMode';
 import { simpleMessages as simpleText } from './messages';
 import { InstallApp } from './InstallApp';
@@ -69,11 +71,14 @@ function NavigationIcon({ view }: { view: View }) {
 }
 
 function QuickNavigation({ view, open }: { view?: View; open: (view: View) => void }) {
+  const openAssistant = useAssistant()?.open;
   const dialog = useRef<HTMLDialogElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const search = query.trim().toLowerCase();
   const matches = navigation.filter(({ label, detail }) => `${label} ${detail}`.toLowerCase().includes(search));
+  const showAssistant = !!openAssistant && 'north assistant offline help'.includes(search);
+  function goToAssistant() { dialog.current?.close(); openAssistant?.(); }
   const apple = /Mac|iPhone|iPad/.test(navigator.platform);
 
   const show = useCallback(() => {
@@ -112,11 +117,13 @@ function QuickNavigation({ view, open }: { view?: View; open: (view: View) => vo
       <form className="quick-nav-search" onSubmit={(event) => {
         event.preventDefault();
         if (matches[0]) goTo(matches[0].id);
+        else if (showAssistant) goToAssistant();
       }}>
         <input ref={searchInput} type="search" aria-label={strings.findAPage} placeholder={strings.findAPage}
           value={query} onChange={(event) => setQuery(event.target.value)} />
       </form>
       <ul className="quick-nav-results">
+        {showAssistant && <li><button type="button" onClick={goToAssistant}>NORTH Assistant</button></li>}
         {matches.map((item) => <li key={item.id}>
           <button type="button" aria-current={item.id === view ? 'page' : undefined} onClick={() => goTo(item.id)}>
             <NavigationIcon view={item.id} />
@@ -124,18 +131,27 @@ function QuickNavigation({ view, open }: { view?: View; open: (view: View) => vo
           </button>
         </li>)}
       </ul>
-      {matches.length === 0 && <p role="status">{strings.noMatchingPages}</p>}
+      {matches.length === 0 && !showAssistant && <p role="status">{strings.noMatchingPages}</p>}
     </dialog>
   </>;
 }
 
-function App({ source = null, openCollectors, controls, fleet, panel }: {
+function App(props: Parameters<typeof Workspace>[0]) {
+  return <AssistantProvider><Workspace {...props} /></AssistantProvider>;
+}
+
+function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
   source?: string | null;
   openCollectors?: () => void;
   controls?: CloudToolbar;
   fleet?: CollectorFleet;
   panel?: WorkspacePanel;
 }) {
+  const assistant = useAssistant()!;
+  const publish = assistant.publish;
+  const publishEvents = assistant.events;
+  const [evidenceTarget, setEvidenceTarget] = useState('');
+  const [eventCitation, setEventCitation] = useState('');
   const [view, updateView] = useState<View>(() => {
     const saved = readWorkspacePreference('view');
     return navigation.find((item) => item.id === saved)?.id ?? 'dashboard';
@@ -162,6 +178,51 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
     [item.title, item.host].some((value) => value.toLowerCase().includes(caseQuery))) : cases;
   const sourceQuery = source ? '?source=' + encodeURIComponent(source) : '';
   const networkEndpoint = portfolio ? '/demo/network.json' : '/api/network' + sourceQuery;
+  useEffect(() => {
+    if (loaded) {
+      publish('cases', cases.map((item) => ({
+        id: item.id, label: item.title, detail: item.summary, status: item.review_status ?? 'open',
+        timestamp: item.evidence.at(-1)?.timestamp, terms: [item.host],
+      })));
+      const evidence = cases.flatMap((item) => item.evidence.slice(-25).map((event) => ({ ...event, host: item.host }))).slice(-100);
+      if (evidence.length) publishEvents(evidence);
+    }
+  }, [cases, loaded, publish, publishEvents]);
+
+  useEffect(() => {
+    if (!evidenceTarget) return;
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      const node = document.getElementById(evidenceTarget);
+      if (node) {
+        if (node instanceof HTMLDetailsElement) node.open = true;
+        const parent = node.parentElement?.closest('details');
+        if (parent) parent.open = true;
+        node.scrollIntoView({ block: 'nearest' });
+        node.focus({ preventScroll: true });
+      }
+      if (node || ++tries >= 30) setEvidenceTarget('');
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [evidenceTarget]);
+
+  function cite(area: Area, row: Row) {
+    assistant.close();
+    if (area === 'cases') { openCase(row.id); return; }
+    if (area === 'events') {
+      const event = assistant.event(row.id);
+      if (!event) return;
+      setEventSearch('');
+      setEventCitation(row.id);
+      setChartSelection({ label: 'Cited event', events: [event] });
+      setView('events');
+      setEvidenceTarget('iris-evidence-title');
+      return;
+    }
+    setView(area === 'findings' ? 'dashboard' : area === 'coverage' ? 'detections' : 'network');
+    if (area === 'devices') setNetworkTarget(row.id.startsWith('new:') ? 'atlas-new-devices' : 'atlas-local-devices');
+    setEvidenceTarget('assistant-' + area + '-' + row.id);
+  }
 
   useEffect(() => {
     if (viewContent.current) viewContent.current.scrollTop = 0;
@@ -187,6 +248,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
   }
 
   function openEvents(search: string) {
+    setEventCitation('');
     setChartSelection(null);
     setEventSearch(search.slice(0, 200));
     setView('events');
@@ -275,6 +337,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
         <QuickNavigation view={panel || localSettings ? undefined : view} open={setView} />
         <div className="toolbar-right">
           <InstallApp />
+          <button type="button" aria-keyshortcuts="Control+J Meta+J" onClick={() => assistant.open()}>Assistant</button>
           <span role="status" title={controls?.notice || undefined}
             aria-label={desktopLocal ? strings.localData : cloud ? controls?.interrupted ? strings.cloudConnectionInterrupted :
               online ? strings.cloudReady : strings.connectingToCloud : strings.feedStatus}
@@ -328,7 +391,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
           target={networkTarget} onTarget={setNetworkTarget} demo={publicDemo} readOnly={publicDemo || cloud}
           labelSource={cloud ? source : null} visible={view === 'network' && !panel} />
       </div>
-      {view === 'events' && <Events portfolio={portfolio} source={source} initialSearch={eventSearch}
+      {view === 'events' && <Events key={eventCitation} portfolio={portfolio} source={source} initialSearch={eventSearch}
         chartSelection={chartSelection} clearChartSelection={() => setChartSelection(null)}
         canSave={cloud} openNetwork={() => setView('network')} />}
       {view === 'cases' && <div className="workspace">
@@ -361,6 +424,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
       </div>}
       </div>
       </PageMotion>
+      <AssistantPanel cite={cite} />
       </div>
       </div>
     </div>

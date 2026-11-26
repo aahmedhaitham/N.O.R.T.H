@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ChartBar } from './InterfaceMotion';
 import { investigationSeverity } from './investigationSeverity';
 import { formatAbsolute } from './TimeDisplay';
+import { eventRow, Explain, useAssistant } from './Assistant';
 import './analytics.css';
 
 export type ChartEvent = {
@@ -42,6 +43,8 @@ export function OverviewCharts({ endpoint, source, demo, cases, open }: {
   endpoint: string; source?: string | null; demo: boolean; cases: CaseEvidence[]; open: (value: ChartSelection) => void;
 }) {
   const [events, setEvents] = useState<ChartEvent[] | null>(null);
+  const publishEvents = useAssistant()?.events;
+  useEffect(() => { if (events) publishEvents?.(events); }, [events, publishEvents]);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [brush, setBrush] = useState([0, 11]);
@@ -103,6 +106,7 @@ export function OverviewCharts({ endpoint, source, demo, cases, open }: {
   const heatMax = Math.max(1, ...[...heat.values()].map((items) => items.length));
 
   return <div className="analytics">
+    {events[0] && <Explain area="events" question="Show events for a process" row={eventRow(events[0])} />}
     <p className="reference">{strings.latest}{sample.length} {demo ? strings.available : strings.recorded}{strings.eventsUpTo}{limit}{strings.perView}</p>
     <section className="analytics-chart">
       <h3>{strings.eventsOverTime}</h3>

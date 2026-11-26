@@ -4,6 +4,7 @@ import { DetectionsMessages as strings, formatMessage } from './messages';
 import { useEffect, useRef, useState } from 'react';
 import { FindingEvidence } from './LocalFindings';
 import { pollVisible } from './pollVisible';
+import { useAssistant } from './Assistant';
 
 type Coverage = 'covered' | 'partly' | 'blind';
 type Requirement = { id: string; state: string; fix: string };
@@ -25,9 +26,18 @@ async function readCatalog(options?: RequestInit) {
 }
 
 function useCatalog() {
+  const publish = useAssistant()?.publish;
   const [catalog, setCatalog] = useState<Catalog>();
   const [failed, setFailed] = useState(false);
   const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (catalog) publish?.('coverage', catalog.rules.map((rule) => ({
+      id: rule.id, label: rule.title, status: rule.coverage,
+      detail: rule.requires.map((item) => item.id + ' · ' + item.state).join(', '),
+      guidance: rule.requires.filter((item) => item.state !== 'Observed').map((item) => item.fix).join(' '),
+      terms: [...rule.attack, ...rule.requires.map((item) => item.id)],
+    })));
+  }, [catalog, publish]);
   useEffect(() => {
     const abort = new AbortController();
     const stop = pollVisible(async () => {
@@ -135,7 +145,7 @@ export function Detections() {
       </div>
       {message && <p role="status">{message}</p>}
       {rules?.length === 0 && <p>{strings.noRulesMatch}</p>}
-      {rules?.map((rule) => <details className="local-finding" key={rule.id}>
+      {rules?.map((rule) => <details className="local-finding" key={rule.id} id={'assistant-coverage-' + rule.id} tabIndex={-1}>
         <summary><strong>{rule.title}</strong> <span className="severity-label" data-severity={rule.severity}>{rule.severity}</span>
           {' · '}{rule.enabled ? coverageLabels[rule.coverage] : strings.disabled}</summary>
         <ul>{rule.requires.map((need) => <li key={need.id}><code>{need.id}</code> · {need.state}

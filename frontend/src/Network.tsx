@@ -2,6 +2,7 @@ import { feedbackMessages } from './messages';
 import { clientMessages } from './messages';
 import { NetworkMessages as strings, formatMessage } from './messages';
 import { TimeDisplay, formatAbsolute } from './TimeDisplay';
+import { Explain, useAssistant } from './Assistant';
 import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
 import { explainAddress } from './deviceExplanation';
@@ -112,11 +113,35 @@ export function groupNeighbors(records: Neighbor[]) {
 }
 
 export function useNetworkInventory(endpoint: string) {
+  const assistant = useAssistant();
+  const publish = assistant?.publish;
+  const availability = assistant?.availability;
   const [inventory, setInventory] = useState<Snapshot | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [revision, setRevision] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>();
+  useEffect(() => {
+    if (!inventory || !publish) return;
+    if (inventory.neighbors || inventory.device_findings) {
+      const devices = groupNeighbors(inventory.neighbors?.records ?? []).map(([id, rows]) => ({
+        id, label: rows.find((row) => row.name)?.name || rows[0].address,
+        terms: rows.flatMap((row) => [row.name, row.address, row.mac]), detail: rows[0].network,
+      }));
+      const newDevices = inventory.device_findings?.items.map((row) => ({
+        id: 'new:' + row.id, label: row.addresses[0] || row.mac, detail: row.interface,
+        timestamp: row.first_seen, status: row.reviewed_at ? 'reviewed' : 'new', terms: [row.mac, ...row.addresses],
+      })) ?? [];
+      publish('devices', [...newDevices, ...devices]);
+    }
+    publish('connections', inventory.links.filter((row) => row.direction === 'outbound').map((row) => ({
+      id: row.asset_id + row.address + row.direction, label: row.address, detail: row.source, timestamp: row.last_seen,
+    })));
+    availability?.('devices', inventory.neighbors?.state === 'unavailable' ?
+      'The collector could not read its local device observations.' : undefined);
+    availability?.('events', inventory.sysmon?.problem === 'access_denied' ?
+      'Windows denied the collector access to the Sysmon event log.' : undefined);
+  }, [inventory, publish, availability]);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -386,9 +411,10 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
             <th scope="col">{strings.observedOn}</th>{includeRouter && <th scope="col">{strings.routerUsage}</th>}</tr></thead>
           <tbody>{matching.map(({ key, records, traffic, name, nameSource }) => {
             const { address, mac, network } = records[0];
-            return <tr key={key}>
+            return <tr key={key} id={'assistant-devices-' + key} tabIndex={-1}>
               <th scope="row">{name || address}
                 <small>{nameSource || strings.nameUnavailable}</small>
+                <Explain area="devices" question="Is this device known?" row={{ id: key, label: name || address, detail: network, terms: [mac, address] }} />
               </th>
               <td>{records.map((record) => <div key={record.address}>
                 <button type="button" className="atlas-address-button" onClick={() => openEvents(record.address)}
@@ -467,10 +493,14 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {reviewError && <p role="alert">{strings.thatFindingCouldNotBeMarkedAs}</p>}
       {!watch.items.length && watch.baseline_at && <p>{strings.noNewDevicesHaveAppearedSinceThe}</p>}
       <ul className="network-list">{watch.items.filter((item) => fits(item.mac, item.interface, ...item.addresses)).map((item) => (
-        <li key={item.id}>
+        <li key={item.id} id={'assistant-devices-new:' + item.id} tabIndex={-1}>
           <strong>{item.addresses.join(', ')}</strong>
           <small><code>{item.mac}</code> · {item.interface}{strings.firstSeen}<TimeDisplay value={item.first_seen} /></small>
           <small>{item.reviewed_at ? strings.reviewed : strings.needsReview}{strings.lastSeen}<TimeDisplay value={item.last_seen} /></small>
+          <Explain area="devices" question="Who is new on my network?" row={{
+            id: 'new:' + item.id, label: item.addresses[0] || item.mac, timestamp: item.first_seen,
+            detail: item.interface, status: item.reviewed_at ? 'reviewed' : 'new', terms: [item.mac, ...item.addresses],
+          }} />
           <details className="device-explanation">
             <summary>{strings.whyDidThisAppear}</summary>
             <p>{strings.northSawThisHardwareAddressOnThis}</p>
@@ -505,7 +535,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       </section>
       <section className="panel">
         <h2>{strings.observedConnections}</h2>
-        <ul className="network-list">{matchingLinks.map((link) => <li key={link.asset_id + link.address + link.direction}>
+        <ul className="network-list">{matchingLinks.map((link) => <li key={link.asset_id + link.address + link.direction}
+          id={'assistant-connections-' + link.asset_id + link.address + link.direction} tabIndex={-1}>
           <strong>{link.address}</strong>
           <small>{link.direction === 'inbound' ? strings.inboundTo : strings.outboundFrom} {hosts.get(link.asset_id)} · {link.source} · {link.events} {link.events === 1 ? strings.event : strings.events}</small>
           <details className="device-explanation">

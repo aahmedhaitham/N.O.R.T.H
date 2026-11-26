@@ -1,6 +1,7 @@
 import { clientMessages } from './messages';
 import { RemoteEndpointMapMessages as strings } from './messages';
 import { useEffect, useMemo, useState } from 'react';
+import { useAssistant } from './Assistant';
 import { SelectControl } from './SelectControl';
 import './remote-map.css';
 
@@ -52,6 +53,7 @@ export function RemoteEndpointMap({ links, trace, source, cloud, localAddresses,
   links: Link[]; trace: TraceLink[]; source?: string | null; cloud: boolean;
   localAddresses: string[]; inspectCollection: () => void;
 }) {
+  const publishLocations = useAssistant()?.locations;
   const [origin, setOrigin] = useState(readOrigin);
   const [data, setData] = useState<MapData | null>(null);
   const [failed, setFailed] = useState(false);
@@ -104,6 +106,11 @@ export function RemoteEndpointMap({ links, trace, source, cloud, localAddresses,
   }, [observedAddresses, traceAddresses, source, cloud, retry]);
 
   const features = useMemo(() => data?.world.features.map((item) => ({ ...item.properties, path: countryPath(item) })) ?? [], [data?.world]);
+  useEffect(() => {
+    if (!data) return;
+    const names = new Intl.DisplayNames(undefined, { type: 'region' });
+    publishLocations?.(Object.fromEntries(Object.entries(data.observed).map(([address, code]) => [address, names.of(code) ?? code])));
+  }, [data, publishLocations]);
   if (failed) return <section className="panel"><h2>{strings.remoteEndpointLocationApproximate}</h2>
     <p role="status">{strings.countryDataCouldNotLoad}</p><button type="button" onClick={() => { setFailed(false); setRetry(retry + 1); }}>{strings.retry}</button></section>;
   if (!data) return <section className="panel"><h2>{strings.remoteEndpointLocationApproximate}</h2><p role="status">{strings.loadingCountryData}</p></section>;

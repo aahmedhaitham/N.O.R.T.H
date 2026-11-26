@@ -156,7 +156,14 @@ try {
   await call('Page.reload');
   await see('Act now');
   await see('Synthetic review finding');
-  console.log('NORTH Windows walkthrough passed: Simple default, Analyst switch, saved mode, device answer, and all three status levels.');
+  await click('button', 'Assistant');
+  await see('Built in · works offline · answers from your NORTH data');
+  await click('button', 'What needs attention?');
+  await see('Unreviewed findings in the available snapshot.');
+  await click('button', 'Open evidence in Overview');
+  await waitFor('the exact cited finding to expand', () => evaluate(
+    'document.getElementById("assistant-findings-" + "a".repeat(24))?.open === true'));
+  console.log('NORTH Windows walkthrough passed: display modes, all three status levels, and Assistant evidence navigation.');
 } finally {
   socket?.close();
   if (app.exitCode === null && !app.killed) app.kill();

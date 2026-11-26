@@ -483,3 +483,11 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 440px) {
   .dashboard-metric { grid-template-columns: 1fr; }
 }
+.assistant-dock {
+  position: fixed; z-index: 20; inset: 44px 0 0 auto; width: min(440px, 100vw);
+  box-sizing: border-box; padding: var(--space-4); overflow: auto; background: var(--surface);
+  border-inline-start: var(--border); box-shadow: -10px 0 30px #0002;
+}
+.assistant-dock header { display: flex; justify-content: space-between; gap: var(--space-2); align-items: center; }
+.assistant-history article { border-block-start: var(--border); padding-block: var(--space-2); }
+.assistant-evidence { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); overflow-wrap: anywhere; }

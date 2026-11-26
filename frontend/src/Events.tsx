@@ -7,6 +7,7 @@ import { eventNames } from './messages';
 import { SavedSearches } from './SavedSearches';
 import { pollVisible } from './pollVisible';
 import type { ChartSelection } from './OverviewCharts';
+import { eventRow, Explain, useAssistant } from './Assistant';
 
 type Event = {
   id: string; timestamp: string; kind: number; host: string; process: string;
@@ -40,6 +41,7 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave,
   chartSelection?: ChartSelection | null;
   clearChartSelection?: () => void;
 }) {
+  const publishEvents = useAssistant()?.events;
   const [search, setSearch] = useState(initialSearch);
   const [kind, setKind] = useState('');
   const [criteria, setCriteria] = useState<Criteria>({ search: initialSearch, kind: '' });
@@ -50,6 +52,7 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave,
   const [error, setError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = page?.events.find((item) => item.id === selectedId) ?? page?.events[0];
+  useEffect(() => { if (page) publishEvents?.(page.events); }, [page, publishEvents]);
 
   useEffect(() => {
     const filter = { ...criteria, before };
@@ -170,7 +173,8 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave,
           </li>;
         })}</ul>
         <section className="iris-evidence" id="iris-evidence" aria-labelledby="iris-evidence-title">
-          <h3 id="iris-evidence-title">{eventNames[selected.kind] ?? formatMessage(strings.event2, selected.kind)}</h3>
+          <h3 id="iris-evidence-title" tabIndex={-1}>{eventNames[selected.kind] ?? formatMessage(strings.event2, selected.kind)}</h3>
+          <Explain area="events" question="Show events for a process" row={eventRow(selected)} />
           <dl>
             <dt>{strings.host}</dt><dd>{selected.host || strings.unavailable}</dd>
             <dt>{strings.observedValue}</dt><dd>{selected.target || selected.destination || selected.source_ip || selected.process || strings.unavailable}</dd>
