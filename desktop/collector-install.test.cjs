@@ -49,3 +49,41 @@ test('guided collector setup keeps the key off command lines and scopes local st
     'Set-NorthCollectorStartup.ps1:Disable',
   ]);
 });
+
+test('connecting this PC creates its pairing only after confirmation and keeps the key in the bridge', async (t) => {
+  const data = await mkdtemp(path.join(tmpdir(), 'north-collector-connect-'));
+  t.after(() => rm(data, { recursive: true, force: true }));
+  const source = 'collector-' + 'a'.repeat(20);
+  const token = 'c'.repeat(64);
+  let confirmed = false;
+  let apiCalls = 0;
+  let failStartup = false;
+  const api = makeCollectorInstall({
+    root: path.join(__dirname, '..'), data, isWindows: true, confirm: async () => confirmed,
+    async execute(script, args, input) {
+      assert.ok(!args.includes(token));
+      if (args.includes('-PairFromStdin')) assert.equal(input, token + '\n');
+      if (failStartup && args.includes('Enable')) throw new Error('Mock scheduler failure');
+    },
+  });
+  const invoke = () => api(new Request('north://app/api/desktop/collector/connect', {
+    method: 'POST', body: JSON.stringify({ label: '  Lab PC  ' }),
+  }), 'https://workspace.example', async (request) => {
+    apiCalls++;
+    assert.equal(new URL(request.url).pathname, '/api/cloud/pairings');
+    assert.deepEqual(await request.json(), { label: 'Lab PC' });
+    return Response.json({ source_id: source, token }, { status: 201 });
+  });
+  assert.equal((await invoke()).status, 204);
+  assert.equal(apiCalls, 0);
+  confirmed = true;
+  const connected = await invoke();
+  assert.equal(connected.status, 200);
+  assert.deepEqual(await connected.json(), { started: true, source_id: source });
+  failStartup = true;
+  const failed = await invoke();
+  assert.equal(failed.status, 503);
+  const recovery = await failed.json();
+  assert.equal(recovery.source_id, source);
+  assert.ok(!JSON.stringify(recovery).includes(token));
+});

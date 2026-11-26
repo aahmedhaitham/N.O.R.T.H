@@ -23,6 +23,8 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
   const [desktopSetupBusy, setDesktopSetupBusy] = useState(false);
   const [installedSource, setInstalledSource] = useState('');
   const [taskMessage, setTaskMessage] = useState('');
+  const [guidedSource, setGuidedSource] = useState('');
+  const [guidedMessage, setGuidedMessage] = useState('');
   const desktop = location.protocol === 'north:';
   const paired = items.find((item) => item.source_id === created?.source_id);
   const workspace = /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(location.origin) ? location.origin : '';
@@ -116,6 +118,35 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
     }
   }
 
+  async function connectDesktop() {
+    setDesktopSetupBusy(true);
+    setGuidedMessage('Waiting for confirmation…');
+    setGuidedSource('');
+    try {
+      const response = await fetch('/api/desktop/collector/connect', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label }),
+      });
+      if (response.status === 204) {
+        setGuidedMessage('Setup cancelled.');
+        return;
+      }
+      const result = await response.json();
+      if (result.source_id) {
+        setLabel('');
+        setOpened(result.source_id);
+        await update().catch(() => setListError(true));
+      }
+      if (!response.ok) throw new Error(result.detail || 'Could not connect this PC.');
+      setInstalledSource(result.source_id);
+      setGuidedSource(result.source_id);
+      setGuidedMessage('Windows requested a background collector start.');
+    } catch (error) {
+      setGuidedMessage(error instanceof Error ? error.message : 'Could not connect this PC.');
+    } finally {
+      setDesktopSetupBusy(false);
+    }
+  }
+
   async function changeStartup(source: string, enabled: boolean) {
     setDesktopSetupBusy(true);
     setTaskMessage('');
@@ -181,12 +212,22 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
         <p>Use <code>-Action Status</code> to check startup or <code>-Action Disable</code> to turn it off.</p>
       </details>
       <form className="event-filters" onSubmit={(event) => {
-        event.preventDefault(); void mutate('/api/cloud/pairings', { label }, true);
+        event.preventDefault();
+        if (desktop) void connectDesktop();
+        else void mutate('/api/cloud/pairings', { label }, true);
       }}>
         <label>Collector name <input required maxLength={80} placeholder="Office PC" value={label}
           onChange={(event) => setLabel(event.target.value)} /></label>
-        <button className="primary-action" type="submit" disabled={busy || !label.trim()}>Create pairing</button>
+        <button className="primary-action" type="submit" disabled={busy || desktopSetupBusy || !label.trim()}>
+          {desktop ? 'Connect this PC' : 'Create pairing'}
+        </button>
+        {desktop && <button type="button" disabled={busy || desktopSetupBusy || !label.trim()}
+          onClick={() => void mutate('/api/cloud/pairings', { label }, true)}>Pair another device</button>}
       </form>
+      {guidedMessage && <p role="status">{guidedMessage}</p>}
+      {guidedSource && (availableSources.includes(guidedSource) ?
+        <button type="button" onClick={() => useCollector(guidedSource)}>View this PC’s telemetry</button> :
+        <p role="status">Waiting for this PC’s first sync…</p>)}
       {!created?.issued_at && keyPanel}
     </section>
     <section className="panel">

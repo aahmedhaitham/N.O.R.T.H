@@ -55,7 +55,7 @@ async function handleLocalRequest(request, api, origin) {
   const url = new URL(request.url);
   if (url.hostname !== 'app') return new Response(null, { status: 404 });
   if (url.pathname.startsWith('/api/desktop/capture/')) return packetCapture(request);
-  if (url.pathname.startsWith('/api/desktop/collector/')) return collectorInstall(request, origin);
+  if (url.pathname.startsWith('/api/desktop/collector/')) return collectorInstall(request, origin, api);
   if (url.pathname.startsWith('/api/')) {
     return api ? api(request) : Response.json({ detail: 'No workspace selected.' }, { status: 503 });
   }
