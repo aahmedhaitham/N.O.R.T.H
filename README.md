@@ -4,12 +4,12 @@
 
 NORTH is a Windows-first investigation console. **ATLAS** shows devices and observed connections, **IRIS** searches evidence, and **ECHO** reconstructs investigations. Start in Simple mode for a plain-language overview, or switch to Analyst mode for rules, source coverage, and evidence details. NORTH Assistant answers from data already loaded in the app and works offline.
 
-<!-- Preview media slot. Add a screenshot or short GIF from a synthetic workspace here before publication. -->
+<!-- Preview media slot for a screenshot or short GIF from a synthetic workspace. -->
 
 ## Quick start
 
-1. Open the successful **Build NORTH for Windows** workflow run for the commit you want to try. Download its **NORTH-Windows-x64** artifact and extract it. [Windows build workflow](https://github.com/aahmedhaitham/N.O.R.T.H/actions/workflows/desktop.yml)
-2. Verify the SHA-256 checksum before running **NORTH-Setup-Windows-x64.exe**. Downloads from this workflow are unsigned previews. [Preview release notes and verification](docs/RELEASE-PREVIEW.md)
+1. Download the Windows installer and SHA256SUMS.txt from the [public NORTH v0.3.0 preview](https://github.com/aahmedhaitham/NORTH-Releases/releases/tag/v0.3.0-preview).
+2. Verify the SHA-256 checksum before running **NORTH-Setup-Windows-x64.exe**. This Windows preview is unsigned. [Preview release notes and verification](docs/RELEASE-PREVIEW.md)
 3. Open NORTH, finish or skip setup, and use **Ctrl+J** for NORTH Assistant. In **This computer**, NORTH uses local data and can offer monitoring when the account has access to Windows sources.
 
 To run the synthetic developer demo, see [Development](docs/DEVELOPMENT.md). Source builds and the optional hosted deployment have separate setup instructions.

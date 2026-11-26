@@ -298,3 +298,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added a documentation index, third-party attribution, and a publication checklist for the unsigned v0.3.0 preview candidate.
 - A redacted Gitleaks 8.30.1 scan of 152 commits reported no leaks (exit 0). The final installer contents, clean-VM acceptance, and public release remain pending.
 - Checked the documentation links, workflow YAML, and coverage claims. Final regression totals match Phase C.
+
+### Published Windows preview
+
+- Pushed candidate 115463a07777e9082f37dba0bd7857219c6af2f5. Verify NORTH (45903969587) and Build NORTH for Windows (45903969540) succeeded. The Windows run installed the package, checked the collector, and completed the Simple and Analyst walkthrough. Attestation was skipped.
+- The GitHub artifact archive SHA-256 matched. Test-NorthPreviewArtifacts.ps1 verified both executable hashes and the candidate commit. Authenticode reported NotSigned. Extracted resource scans were clear after tracing three raw archive matches to unchanged Zod dependency test fixtures.
+- Published the unsigned preview at https://github.com/aahmedhaitham/NORTH-Releases/releases/tag/v0.3.0-preview. GitHub asset digests matched the four uploaded files, and the release API returned all four without authentication.
+- Clean-VM disconnected first launch, upgrade and uninstall remain unverified. Live detection coverage remains not yet run.
