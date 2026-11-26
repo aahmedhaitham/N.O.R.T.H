@@ -107,8 +107,14 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
     records: await read(path.join(scripts, 'Export-NorthNeighbors.ps1'), ['-AsJson']),
   }), { records: [] });
   const sysmon = cachedReader(async () => {
-    const data = await read(path.join(scripts, 'Read-NorthSysmon.ps1'), ['-Recent']);
-    return { events: data.alerts.map(normalize).sort((a, b) => b.timestamp.localeCompare(a.timestamp)) };
+    try {
+      const data = await read(path.join(scripts, 'Read-NorthSysmon.ps1'), ['-Recent']);
+      return { events: data.alerts.map(normalize).sort((a, b) => b.timestamp.localeCompare(a.timestamp)) };
+    } catch (error) {
+      const detail = String(error?.stderr ?? '');
+      return { events: [], state: 'unavailable', problem: detail.includes('UnauthorizedAccessException') ?
+        'access_denied' : detail.includes('NoMatchingLogsFound') ? 'channel_missing' : 'read_failed' };
+    }
   }, { events: [] });
   let previousCounters = new Map();
   let previousSample = 0;
@@ -145,7 +151,7 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
     return { adapters };
   }, { adapters: [] });
 
-  return async (request) => {
+  const handle = async (request) => {
     const { pathname, searchParams } = new URL(request.url);
     const reviewId = /^\/api\/network\/devices\/([a-f0-9]{24})\/review$/.exec(pathname)?.[1];
     if (request.method === 'POST' && reviewId && history) {
@@ -223,6 +229,12 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
     }
     return Response.json({ detail: 'Not found' }, { status: 404 });
   };
+  handle.sourceChecks = async () => {
+    const current = await sysmon();
+    return { sysmon: { state: current.state, problem: current.problem,
+      kinds: [...new Set(current.events.map((event) => event.kind))] } };
+  };
+  return handle;
 }
 
 module.exports = { makeLocalWorkspace };

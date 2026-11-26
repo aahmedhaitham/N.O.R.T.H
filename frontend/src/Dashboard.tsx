@@ -141,6 +141,10 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings,
         <button type="button" onClick={() => open('network')}>{t.details}</button>
       </section>
       <section className="panel simple-next">
+        {inventory?.sysmon?.problem === 'access_denied' && <p>
+          Windows blocked access to its event log. Ask the person who manages this PC about read access.
+          {' '}<button type="button" onClick={() => openAtlas('atlas-windows-events')}>See which source is blocked</button>
+        </p>}
         <h2>{t.actions}</h2>
         {connect && <button type="button" onClick={connect}>{t.setup}</button>}
         {!openCases.length && loaded && <p>{t.noActions}</p>}

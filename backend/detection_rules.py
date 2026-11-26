@@ -370,7 +370,7 @@ def active_rules(store):
     return tuple(rule for rule in rules if rule.id not in disabled)
 
 
-def rule_workspace(store, command=None, *, now=None):
+def rule_workspace(store, command=None, *, now=None, source_checks=None):
     """Manage local rules and report coverage supported by observed event types."""
     now = now or datetime.now(timezone.utc)
     command = {} if command is None else command
@@ -420,6 +420,15 @@ def rule_workspace(store, command=None, *, now=None):
         result = evaluate_rules([known[identity]], events)
         return {**result, "evaluated_events": len(events)}
 
+    for name, check in (source_checks or {}).items():
+        state = check.get("state")
+        if state == "ready":
+            health[name] = "collecting" if check.get("kinds") else "no_data"
+            observed.update(f"{name}:{kind}" for kind in check.get("kinds", ()) if type(kind) is int)
+        elif state == "unavailable":
+            health[name] = {"channel_missing": "not_installed", "access_denied": "access_denied"}.get(
+                check.get("problem"), "read_failed")
+
     def requirement(value):
         source, _, _ = value.partition(":")
         state = health.get(source, "unknown")
@@ -430,7 +439,8 @@ def rule_workspace(store, command=None, *, now=None):
         else:
             detail = {"not_installed": "Source not installed", "misconfigured": "Source misconfigured",
                       "read_failed": "Source read failed", "unknown": "No recent source check"}.get(state, "Source unavailable")
-        return {"id": value, "state": detail, "fix": FIXES.get(source, "Check whether the collector can read OpenSSH journal events.")}
+        return {"id": value, "state": detail, "source_state": state,
+                "fix": FIXES.get(source, "Check whether the collector can read OpenSSH journal events.")}
 
     techniques = defaultdict(int)
     entries = []
@@ -441,17 +451,19 @@ def rule_workspace(store, command=None, *, now=None):
         coverage = 0
         if enabled:
             if requirements and confirmed == len(requirements):
-                coverage = 2
+                coverage = 3
             elif confirmed or any(need["state"] in ("Can’t determine (needs admin)", "Event type unconfirmed")
                                   for need in requirements):
+                coverage = 2
+            elif any(need["source_state"] == "unknown" for need in requirements):
                 coverage = 1
         for tag in filter(TECHNIQUE.fullmatch, rule.tags):
             techniques[tag] = max(techniques[tag], coverage)
         entries.append({"id": rule.id, "title": rule.title, "severity": rule.severity, "enabled": enabled,
-                        "attack": rule.tags, "coverage": ("blind", "partly", "covered")[coverage],
+                        "attack": rule.tags, "coverage": ("blind", "unchecked", "partly", "covered")[coverage],
                         "requires": requirements})
     return {"rules": entries,
-            "techniques": {tag: ("blind", "partly", "covered")[level] for tag, level in sorted(techniques.items())}}
+            "techniques": {tag: ("blind", "unchecked", "partly", "covered")[level] for tag, level in sorted(techniques.items())}}
 
 
 def evaluate_rules(rules, events):

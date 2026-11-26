@@ -66,18 +66,18 @@ type Entry = { question: string; result: ReturnType<typeof answer> };
 const page: Record<Area, string> = {
   devices: 'ATLAS', connections: 'ATLAS', cases: 'ECHO', events: 'IRIS', findings: 'Overview', coverage: 'Detections',
 };
-function EvidenceText({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  return <span className="assistant-evidence"><code>{value.length > 180 ? value.slice(0, 177) + '…' : value}</code>
-    <button type="button" onClick={() => void navigator.clipboard.writeText(value).then(() => setCopied(true), () => setCopied(false))}>
-      {copied ? 'Copied' : 'Copy'}
-    </button></span>;
-}
+const shortened = (value: string) => value.length > 180 ? value.slice(0, 177) + '…' : value;
 export function AssistantPanel({ cite }: { cite: (area: Area, row: Row) => void }) {
   const assistant = useAssistant()!;
   const [history, setHistory] = useState<Entry[]>([]);
   const [input, setInput] = useState('');
   const [context, setContext] = useState<Selection>();
+  const [active, setActive] = useState(-1);
+  const [suggest, setSuggest] = useState(true);
+  const [expanded, setExpanded] = useState<number[]>([]);
+  const [copied, setCopied] = useState<number>();
+  const suggestions = suggest && input.trim() ? [...new Set(intents.flatMap((intent) => intent.examples))]
+    .filter((question) => question.toLowerCase().includes(input.trim().toLowerCase())).slice(0, 6) : [];
   const field = useRef<HTMLInputElement>(null);
   const request = assistant.request;
   const read = assistant.read;
@@ -103,6 +103,7 @@ export function AssistantPanel({ cite }: { cite: (area: Area, row: Row) => void 
     if (!question.trim()) return;
     setHistory((previous) => [...previous.slice(-23), { question, result: answer(question, read(), context) }]);
     setInput('');
+    setActive(-1);
   }
   if (!request) return null;
   const latest = history.at(-1);
@@ -113,16 +114,24 @@ export function AssistantPanel({ cite }: { cite: (area: Area, row: Row) => void 
     <p>Built in · works offline · answers from your NORTH data</p>
     {context && <button type="button" onClick={() => setContext(undefined)}>Clear evidence context</button>}
     <div className="assistant-history" aria-live="polite">
-      {history.map(({ question, result }, index) => <article key={index}>
+      {history.map(({ question, result }, index) => {
+        const rows = expanded.includes(index) ? result.rows : result.rows.slice(0, 3);
+        return <article key={index}>
         <h3>{question}</h3><p>{result.text}</p>
-        {result.rows.map((row) => <div key={row.id}>
-          <EvidenceText value={row.label} />
-          {row.detail && <EvidenceText value={row.detail} />}
-          {result.area && <button type="button" onClick={() => cite(result.area!, row)}>
-            Open evidence in {page[result.area]}
-          </button>}
-        </div>)}
-      </article>)}
+        {rows.length > 0 && <ul>{rows.map((row) => <li key={row.id}>
+          <strong>{shortened(row.label)}</strong>{row.detail && <span> · {shortened(row.detail)}</span>}
+        </li>)}</ul>}
+        {result.rows.length > rows.length && <button type="button" onClick={() => setExpanded((items) => [...items, index])}>
+          Show {result.rows.length - rows.length} more</button>}
+        <div className="finding-actions">
+          {result.area && rows.map((row, offset) => <button key={row.id} type="button"
+            onClick={() => cite(result.area!, row)}>Open evidence in {page[result.area]}{rows.length > 1 ? ' ' + (offset + 1) : ''}</button>)}
+          <button type="button" onClick={() => void navigator.clipboard.writeText([
+            result.text, ...result.rows.map((row) => [row.label, row.detail].filter(Boolean).join(' · ')),
+          ].join('\n')).then(() => setCopied(index), () => setCopied(undefined))}>{copied === index ? 'Copied' : 'Copy answer'}</button>
+        </div>
+        </article>;
+      })}
     </div>
     <div className="finding-actions">
       {latest?.result.text.startsWith('I couldn’t confidently') && <span>Did you mean…?</span>}
@@ -130,15 +139,32 @@ export function AssistantPanel({ cite }: { cite: (area: Area, row: Row) => void 
         <button type="button" key={question} onClick={() => ask(question)}>{question}</button>)}
     </div>
     <form className="finding-actions" onSubmit={(event) => { event.preventDefault(); ask(input); }}>
-      <label>Ask NORTH <input ref={field} value={input} maxLength={240} list="north-assistant-questions"
-        onChange={(event) => setInput(event.target.value)} /></label>
-      <datalist id="north-assistant-questions">{intents.flatMap((intent) => intent.examples).map((question) =>
-        <option key={question} value={question} />)}</datalist>
+      <label>Ask NORTH <input ref={field} value={input} maxLength={240} role="combobox"
+        aria-autocomplete="list" aria-expanded={suggestions.length > 0}
+        aria-controls={suggestions.length ? 'north-assistant-questions' : undefined}
+        aria-activedescendant={suggestions[active] ? 'north-assistant-question-' + active : undefined}
+        onChange={(event) => { setInput(event.target.value); setActive(-1); setSuggest(true); }}
+        onKeyDown={(event) => {
+          if (!suggestions.length) return;
+          if (event.key === 'Escape') { event.stopPropagation(); setSuggest(false); setActive(-1); }
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActive((index) => event.key === 'ArrowDown' ? (index + 1) % suggestions.length :
+              index <= 0 ? suggestions.length - 1 : index - 1);
+          }
+          if (event.key === 'Enter' && suggestions[active]) {
+            event.preventDefault(); ask(suggestions[active]);
+          }
+        }} /></label>
+      {suggestions.length > 0 && <ul id="north-assistant-questions" role="listbox" aria-label="Suggested questions">
+        {suggestions.map((question, index) => <li id={'north-assistant-question-' + index} key={question}
+          role="option" aria-selected={index === active} onMouseDown={(event) => event.preventDefault()}
+          onClick={() => ask(question)}>{question}</li>)}</ul>}
       <button type="submit" disabled={!input.trim()}>Ask</button>
     </form>
     <details><summary>What you can ask</summary><ul>{intents.map((intent) => <li key={intent.id}>
       <button type="button" onClick={() => ask(intent.examples[0])}>{intent.examples[0]}</button>
     </li>)}</ul></details>
-    <button type="button" disabled={!history.length} onClick={() => { setHistory([]); setContext(undefined); }}>Clear history</button>
+    <button type="button" disabled={!history.length} onClick={() => { setHistory([]); setContext(undefined); setExpanded([]); setCopied(undefined); }}>Clear history</button>
   </aside>;
 }

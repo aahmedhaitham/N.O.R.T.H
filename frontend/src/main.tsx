@@ -394,7 +394,7 @@ function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
           })}
         </nav>
       </Tooltip.Provider>
-      <div className="shell-content">
+      <div className={'shell-content' + (assistant.request ? ' with-assistant' : '')}>
       <div className="view-content" ref={viewContent}>
       {controls?.notice && <p role="status" className="toolbar-notice">{controls.notice}</p>}
       <PageMotion page={panel?.title ?? (localSettings ? 'settings' : view)}>
@@ -413,7 +413,7 @@ function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
         openAtlas={(target) => { setView('network'); setNetworkTarget(target); }}
         connect={cloud && !source ? openCollectors : undefined}
         openChart={(selection) => { setEventSearch(''); setChartSelection(selection); setView('events'); }} />}
-      {view === 'detections' && <Detections />}
+      {view === 'detections' && !panel && !localSettings && <Detections />}
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} openEvents={openEvents}
           target={networkTarget} onTarget={setNetworkTarget} demo={publicDemo} readOnly={publicDemo || cloud}
@@ -452,8 +452,8 @@ function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
       </div>}
       </div>
       </PageMotion>
-      <AssistantPanel cite={cite} />
       </div>
+      <AssistantPanel cite={cite} />
       </div>
     </div>
   );

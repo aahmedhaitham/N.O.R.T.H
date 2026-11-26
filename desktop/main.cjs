@@ -39,10 +39,11 @@ const collectorInstall = makeCollectorInstall({
     return response === 1;
   },
 });
-const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData') });
 const localWorkspace = makeLocalWorkspace(scripts, undefined,
   deviceHistory(path.join(app.getPath('userData'), 'device-history.json')),
   listenerHistory(path.join(app.getPath('userData'), 'listener-history.json')));
+const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData'),
+  sourceChecks: localWorkspace.sourceChecks, packagedFirst: app.isPackaged });
 const packetCapture = makePacketCapture({});
 let offlineCountryLookup;
 

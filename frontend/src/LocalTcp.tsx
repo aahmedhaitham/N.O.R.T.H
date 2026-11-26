@@ -31,6 +31,7 @@ function endpoint(address: string, port: number) {
 export function LocalTcp({ query }: { query: string }) {
   const [sample, setSample] = useState<Sample | null>(null);
   const [view, setView] = useState<'active' | 'listening'>('active');
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     const request = new AbortController();
     const stop = pollVisible(async () => {
@@ -44,7 +45,7 @@ export function LocalTcp({ query }: { query: string }) {
       }
     }, 15000);
     return () => { request.abort(); stop(); };
-  }, []);
+  }, [retry]);
   const listening = sample?.rows.filter((row) => row.state === 'Listen') ?? [];
   const active = sample?.rows.filter((row) => row.state !== 'Listen') ?? [];
   const rows = (view === 'active' ? active : listening).filter((row) =>
@@ -55,7 +56,14 @@ export function LocalTcp({ query }: { query: string }) {
     <h2 id="local-tcp-heading">{strings.liveTcpOnThisPc}</h2>
     <p className="reference">{strings.windowsSocketSnapshotsRefreshAutomaticallyWhileThis}</p>
     {!sample && <p role="status">{strings.readingWindowsTcpConnections}</p>}
-    {sample && sample.state !== 'ready' && <p role="status">{problems[sample.state]}</p>}
+    {sample && sample.state !== 'ready' && <div>
+      <p role="status">{sample.state === 'access_denied' ?
+        'Windows did not let NORTH read which apps have open connections. Other network information may still be available.' : problems[sample.state]}</p>
+      {sample.state === 'access_denied' && <details><summary>How to get access</summary>
+        <p>Ask the person who manages this PC whether your account can read Windows connection information.</p>
+      </details>}
+      <button type="button" onClick={() => { setSample(null); setRetry((value) => value + 1); }}>Check again</button>
+    </div>}
     {sample?.state === 'ready' && <>
       <p className="reference">{strings.lastSampled}<TimeDisplay value={sample.updated_at} />
         {sample.limited && strings.upTo100SocketsPerView}</p>

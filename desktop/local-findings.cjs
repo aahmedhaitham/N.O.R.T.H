@@ -3,7 +3,7 @@ const { existsSync } = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 
-function makeLocalFindings({ root, data, launch = spawn, supported = process.platform === 'win32' }) {
+function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedFirst = true, supported = process.platform === 'win32' }) {
   const dbPath = path.join(data, 'local-findings.sqlite3');
   const backend = path.join(root, 'backend');
   const packaged = path.join(backend, 'NORTH-Collector.exe');
@@ -14,23 +14,30 @@ function makeLocalFindings({ root, data, launch = spawn, supported = process.pla
 
   function runtime(argument) {
     if (!supported) return null;
-    if (existsSync(packaged)) return [packaged, [argument]];
+    if (packagedFirst && existsSync(packaged)) return [packaged, [argument]];
     if (existsSync(python)) return [python, [path.join(backend, 'run_collector.py'), argument]];
+    if (existsSync(packaged)) return [packaged, [argument]];
     return null;
   }
 
   const env = { ...process.env, NORTH_DB_PATH: dbPath, PYTHONNOUSERSITE: '1', PYTHONPATH: '' };
 
-  function ruleRequest(command) {
+  async function ruleRequest(command) {
     const target = runtime('--rule-workspace');
-    if (!target) return Promise.reject(new Error('Collector unavailable'));
+    if (!target) throw new Error('Collector unavailable');
+    const checks = command === '{}' && sourceChecks ? await sourceChecks() : {};
     return new Promise((resolve, reject) => {
       const [file, args] = target;
       const worker = execFile(file, args, {
-        env, cwd: backend, windowsHide: true, timeout: 20_000, maxBuffer: 512_000,
+        env: { ...env, NORTH_RULE_SOURCE_CHECKS: JSON.stringify(checks) },
+        cwd: backend, windowsHide: true, timeout: 20_000, maxBuffer: 512_000,
       }, (error, stdout) => {
         if (error) return reject(error);
-        try { resolve(JSON.parse(stdout)); } catch (invalid) { reject(invalid); }
+        try {
+          const value = JSON.parse(stdout);
+          if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid rule response');
+          resolve(value);
+        } catch (invalid) { reject(invalid); }
       });
       worker.stdin.on('error', reject);
       worker.stdin.end(command);

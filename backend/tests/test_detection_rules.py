@@ -41,6 +41,22 @@ def test_catalog_minimum():
     assert len(bundled_rules()) >= 40
 
 
+@pytest.mark.parametrize(("state", "problem", "kinds", "coverage"), [
+    ("starting", None, [], "unchecked"),
+    ("ready", None, [], "partly"),
+    ("ready", None, [8], "covered"),
+    ("unavailable", "channel_missing", [], "blind"),
+    ("unavailable", "access_denied", [], "partly"),
+    ("unavailable", "read_failed", [], "blind"),
+])
+def test_rule_catalog_uses_the_desktop_source_check(tmp_path, state, problem, kinds, coverage):
+    store = Store(path=tmp_path / "coverage.sqlite3")
+    store.initialize()
+    response = rule_workspace(store, source_checks={"sysmon": {"state": state, "problem": problem, "kinds": kinds}})
+    row = next(row for row in response["rules"] if row["id"] == "remote-thread-observed")
+    assert row["coverage"] == coverage
+
+
 def test_configured_rules_cover_observed_sources_and_preview_without_creating_findings(tmp_path):
     path = tmp_path / "rules.sqlite3"
     store = Store(path=path)
@@ -51,7 +67,7 @@ def test_configured_rules_cover_observed_sources_and_preview_without_creating_fi
     def entry(identity=rule_id):
         return next(item for item in rule_workspace(store, now=now)["rules"] if item["id"] == identity)
 
-    assert entry()["coverage"] == "blind"
+    assert entry()["coverage"] == "unchecked"
     store.save_source_health("system", "access_denied", now.isoformat())
     assert entry()["coverage"] == "partly"
     assert "needs admin" in entry()["requires"][0]["state"]
@@ -61,7 +77,7 @@ def test_configured_rules_cover_observed_sources_and_preview_without_creating_fi
     assert event["kind"] == 7045
     store.ingest_local_windows([event])
     assert entry()["coverage"] == "covered"
-    assert rule_workspace(store, now=now + timedelta(minutes=3))["techniques"]["attack.t1543.003"] == "blind"
+    assert rule_workspace(store, now=now + timedelta(minutes=3))["techniques"]["attack.t1543.003"] == "unchecked"
 
     example = (Path(__file__).parents[1] / "rules.yaml").read_text(encoding="utf-8").split("\n- id:", 1)[0]
     with pytest.raises(RuleError, match="already exists"):

@@ -28,6 +28,7 @@ test('local workspace reads Windows data without cloud configuration', async () 
   const snapshot = await (await call('/api/network')).json();
   assert.deepEqual(snapshot.neighbors.records, records);
   assert.equal(snapshot.sysmon.session_events, 3);
+  assert.deepEqual(await api.sourceChecks(), { sysmon: { state: 'ready', problem: undefined, kinds: [11, 3, 1] } });
   assert.equal(snapshot.activity.buckets.at(-1).count, 3);
   assert.equal(snapshot.links[0].address, '192.0.2.1');
   assert.deepEqual(snapshot.app_connections, [{ process: 'powershell.exe', events: 1, destinations: 1 }]);
@@ -47,12 +48,14 @@ test('local workspace reads Windows data without cloud configuration', async () 
 
 test('failed Sysmon access leaves the local network view available', async () => {
   const api = makeLocalWorkspace('tools', async (file) => {
-    if (file.endsWith('Read-NorthSysmon.ps1')) throw new Error('Access denied');
+    if (file.endsWith('Read-NorthSysmon.ps1')) throw Object.assign(new Error('Access denied'), { stderr: 'UnauthorizedAccessException' });
     return [];
   });
   const snapshot = await (await api(new Request('north://app/api/network'))).json();
   assert.equal(snapshot.neighbors.state, 'ready');
   assert.equal(snapshot.sysmon.state, 'unavailable');
+  assert.equal(snapshot.sysmon.problem, 'access_denied');
+  assert.deepEqual(await api.sourceChecks(), { sysmon: { state: 'unavailable', problem: 'access_denied', kinds: [] } });
   const page = await (await api(new Request('north://app/api/events'))).json();
   assert.equal(page.coverage, 'sysmon_unavailable');
 });

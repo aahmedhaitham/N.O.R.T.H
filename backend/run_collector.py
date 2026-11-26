@@ -115,7 +115,8 @@ async def main():
             command = json.loads(body)
             store = Store(path=os.environ["NORTH_DB_PATH"])
             await run_in_threadpool(store.initialize)
-            print(json.dumps(await run_in_threadpool(rule_workspace, store, command)))
+            checks = json.loads(os.getenv("NORTH_RULE_SOURCE_CHECKS", "{}"))
+            print(json.dumps(await run_in_threadpool(rule_workspace, store, command, source_checks=checks)))
         except (RuleError, json.JSONDecodeError, UnicodeDecodeError) as error:
             print(json.dumps({"detail": str(error)}))
     elif sys.argv[1:] == ["--evaluate-findings"]:

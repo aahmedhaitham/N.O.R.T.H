@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import { FindingEvidence } from './LocalFindings';
 import { pollVisible } from './pollVisible';
 import { useAssistant } from './Assistant';
+import { readJson } from './readJson';
 
-type Coverage = 'covered' | 'partly' | 'blind';
+type Coverage = 'covered' | 'partly' | 'blind' | 'unchecked';
 type Requirement = { id: string; state: string; fix: string };
 type Rule = {
   id: string; title: string; severity: string; enabled: boolean; attack: string[];
@@ -15,15 +16,8 @@ type Rule = {
 type Catalog = { rules: Rule[]; techniques: Record<string, Coverage> };
 type TestResult = { evaluated_events: number; timed_out_rule_ids: string[]; matches: { evidence_ids: string[] }[] };
 
-const coverageLabels = { covered: 'Covered', partly: feedbackMessages.partlyCovered, blind: 'Blind' };
+const coverageLabels = { covered: 'Covered', partly: feedbackMessages.partlyCovered, blind: 'Blind', unchecked: 'Unchecked' };
 const techniqueId = (tag: string) => tag.replace(/^attack\./, '').toUpperCase();
-
-async function readCatalog(options?: RequestInit) {
-  const response = await fetch('/api/local/rules', { cache: 'no-store', ...options });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.detail || feedbackMessages.theLocalRuleCatalogIsUnavailable);
-  return body;
-}
 
 function useCatalog() {
   const publish = useAssistant()?.publish;
@@ -42,7 +36,8 @@ function useCatalog() {
     const abort = new AbortController();
     const stop = pollVisible(async () => {
       try {
-        const list: Catalog = await readCatalog({ signal: abort.signal });
+        const list = await readJson<Catalog>('/api/local/rules', { signal: abort.signal });
+        if (!Array.isArray(list?.rules) || !list.techniques) throw new Error();
         if (!abort.signal.aborted) { setCatalog(list); setFailed(false); }
       } catch {
         if (!abort.signal.aborted) setFailed(true);
@@ -62,11 +57,11 @@ function CoverageCounts({ catalog }: { catalog: Catalog }) {
 }
 
 export function LocalCoverage({ open }: { open: () => void }) {
-  const { catalog, failed } = useCatalog();
+  const { catalog, failed, reload } = useCatalog();
   return <section>
     <h3>{strings.attCkCoverage}</h3>
     {catalog && <CoverageCounts catalog={catalog} />}
-    {failed ? <p role="status">{strings.coverageCouldNotRefresh}</p> :
+    {failed ? <p role="status">{strings.coverageCouldNotRefresh} <button type="button" onClick={reload}>Try again</button></p> :
       !catalog && <p className="reference">{strings.checkingCollectorSources}</p>}
     {catalog && <p className="reference">{strings.coverageUsesRecentSourceChecksAndEvent}</p>}
     <button type="button" onClick={open}>{strings.openDetections}</button>
@@ -91,7 +86,7 @@ export function Detections() {
         if (!importFile || importFile.size > 128_000) throw new Error(clientMessages.chooseAYamlFileSmallerThanKb);
         command = { action, yaml: await importFile.text() };
       }
-      const response = await readCatalog({
+      const response = await readJson<TestResult & { enabled?: boolean; imported?: number }>('/api/local/rules', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command),
       });
       if (action === 'test' && rule) setResult({ id: rule.id, test: response });
@@ -105,8 +100,8 @@ export function Detections() {
         }
         reload();
       }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : strings.theRequestFailed);
+    } catch {
+      setMessage('NORTH couldn’t complete the rule request. Check your input and try again.');
     } finally {
       setBusy('');
     }
@@ -130,7 +125,7 @@ export function Detections() {
           </div>)}
         </div>
       </>}
-      {failed && <p role="status">{strings.theLocalRuleCatalogCouldNotRefresh}</p>}
+      {failed && <p role="status">{strings.theLocalRuleCatalogCouldNotRefresh} <button type="button" onClick={reload}>Try again</button></p>}
       {!catalog && !failed && <p>{strings.loadingDetectionRules}</p>}
     </section>
     <section className="panel">

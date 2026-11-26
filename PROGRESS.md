@@ -267,3 +267,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Recorded the six user-reported items in BUGS.md. Four major, one minor, and one cosmetic. The local Electron launch exited with 2147483651 before an interactive window, so the visual matrix and screenshots remain unverified.
 - Baseline commands: npm.cmd --prefix desktop test (27 passed), npm.cmd --prefix desktop run build:ui (passed), backend pytest with faulthandler_timeout=15 (112 passed, 2 subtests), and the cloud Worker and GeoIP tests (3 passed).
 - Continue with response handling, shared source evidence, permission guidance, and the Assistant. Validate visually in a fresh interactive Windows session.
+
+### Stabilization Phase B
+
+- Detections now treats empty, invalid, failed and timed-out replies as recoverable and offers retry. Development builds prefer the source rule engine over a stale bundled executable. The reported failure has not been reproduced in an interactive build.
+- Desktop Detections uses the same passive Sysmon read as Overview. Unchecked sources have an explicit coverage category. Added fixtures for current, empty, denied, missing, failed, and unchecked states. Local TCP now has a retry and plain-language guidance. Simple mode points to denied Windows event access.
+- Replaced the Assistant native dropdown with keyboard suggestions and moved the panel beside the workspace. Added compact answers, grouped evidence and one copy action per answer. The visual check remains pending.
+- Commands: desktop test (28 passed), desktop UI build (passed), backend pytest (118 passed, 2 subtests), cloud Worker and GeoIP tests (3 passed). The Detections transport is covered independently. Other client API paths and release installation still need checks.

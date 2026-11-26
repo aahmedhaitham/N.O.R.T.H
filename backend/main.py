@@ -150,7 +150,8 @@ def make_app(store=None):
         if not store.url:
             @app.get("/api/local/rules")
             def get_local_rules():
-                return rule_workspace(store)
+                checks = {"sysmon": sysmon.current} if sysmon.current["state"] != "disabled" else {}
+                return rule_workspace(store, source_checks=checks)
 
             @app.post("/api/local/rules")
             def manage_local_rules(command: dict):
