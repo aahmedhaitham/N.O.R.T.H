@@ -278,7 +278,7 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 ### Stabilization Phase C
 
 - Added a docked width control that remembers its setting, styled file picker buttons, reset rule search when leaving the view, and grouped technique status by the published Enterprise ATT&CK tactic mapping. Coverage groups include text states and link to source guidance in affected rules.
-- Added an SQLite trigram search index with exact literal filtering and an indexed-data regression test. The pre-change 500,000-event rerun measured 1327.37 ms median for the rare-match query. The indexed run is recorded separately when it finishes.
+- Added an SQLite trigram search index with exact literal filtering and an indexed-data regression test. The pre-change 500,000-event rerun measured 1327.37 ms median for the rare-match query. The indexed rerun measured 21.78 ms median. Ingest fell from 4,867.9 to 1,369.9 events/sec. See docs/PERFORMANCE.md for the comparison.
 - Commands: desktop test (28 passed), desktop UI build (passed), backend pytest (119 passed, 2 subtests), cloud tests (3 passed). Synthetic screenshots, every-screen axe and keyboard verification, and the size/theme matrix remain blocked by the local Electron launch.
 
 ### Stabilization Phase D
@@ -292,3 +292,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added a passive Windows VM runbook and a CI coverage claims check. The checker accepted an isolated matching fixture and rejected missing or changed evidence. The tracked live coverage document remains empty and marked not yet run.
 - The read-only NORTH reporting path is available for already recorded approved data. Live attack-tool execution and technique execution instructions are outside the delivered runbook.
 - Commands: coverage checker against the repository and temporary fixtures (passed), desktop test (28 passed), desktop UI build (passed), backend pytest (119 passed, 2 subtests), and cloud tests (3 passed).
+
+### Stabilization Phase F
+
+- Added a documentation index, third-party attribution, and a publication checklist for the unsigned v0.3.0 preview candidate.
+- A redacted Gitleaks 8.30.1 scan of 152 commits reported no leaks (exit 0). The final installer contents, clean-VM acceptance, and public release remain pending.
+- Checked the documentation links, workflow YAML, and coverage claims. Final regression totals match Phase C.

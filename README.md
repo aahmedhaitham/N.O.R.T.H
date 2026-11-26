@@ -27,7 +27,7 @@ flowchart LR
   Cloud --> Desktop
 ```
 
-[Architecture](docs/ARCHITECTURE.md) · [Assistant intent guide](docs/ASSISTANT.md) · [Cloud setup](docs/CLOUD.md) · [Lab and Wazuh](docs/LAB.md)
+[Documentation index](docs/README.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant intent guide](docs/ASSISTANT.md) · [Cloud setup](docs/CLOUD.md) · [Lab and Wazuh](docs/LAB.md)
 
 ## Coverage and limits
 

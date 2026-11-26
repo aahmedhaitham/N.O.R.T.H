@@ -1,4 +1,4 @@
-# NORTH unsigned Windows preview
+# NORTH v0.3.0-preview · unsigned Windows release notes
 
 This is a preview release candidate. It includes the Windows desktop console, first-run setup, Simple and Analyst modes, local rule management, and NORTH Assistant. The desktop can open **This computer** without a cloud workspace. A configured collector and source permissions determine which live evidence appears.
 

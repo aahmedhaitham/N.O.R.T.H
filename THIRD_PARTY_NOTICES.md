@@ -13,6 +13,10 @@
 - **Icons.** Interface icons use [Lucide](https://lucide.dev/license), distributed
   under its ISC license with applicable Feather MIT attribution. The NORTH app
   icon is stored with the project assets.
+- **MITRE ATT&CK®.** Rule technique IDs reference MITRE ATT&CK. Tactic labels
+  for bundled rule IDs are derived from [Enterprise ATT&CK v20.1 STIX data](https://github.com/mitre-attack/attack-stix-data/blob/master/index.md).
+  See the [ATT&CK terms of use](https://attack.mitre.org/resources/terms-of-use/).
+  NORTH's rule definitions and synthetic fixtures are maintained in this repository.
 - **Electron.** The Windows application includes the Electron runtime under MIT
   terms. Its distribution includes Electron and Chromium license notices.
 - **Test tooling.** The Windows walkthrough uses axe-core (MPL-2.0), and

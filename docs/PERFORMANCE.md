@@ -18,3 +18,15 @@ Run from the repository root:
 & ./backend/.venv/Scripts/python.exe backend/benchmark_north.py
 node tools/Benchmark-NorthAssistant.mjs
 ```
+
+## Stabilization search comparison
+
+Measured with the same synthetic 500,000-event workload on this workstation. The benchmark exercises the store directly.
+
+| Metric | Before index | With index |
+|---|---:|---:|
+| Rare-match search, seven runs, median | 1,327.37 ms | 21.78 ms |
+| SQLite ingest | 4,867.9 events/sec | 1,369.9 events/sec |
+| Rule evaluation | 8,397.9 events/sec | 10,075.5 events/sec |
+
+The ingest measurement includes maintaining the search index. These are single benchmark runs with possible workstation load variation. The table above records an earlier baseline.

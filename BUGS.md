@@ -25,3 +25,7 @@ Fix order is N-01, N-02, N-05, N-03, N-04b, then N-04a.
 ## Visual verification pending
 
 A fresh interactive profile running the current source build or matching Windows build is needed. Verify onboarding, Overview, Detections, ATLAS tabs and traces, IRIS, ECHO, Settings, Assistant, collector switching, refresh, export, keyboard use, and reduced motion. Cover Simple and Analyst, light and dark, 1280x720 and 1920x1080, and synthetic, empty, and denied sources. Capture synthetic-only screenshots under docs/qa.
+
+## Fix verification
+
+N-01 has response handling tests for empty, invalid and failed replies, plus timeouts. N-02 uses the shared Sysmon check and has source-state fixture coverage. N-03 now uses keyboard suggestions and a docked panel. N-04a styles the file picker, N-04b resets the rule filter, and N-05 adds a retry and clearer instructions. Interactive acceptance of all six remains pending. Other API paths still need review for raw errors.
