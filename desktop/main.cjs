@@ -7,11 +7,13 @@ const { makeCloudProxy } = require('./cloud-proxy.cjs');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
 const { deviceHistory } = require('./device-history.cjs');
 const { makePacketCapture } = require('./packet-capture.cjs');
+const { makeCollectorInstall } = require('./collector-install.cjs');
 
 let activeWindow;
 let setupWindow;
 let startupComplete = false;
 let cloudProxy;
+let connectedOrigin;
 let hostedOrigin;
 const icon = path.join(__dirname, 'icons', 'north.ico');
 const localAddress = 'north://app/';
@@ -19,6 +21,19 @@ const cloudPartition = 'persist:north-cloud';
 const localPartition = 'persist:north-local';
 const ui = app.isPackaged ? path.join(process.resourcesPath, 'north-ui') : path.join(__dirname, 'ui');
 const scripts = app.isPackaged ? path.join(process.resourcesPath, 'north-tools') : path.join(__dirname, '..', 'tools');
+const collectorInstall = makeCollectorInstall({
+  root: app.isPackaged ? path.join(process.resourcesPath, 'north-collector') : path.join(__dirname, '..'),
+  data: app.getPath('userData'),
+  async confirm() {
+    if (!activeWindow || activeWindow.isDestroyed()) return false;
+    const { response } = await dialog.showMessageBox(activeWindow, {
+      type: 'question', title: 'Set up NORTH Collector', message: 'Install the collector on this computer?',
+      detail: 'NORTH will prepare its Python environment and start the collector in the background at Windows sign-in. Only install it on a computer you manage.',
+      buttons: ['Cancel', 'Set up collector'], defaultId: 0, cancelId: 0,
+    });
+    return response === 1;
+  },
+});
 const localWorkspace = makeLocalWorkspace(scripts, undefined, deviceHistory(path.join(app.getPath('userData'), 'device-history.json')));
 const packetCapture = makePacketCapture({
   async confirm(adapter, seconds) {
@@ -36,10 +51,11 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'north', privileges: {
   standard: true, secure: true, supportFetchAPI: true,
 } }]);
 
-async function handleLocalRequest(request, api) {
+async function handleLocalRequest(request, api, origin) {
   const url = new URL(request.url);
   if (url.hostname !== 'app') return new Response(null, { status: 404 });
   if (url.pathname.startsWith('/api/desktop/capture/')) return packetCapture(request);
+  if (url.pathname.startsWith('/api/desktop/collector/')) return collectorInstall(request, origin);
   if (url.pathname.startsWith('/api/')) {
     return api ? api(request) : Response.json({ detail: 'No workspace selected.' }, { status: 503 });
   }
@@ -124,7 +140,11 @@ async function openWorkspace(nextOrigin, remember = false) {
   contents.on('will-navigate', guard);
   contents.on('will-redirect', guard);
   const previousProxy = cloudProxy;
-  if (connected) cloudProxy = makeCloudProxy(nextOrigin);
+  const previousOrigin = connectedOrigin;
+  if (connected) {
+    cloudProxy = makeCloudProxy(nextOrigin);
+    connectedOrigin = nextOrigin;
+  }
   try {
     await window.loadURL(localAddress + (connected ? 'cloud' : ''));
     if (remember) {
@@ -132,6 +152,7 @@ async function openWorkspace(nextOrigin, remember = false) {
     }
   } catch (error) {
     cloudProxy = previousProxy;
+    connectedOrigin = previousOrigin;
     window.destroy();
     throw error;
   }
@@ -178,7 +199,7 @@ if (!app.requestSingleInstanceLock()) {
     if (!startup.cloudOnly) {
       session.fromPartition(localPartition).protocol.handle('north', (request) => handleLocalRequest(request, localWorkspace));
     }
-    session.fromPartition(cloudPartition).protocol.handle('north', (request) => handleLocalRequest(request, cloudProxy));
+    session.fromPartition(cloudPartition).protocol.handle('north', (request) => handleLocalRequest(request, cloudProxy, connectedOrigin));
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'Workspace', submenu: [
         ...(startup.cloudOnly ? [] : [

@@ -19,6 +19,11 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
   const [copyStatus, setCopyStatus] = useState('');
   const [opened, setOpened] = useState('');
   const [detailsCopyStatus, setDetailsCopyStatus] = useState('');
+  const [desktopSetupMessage, setDesktopSetupMessage] = useState('');
+  const [desktopSetupBusy, setDesktopSetupBusy] = useState(false);
+  const [installedSource, setInstalledSource] = useState('');
+  const [taskMessage, setTaskMessage] = useState('');
+  const desktop = location.protocol === 'north:';
   const paired = items.find((item) => item.source_id === created?.source_id);
   const workspace = /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(location.origin) ? location.origin : '';
   const restartCommand = "& '.\\Start NORTH Collector.cmd'";
@@ -43,6 +48,18 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
     return () => { controller.abort(); stop(); };
   }, []);
 
+  useEffect(() => {
+    if (!desktop || !opened) return;
+    const controller = new AbortController();
+    void fetch('/api/desktop/collector/status?source=' + encodeURIComponent(opened), { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!controller.signal.aborted) setInstalledSource(result.installed === true ? opened : '');
+      }).catch(() => {});
+    return () => controller.abort();
+  }, [desktop, opened]);
+
   async function copy(value: string, label: string, report = setCopyStatus) {
     try {
       await navigator.clipboard.writeText(value);
@@ -64,6 +81,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
         setCreated(result);
         setLabel('');
         setCopyStatus('');
+        setDesktopSetupMessage('');
       } else if (created?.source_id === confirm) {
         setCreated(null);
         setCopyStatus('');
@@ -78,8 +96,50 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
     }
   }
 
+  async function setupDesktop(pairing: Created) {
+    setDesktopSetupBusy(true);
+    setDesktopSetupMessage('Preparing the collector. This can take a few minutes…');
+    try {
+      const response = await fetch('/api/desktop/collector/setup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: pairing.source_id, token: pairing.token }),
+      });
+      if (response.status === 204) { setDesktopSetupMessage('Setup cancelled.'); return; }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || 'Collector setup failed.');
+      setInstalledSource(pairing.source_id);
+      setDesktopSetupMessage('Windows requested a background collector start. Waiting for a sync.');
+    } catch (error) {
+      setDesktopSetupMessage(error instanceof Error ? error.message : 'Collector setup failed.');
+    } finally {
+      setDesktopSetupBusy(false);
+    }
+  }
+
+  async function changeStartup(source: string, enabled: boolean) {
+    setDesktopSetupBusy(true);
+    setTaskMessage('');
+    try {
+      const response = await fetch('/api/desktop/collector/' + (enabled ? 'enable' : 'disable') +
+        '?source=' + encodeURIComponent(source), { method: 'POST' });
+      if (response.status === 204) return;
+      if (!response.ok) throw new Error((await response.json()).detail);
+      setTaskMessage(enabled ? 'Windows requested a background collector start.' : 'Background startup is disabled.');
+    } catch (error) {
+      setTaskMessage(error instanceof Error ? error.message : 'Windows could not update the collector task.');
+    } finally {
+      setDesktopSetupBusy(false);
+    }
+  }
+
   const keyPanel = created && <div className="pairing-secret">
         <h3>{created.issued_at ? 'Reconnect ' : 'Connect '}{created.label}</h3>
+        {desktop && <>
+          <p>Set up the collector on this Windows PC. Requires Python 3.11 or newer with the Windows Python launcher.</p>
+          <button type="button" className="primary-action" disabled={desktopSetupBusy || busy}
+            onClick={() => void setupDesktop(created)}>Set up on this PC</button>
+          {desktopSetupMessage && <p role="status">{desktopSetupMessage}</p>}
+        </>}
         <ol>
           <li>{created.issued_at ? 'Stop the current collector with Ctrl+C and keep its existing folder.' :
             'Extract the collector ZIP on the Windows PC you want to monitor.'}</li>
@@ -96,7 +156,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
         <label>Pairing key <input readOnly value={created.token} onFocus={(event) => event.currentTarget.select()} /></label>
         <div className="case-links">
           <button onClick={() => void copy(created.token, 'Pairing key')}>Copy pairing key</button>
-          <button onClick={() => { setCreated(null); setCopyStatus(''); }}>Hide key</button>
+          <button disabled={desktopSetupBusy} onClick={() => { setCreated(null); setCopyStatus(''); }}>Hide key</button>
         </div>
         <p role="status">{paired?.revoked_at ? 'Pairing revoked.' : synced ?
           'NORTH received a sync.' : created.issued_at ? 'Waiting for a sync with the replacement key…' :
@@ -146,6 +206,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
                 setOpened(opened === item.source_id ? '' : item.source_id);
                 setDetailsCopyStatus('');
                 setConfirmReplace(false);
+                setTaskMessage('');
               }}>{item.label}</button></th>
             <td><span className="collector-state" data-state={item.revoked_at ? 'revoked' : item.updated_at ? 'synced' : 'waiting'}>
               {item.revoked_at ? 'Revoked' : item.updated_at ? 'Has synced' : 'Waiting for first sync'}
@@ -165,6 +226,13 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
                 <p>Source ID <code>{item.source_id}</code></p>
                 <p>{item.updated_at ? <>Last synced <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time></> :
                   'No sync recorded yet.'}</p>
+                {desktop && installedSource === item.source_id && <div className="case-links" aria-label="Local collector startup">
+                  {!item.revoked_at && <button type="button" disabled={desktopSetupBusy}
+                    onClick={() => void changeStartup(item.source_id, true)}>Enable background startup</button>}
+                  <button type="button" disabled={desktopSetupBusy}
+                    onClick={() => void changeStartup(item.source_id, false)}>Disable background startup</button>
+                </div>}
+                {desktop && taskMessage && <p role="status">{taskMessage}</p>}
                 {!item.revoked_at && <>
                   <p>Restart from the folder where you originally paired this collector. Windows uses the saved key.</p>
                   <pre>{restartCommand}</pre>

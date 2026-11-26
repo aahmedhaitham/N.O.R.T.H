@@ -1,6 +1,7 @@
 param(
     [ValidatePattern('^collector-[a-f0-9]{20}$')][string]$Source,
     [string]$Workspace,
+    [switch]$PairFromStdin,
     [ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$')][string]$OpenWrtHost,
     [switch]$DisableOpenWrt
 )
@@ -16,6 +17,7 @@ $requirements = Join-Path $root 'backend/requirements.txt'
 $requirementsStamp = Join-Path $environment 'north-requirements.sha256'
 if ($OpenWrtHost -and $DisableOpenWrt) { throw 'Choose an OpenWrt host or disable OpenWrt collection.' }
 if ($Workspace -and !$Source) { throw 'Supply a pairing source when setting the workspace address.' }
+if ($PairFromStdin -and (!$Source -or !$Workspace)) { throw 'Guided setup requires a source and workspace.' }
 if (!$Source -and !(Test-Path -LiteralPath $settings)) {
     throw 'Create a pairing in the Collectors screen and run the command it shows once.'
 }
@@ -37,7 +39,7 @@ try {
     }
     $hash = (Get-FileHash -LiteralPath $requirements).Hash
     if (!(Test-Path -LiteralPath $requirementsStamp) -or (Get-Content -LiteralPath $requirementsStamp) -ne $hash) {
-        & $python -m pip install --disable-pip-version-check -r $requirements
+        & $python -m pip install --no-input --disable-pip-version-check -r $requirements
         if ($LASTEXITCODE -ne 0) { throw 'Could not install the collector dependencies.' }
         Set-Content -LiteralPath $requirementsStamp -Value $hash
     }
@@ -48,7 +50,14 @@ try {
             $address.AbsolutePath -ne '/' -or $address.Query -or $address.Fragment) {
             throw 'Enter the HTTPS workspace address without a path, query or credentials.'
         }
-        $token = Read-Host 'Collector pairing key' -AsSecureString
+        if ($PairFromStdin) {
+            $inputKey = [Console]::ReadLine()
+            if ($inputKey -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid collector pairing key.' }
+            $token = ConvertTo-SecureString $inputKey -AsPlainText -Force
+            $inputKey = $null
+        } else {
+            $token = Read-Host 'Collector pairing key' -AsSecureString
+        }
         if ($token.Length -ne 64) { throw 'Expected the 64-character pairing key shown in Collectors.' }
         @{
             url = $address.GetLeftPart([UriPartial]::Authority)
@@ -56,6 +65,7 @@ try {
             ingest_key = ConvertFrom-SecureString $token
         } | ConvertTo-Json | Set-Content -LiteralPath $settings -Encoding UTF8
     }
+    if ($PairFromStdin) { return }
     $connection = Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json
     $credential = [Management.Automation.PSCredential]::new('north', (ConvertTo-SecureString $connection.ingest_key))
     $env:NORTH_CLOUD_URL = $connection.url
