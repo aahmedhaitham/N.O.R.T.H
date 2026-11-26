@@ -98,3 +98,27 @@ def test_local_tcp_snapshot_and_neighbor_cite_stored_evidence(tmp_path, monkeypa
     assert pending == []
     assert local["id"].encode() not in snapshot
     assert evidence["id"].encode() not in snapshot
+
+
+def test_standalone_local_monitor_stops_at_parent_eof(tmp_path, monkeypatch):
+    import asyncio
+    import io
+    from types import SimpleNamespace
+
+    import run_collector
+
+    started = []
+
+    async def watch(store):
+        started.append(store.path)
+        await asyncio.Event().wait()
+
+    database = tmp_path / "desktop.sqlite3"
+    monkeypatch.setenv("NORTH_DB_PATH", str(database))
+    monkeypatch.setattr(run_collector.sys, "stdin", SimpleNamespace(buffer=io.BytesIO()))
+    monkeypatch.setattr(run_collector, "NeighborMonitor", lambda store, _: SimpleNamespace(run=lambda: watch(store)))
+    monkeypatch.setattr(run_collector, "WindowsSources", lambda store, _: SimpleNamespace(run=lambda: watch(store)))
+    monkeypatch.setattr(run_collector, "run_detection_monitor", watch)
+    asyncio.run(asyncio.wait_for(run_collector.collect_local(), timeout=5))
+    assert database.is_file()
+    assert len(started) == 3

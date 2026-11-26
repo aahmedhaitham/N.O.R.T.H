@@ -6,6 +6,7 @@ const { pathToFileURL } = require('node:url');
 const { desktopStartup, workspaceOrigin, parseWorkspaceConnection } = require('./workspace.cjs');
 const { makeCloudProxy } = require('./cloud-proxy.cjs');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
+const { makeLocalFindings } = require('./local-findings.cjs');
 const { deviceHistory } = require('./device-history.cjs');
 const { listenerHistory } = require('./listener-history.cjs');
 const { makePacketCapture } = require('./packet-capture.cjs');
@@ -23,8 +24,9 @@ const cloudPartition = 'persist:north-cloud';
 const localPartition = 'persist:north-local';
 const ui = app.isPackaged ? path.join(process.resourcesPath, 'north-ui') : path.join(__dirname, 'ui');
 const scripts = app.isPackaged ? path.join(process.resourcesPath, 'north-tools') : path.join(__dirname, '..', 'tools');
+const collectorRoot = app.isPackaged ? path.join(process.resourcesPath, 'north-collector') : path.join(__dirname, '..');
 const collectorInstall = makeCollectorInstall({
-  root: app.isPackaged ? path.join(process.resourcesPath, 'north-collector') : path.join(__dirname, '..'),
+  root: collectorRoot,
   data: app.getPath('userData'),
   async confirm() {
     if (!activeWindow || activeWindow.isDestroyed()) return false;
@@ -36,6 +38,7 @@ const collectorInstall = makeCollectorInstall({
     return response === 1;
   },
 });
+const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData') });
 const localWorkspace = makeLocalWorkspace(scripts, undefined,
   deviceHistory(path.join(app.getPath('userData'), 'device-history.json')),
   listenerHistory(path.join(app.getPath('userData'), 'listener-history.json')));
@@ -80,6 +83,9 @@ async function handleLocalRequest(request, api, origin) {
   if (url.pathname === '/api/desktop/remote-locations') return desktopLocations(request);
   if (url.pathname.startsWith('/api/desktop/capture/')) return packetCapture(request);
   if (url.pathname.startsWith('/api/desktop/collector/')) return collectorInstall(request, origin, api);
+  if (api === localWorkspace && (/^\/api\/local\/(findings|evidence)(\/|$)/).test(url.pathname)) {
+    return localFindings.handle(request);
+  }
   if (url.pathname.startsWith('/api/')) {
     return api ? api(request) : Response.json({ detail: 'No workspace selected.' }, { status: 503 });
   }
@@ -248,6 +254,7 @@ if (!app.requestSingleInstanceLock()) {
     app.quit();
   });
   app.on('window-all-closed', () => { if (startupComplete) app.quit(); });
+  app.on('before-quit', () => localFindings.stop());
 }
 
 function showStartupError() {

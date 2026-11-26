@@ -299,7 +299,8 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
       {panel?.content}
       <div className="workspace-pages" hidden={Boolean(panel)}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
-        demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase}
+        demo={publicDemo} local={desktopLocal} localFindings={!cloud && !publicDemo}
+        open={setView} openCase={openCase}
         fleet={fleet} source={source} manageCollectors={openCollectors}
         openAtlas={(target) => { setView('network'); setNetworkTarget(target); }}
         connect={cloud && !source ? openCollectors : undefined}

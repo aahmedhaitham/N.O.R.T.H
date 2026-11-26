@@ -5,6 +5,7 @@ import { AnimatedCount, MotionCard } from './InterfaceMotion';
 import { TimeDisplay } from './TimeDisplay';
 import { investigationSeverity } from './investigationSeverity';
 import { OverviewCharts, type ChartSelection } from './OverviewCharts';
+import { LocalFindings } from './LocalFindings';
 
 type CaseSummary = {
   id: string; title: string; host: string; evidence: { id: string; timestamp: string; kind: number }[];
@@ -14,12 +15,13 @@ type Section = 'cases' | 'network' | 'events';
 
 const collectorStatus = { starting: 'Connecting', ready: 'Collecting', unavailable: 'Needs attention', disabled: 'Disabled' };
 
-export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase, openAtlas, connect, fleet, source, manageCollectors, openChart }: {
+export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings, open, openCase, openAtlas, connect, fleet, source, manageCollectors, openChart }: {
   endpoint: string;
   cases: CaseSummary[];
   loaded: boolean;
   demo: boolean;
   local: boolean;
+  localFindings: boolean;
   open: (section: Section) => void;
   openCase: (id: string) => void;
   openAtlas: (target: AtlasTarget) => void;
@@ -90,6 +92,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
         <Network size={16} /><span>Device history</span><TimeDisplay value={inventory.device_findings.baseline_at} />
         <button type="button" onClick={() => openAtlas('atlas-new-devices')}>Review</button>
       </div>}
+      {localFindings && <LocalFindings desktop={local} />}
       <OverviewCharts endpoint={endpoint} source={source} demo={demo} cases={cases} open={openChart} />
     </MotionCard>
     <MotionCard index={2} label="What NORTH can see">

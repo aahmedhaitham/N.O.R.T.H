@@ -6,6 +6,7 @@ import logging
 import os
 import socket
 import sys
+import threading
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -72,6 +73,28 @@ async def self_test():
     print("NORTH Collector runtime checks passed.")
 
 
+async def collect_local():
+    store = Store(path=os.environ["NORTH_DB_PATH"])
+    await run_in_threadpool(store.initialize)
+    stopping = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def watch_parent():
+        sys.stdin.buffer.read(1)
+        loop.call_soon_threadsafe(stopping.set)
+
+    threading.Thread(target=watch_parent, daemon=True).start()
+    async with asyncio.TaskGroup() as tasks:
+        monitors = (
+            tasks.create_task(NeighborMonitor(store, True).run()),
+            tasks.create_task(WindowsSources(store, True).run()),
+            tasks.create_task(run_detection_monitor(store)),
+        )
+        await stopping.wait()
+        for monitor in monitors:
+            monitor.cancel()
+
+
 async def main():
     if sys.platform == "win32" and getattr(sys, "frozen", False):
         import ctypes
@@ -82,6 +105,8 @@ async def main():
             raise OSError("Could not restore the Windows DLL search path")
     if sys.argv[1:] == ["--self-test"]:
         await self_test()
+    elif sys.argv[1:] == ["--local-monitor"] and sys.platform == "win32":
+        await collect_local()
     elif sys.argv[1:] == ["--evaluate-findings"]:
         store = configured_store()
         if store.url:
@@ -91,7 +116,7 @@ async def main():
     elif not sys.argv[1:]:
         await collect()
     else:
-        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings]")
+        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings | --local-monitor (Windows)]")
 
 
 if __name__ == "__main__":
