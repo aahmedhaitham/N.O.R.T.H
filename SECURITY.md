@@ -17,3 +17,8 @@ restricts script and connection sources to its own origin. Inline styles are
 allowed for charts and graphs. Collector credentials and desktop cloud session
 cookies are managed outside the renderer. System capture and event collection
 require the Windows privileges and configured drivers available to the user.
+
+NORTH Assistant uses already loaded data and does not make network requests,
+execute commands, or change collector permissions. Preview releases carry
+per-file checksums. Check the workflow run and the available build attestation
+before relying on a preview artifact. See the [preview verification guide](docs/RELEASE-PREVIEW.md).

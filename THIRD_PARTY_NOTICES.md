@@ -13,6 +13,11 @@
 - **Icons.** Interface icons use [Lucide](https://lucide.dev/license), distributed
   under its ISC license with applicable Feather MIT attribution. The NORTH app
   icon is stored with the project assets.
+- **Electron.** The Windows application includes the Electron runtime under MIT
+  terms. Its distribution includes Electron and Chromium license notices.
+- **Test tooling.** The Windows walkthrough uses axe-core (MPL-2.0), and
+  JavaScript property tests use fast-check (MIT). These test tools are
+  development dependencies.
 
 Dependency packages retain their respective licenses. The lockfiles record the
 versions, and Electron distributions include their runtime dependency notices.

@@ -21,6 +21,12 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Local-first product brief · Phase 8 documentation and preview release
+
+- Updated the README with desktop quick start, a preview-media slot, architecture diagram, and coverage and limits. Moved development, cloud, and authorized telemetry instructions into separate guides. Added architecture and Assistant contributor guides and updated privacy, security, threat model, and dependency notices.
+- The Windows workflow now records commit, run, and per-file digests in `BUILD-INFO.json`, alongside `SHA256SUMS.txt`. It generates GitHub build attestations when supported by repository settings. The release notes label the artifacts as unsigned previews.
+- Checked repository-relative documentation links, workflow YAML structure, and staged whitespace. A new installer run, its artifact hashes and any attestation, synthetic preview media, and Windows publisher signing remain unverified. No release was published.
+
 ### Local-first product brief · Phase 7 quality checks
 
 - Added fixed-snapshot answer and citation checks for all 34 Assistant intents, Hypothesis tests for rule parsing, fast-check tests for the Assistant and import parsers, and collector argument validation cases. Verified 112 backend tests plus 2 subtests, 27 desktop tests, 3 cloud tests, and the desktop UI build.

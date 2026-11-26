@@ -4,7 +4,11 @@
 
 NORTH opens in local mode. It reads network addresses assigned to the computer, device addresses Windows has observed, and a limited set of recent Sysmon records when the account can read that log. Those records can include hostnames, IP addresses, hardware addresses, process names, filenames, and timestamps. NORTH uses them to show your network inventory, event history, and investigation evidence.
 
-The local desktop stores its device history and any saved cloud workspace address in its application data folder. Local mode does not send Windows events or network observations to a NORTH server. Reports are saved to a location you choose when you export them.
+The local desktop stores device history, optional monitoring findings and evidence, and any saved cloud workspace address in its application data folder. The app stores setup completion and display mode on the device. Local mode does not send Windows events or network observations to a NORTH server. NORTH saves exported reports to a location you choose.
+
+## NORTH Assistant
+
+NORTH Assistant reads bounded snapshots that the app has already loaded. It makes no network requests and does not send questions, answers, or evidence to a service. The panel keeps its clearable history in memory for the current workspace session. Opening an evidence link switches to the relevant NORTH view, which follows that view's normal local or cloud data behavior.
 
 ## Optional workspace and collectors
 

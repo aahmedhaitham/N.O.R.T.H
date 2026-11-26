@@ -15,6 +15,8 @@ HTTPS workspace.
 | Hostile telemetry tries to become active content | React renders displayed fields as text. Electron prevents remote navigation and applies a restrictive content policy. |
 | Telemetry becomes a shell argument | The Windows readers invoke fixed PowerShell scripts with `-File` using argument arrays rather than shell interpolation. |
 | A cloud account tries to read another account's records | Cloud data paths enforce workspace ownership. Desktop cloud sessions use the main-process bridge. |
+| A question attempts to take an action or send evidence elsewhere | NORTH Assistant selects from a fixed intent registry and uses bounded, in-memory snapshots. Its controls can navigate to an app record. It has no command execution or request capability. |
+| A preview download is replaced | The Windows workflow publishes per-file SHA-256 hashes from the tested build and generates attestations when the repository supports them. The preview executables are unsigned. |
 
 ## Limits
 

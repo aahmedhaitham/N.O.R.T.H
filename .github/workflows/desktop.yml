@@ -18,6 +18,10 @@ jobs:
   package:
     runs-on: windows-2025
     timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -82,6 +86,32 @@ jobs:
             $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath "desktop/dist/$_").Hash.ToLowerInvariant()
             "$digest  $_"
           } | Set-Content -Encoding ascii desktop/dist/SHA256SUMS.txt
+      - name: Attest Windows build provenance
+        id: provenance
+        if: github.event.repository.private == false || vars.NORTH_ATTESTATIONS_ENABLED == 'true'
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            desktop/dist/NORTH-Desktop-Windows-x64.exe
+            desktop/dist/NORTH-Setup-Windows-x64.exe
+      - name: Record preview build metadata
+        shell: pwsh
+        env:
+          ATTESTATION_OUTCOME: ${{ steps.provenance.outcome }}
+        run: |
+          $files = Get-Content -LiteralPath desktop/dist/SHA256SUMS.txt | ForEach-Object {
+            $digest, $name = $_ -split '  ', 2
+            @{ name = $name; sha256 = $digest }
+          }
+          [ordered]@{
+            channel = 'unsigned-preview'
+            repository = $env:GITHUB_REPOSITORY
+            commit = $env:GITHUB_SHA
+            workflowRun = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            runAttempt = $env:GITHUB_RUN_ATTEMPT
+            attestation = $env:ATTESTATION_OUTCOME
+            files = @($files)
+          } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 desktop/dist/BUILD-INFO.json
       - uses: actions/upload-artifact@v4
         with:
           name: NORTH-Windows-x64
@@ -89,4 +119,5 @@ jobs:
             desktop/dist/NORTH-Desktop-Windows-x64.exe
             desktop/dist/NORTH-Setup-Windows-x64.exe
             desktop/dist/SHA256SUMS.txt
+            desktop/dist/BUILD-INFO.json
           if-no-files-found: error
