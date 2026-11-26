@@ -2,6 +2,8 @@
 
 import re
 import sys
+import hashlib
+import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
@@ -11,6 +13,7 @@ import regex
 import yaml
 from yaml.events import AliasEvent, MappingStartEvent, SequenceStartEvent, CollectionEndEvent
 from north import events_in_window, threshold_groups
+from event_contract import event_contract
 
 
 FIELDS = {
@@ -336,3 +339,35 @@ def evaluate_rules(rules, events):
             if rule.correlation:
                 results[-1]["evidence_groups"] = groups
     return {"matches": results, "timed_out_rule_ids": skipped}
+
+
+def findings_from_matches(matches, events):
+    by_id = {event["id"]: event for event in events}
+    for match in matches:
+        groups = match.get("evidence_groups") or ((identity,) for identity in match["evidence_ids"])
+        for group in groups:
+            evidence = [by_id[identity] for identity in group]
+            identity = hashlib.sha256(json.dumps([match["rule_id"], sorted(group)], separators=(",", ":")).encode()).hexdigest()[:24]
+            yield {**{key: value for key, value in match.items() if key not in ("evidence_groups", "evidence_ids")},
+                   "id": identity, "evidence_ids": group,
+                   "entities": {"hosts": sorted({event["host"] for event in evidence if event["host"]})},
+                   "confidence": "unrated",
+                   "first_seen": min(event["ts"] for event in evidence),
+                   "last_seen": max(event["ts"] for event in evidence)}
+
+
+def recent_detection_events(store, limit):
+    events = store.event_page(limit=limit)["events"] + store.local_windows_events(limit=limit)
+    events.sort(key=lambda item: (item["timestamp"], item["id"]), reverse=True)
+    return [event_contract(event) for event in events[:limit]]
+
+
+def scan_local_findings(store, limit=100):
+    if store.url:
+        raise ValueError("Detection findings require the local SQLite store")
+    events = recent_detection_events(store, limit)
+    result = evaluate_rules(bundled_rules(), events)
+    matches = list(findings_from_matches(result["matches"], events))
+    store.record_findings(matches)
+    return {"matched_findings": len(matches), "evaluated_events": len(events),
+            "timed_out_rule_ids": result["timed_out_rule_ids"]}

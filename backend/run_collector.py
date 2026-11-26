@@ -1,6 +1,7 @@
 """Collect and sync telemetry without running the development servers."""
 
 import asyncio
+import json
 import logging
 import os
 import socket
@@ -11,7 +12,7 @@ from tempfile import TemporaryDirectory
 from starlette.concurrency import run_in_threadpool
 
 from cloud_sync import collector_source, snapshot_target, sync_loop
-from detection_rules import bundled_rules
+from detection_rules import bundled_rules, scan_local_findings
 from adapter_traffic import AdapterTraffic
 from internet_health import InternetHealth
 from journal_monitor import JournalMonitor
@@ -77,7 +78,18 @@ async def main():
         # Load the async backend first, then restore normal DLL lookup for system commands.
         if not ctypes.windll.kernel32.SetDllDirectoryW(None):
             raise OSError("Could not restore the Windows DLL search path")
-    await (self_test() if sys.argv[1:] == ["--self-test"] else collect())
+    if sys.argv[1:] == ["--self-test"]:
+        await self_test()
+    elif sys.argv[1:] == ["--evaluate-findings"]:
+        store = configured_store()
+        if store.url:
+            raise SystemExit("Finding evaluation requires a local SQLite database.")
+        await run_in_threadpool(store.initialize)
+        print(json.dumps(await run_in_threadpool(scan_local_findings, store)))
+    elif not sys.argv[1:]:
+        await collect()
+    else:
+        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings]")
 
 
 if __name__ == "__main__":

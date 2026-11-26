@@ -6,6 +6,7 @@ import sys
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -23,7 +24,7 @@ from device_watch import demo_findings, findings, mark_reviewed
 from cloud_sync import sync_loop
 from local_access import LocalAccess
 from event_contract import event_contract
-from detection_rules import bundled_rules, evaluate_rules
+from detection_rules import bundled_rules, evaluate_rules, recent_detection_events, scan_local_findings
 from windows_sources import WindowsSources
 
 
@@ -33,6 +34,10 @@ class Batch(BaseModel):
 
 class DeviceReview(BaseModel):
     reviewed: bool
+
+
+class FindingReview(BaseModel):
+    status: Literal["new", "reviewed", "benign"]
 
 
 def demo_alerts(include_linux=False):
@@ -137,9 +142,29 @@ def make_app(store=None):
 
         @app.get("/api/local/detections")
         def local_detections(limit: int = Query(100, ge=1, le=100)):
-            events = store.event_page(limit=limit)["events"] + store.local_windows_events(limit=limit)
-            events.sort(key=lambda item: (item["timestamp"], item["id"]), reverse=True)
-            return evaluate_rules(bundled_rules(), [event_contract(event) for event in events[:limit]])
+            return evaluate_rules(bundled_rules(), recent_detection_events(store, limit))
+
+        if not store.url:
+            @app.post("/api/local/findings/evaluate")
+            def evaluate_local_findings(limit: int = Query(100, ge=1, le=100)):
+                return scan_local_findings(store, limit)
+
+            @app.get("/api/local/findings")
+            def local_findings(limit: int = Query(100, ge=1, le=100)):
+                return {"findings": store.detection_findings(limit)}
+
+            @app.post("/api/local/findings/{finding_id}/review")
+            def review_finding(finding_id: str, request: FindingReview):
+                if not re.fullmatch(r"[0-9a-f]{24}", finding_id) or not store.set_finding_status(finding_id, request.status):
+                    raise HTTPException(404, "Finding not found")
+                return {"status": request.status}
+
+            @app.get("/api/local/evidence/{evidence_id}")
+            def local_evidence(evidence_id: str):
+                event = store.local_evidence(evidence_id) if re.fullmatch(r"[0-9a-f]{24}", evidence_id) else None
+                if event is None:
+                    raise HTTPException(404, "Evidence not found")
+                return event_contract(event)
 
     @app.post("/api/network/devices/{device_id}/review")
     def review_device(device_id: str, review: DeviceReview):

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from cloud_sync import build_snapshot
 
 from detection_rules import RuleError, bundled_rules, condition_predicate, evaluate_rules, field_predicate, parse_catalog
 from event_contract import event_contract
@@ -116,3 +117,32 @@ def test_loopback_detections_return_only_stored_evidence_ids(tmp_path):
             event["id"] for event in [*events, *store.events()]
         }
         assert not result["timed_out_rule_ids"]
+
+
+def test_persisted_findings_keep_reviews_and_link_stored_evidence(tmp_path):
+    path = tmp_path / "findings.sqlite3"
+    store = Store(path=path)
+    store.initialize()
+    event = records("detections_positive.json")[0]
+    store.ingest_local_windows([event], checkpoint=("fixture", 1))
+    with TestClient(make_app(store), base_url="http://localhost") as client:
+        assert client.post("/api/local/findings/evaluate").status_code == 401
+        client.post("/api/local-session", headers={"X-North-Local-Session": "start"})
+        assert client.get("/api/local/findings").json() == {"findings": []}
+        assert client.post("/api/local/findings/evaluate").json()["matched_findings"] >= 1
+        finding = next(item for item in client.get("/api/local/findings").json()["findings"]
+                       if item["rule_id"] == "windows-service-installed")
+        assert finding["status"] == "new"
+        assert finding["evidence_ids"] == [event["id"]]
+        assert finding["first_seen"] == finding["last_seen"] == event["timestamp"]
+        evidence = client.get("/api/local/evidence/" + event["id"]).json()
+        assert evidence["id"] == event["id"]
+        review = "/api/local/findings/" + finding["id"] + "/review"
+        assert client.post(review, json={"status": "deleted"}).status_code == 422
+        assert client.post(review, json={"status": "benign"}).status_code == 200
+        assert client.post("/api/local/findings/evaluate").status_code == 200
+    reopened = Store(path=path)
+    assert [item["status"] for item in reopened.detection_findings() if item["id"] == finding["id"]] == ["benign"]
+    snapshot, _, _ = build_snapshot(reopened, {}, {}, "https://north.example")
+    assert finding["id"].encode() not in snapshot
+    assert event["id"].encode() not in snapshot

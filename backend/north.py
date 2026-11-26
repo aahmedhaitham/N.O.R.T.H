@@ -151,6 +151,12 @@ class Store:
                 )
                 """)
             db.execute("CREATE INDEX IF NOT EXISTS local_windows_time ON local_windows_events (timestamp, id)")
+            if not self.url:
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_detection_findings (
+                        id TEXT PRIMARY KEY, status TEXT NOT NULL, last_seen TEXT NOT NULL, payload TEXT NOT NULL
+                    )
+                    """)
             db.execute("""
                 CREATE TABLE IF NOT EXISTS collection_offsets (
                     source TEXT PRIMARY KEY, position BIGINT NOT NULL
@@ -273,6 +279,45 @@ class Store:
                 (min(max(1, limit), 500),),
             ).fetchall()
         return [json.loads(row[0]) for row in rows]
+
+    def record_findings(self, findings):
+        if self.url:
+            raise ValueError("Detection findings require the local SQLite store")
+        with self.connect() as db:
+            db.executemany(
+                """INSERT INTO local_detection_findings (id, status, last_seen, payload) VALUES (?, 'new', ?, ?)
+                   ON CONFLICT (id) DO UPDATE SET payload = excluded.payload, last_seen = excluded.last_seen
+                   WHERE excluded.last_seen >= local_detection_findings.last_seen""",
+                [(item["id"], item["last_seen"], json.dumps(item)) for item in findings],
+            )
+
+    def detection_findings(self, limit=100):
+        if self.url:
+            raise ValueError("Detection findings require the local SQLite store")
+        with self.connect() as db:
+            rows = db.execute(
+                """SELECT status, payload FROM local_detection_findings
+                   ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, last_seen DESC, id DESC LIMIT ?""",
+                (min(max(1, limit), 100),),
+            ).fetchall()
+        return [{**json.loads(payload), "status": status} for status, payload in rows]
+
+    def set_finding_status(self, identity, status):
+        if self.url or status not in ("reviewed", "benign", "new"):
+            raise ValueError("Invalid local finding review")
+        with self.connect() as db:
+            return bool(db.execute("UPDATE local_detection_findings SET status = ? WHERE id = ?",
+                                   (status, identity)).rowcount)
+
+    def local_evidence(self, identity):
+        if self.url:
+            raise ValueError("Local evidence lookup requires the local SQLite store")
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT payload FROM local_windows_events WHERE id = ? UNION ALL SELECT payload FROM events WHERE id = ?",
+                (identity, identity),
+            ).fetchone()
+        return json.loads(row[0]) if row else None
 
     def events(self) -> list[dict]:
         with self.connect() as db:
