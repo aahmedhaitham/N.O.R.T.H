@@ -35,17 +35,7 @@ const collectorInstall = makeCollectorInstall({
   },
 });
 const localWorkspace = makeLocalWorkspace(scripts, undefined, deviceHistory(path.join(app.getPath('userData'), 'device-history.json')));
-const packetCapture = makePacketCapture({
-  async confirm(adapter, seconds) {
-    if (!activeWindow || activeWindow.isDestroyed()) return false;
-    const { response } = await dialog.showMessageBox(activeWindow, {
-      type: 'question', title: 'NORTH packet capture', message: `Capture on ${adapter} for up to ${seconds} seconds?`,
-      detail: 'Capture only on a network you’re authorized to monitor. The trace stays in this app window.',
-      buttons: ['Cancel', 'Start capture'], defaultId: 0, cancelId: 0,
-    });
-    return response === 1;
-  },
-});
+const packetCapture = makePacketCapture({});
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'north', privileges: {
   standard: true, secure: true, supportFetchAPI: true,

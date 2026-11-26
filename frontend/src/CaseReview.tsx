@@ -1,3 +1,4 @@
+import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
 
 type Review = { status: 'open' | 'investigating' | 'resolved'; notes: string; revision: number; updated_at: string | null };
@@ -47,10 +48,10 @@ export function CaseReview({ endpoint }: { endpoint: string }) {
     <h2>Case review</h2>
     {!review && !error && <p role="status">Loading review…</p>}
     {review && <form className="case-review" onSubmit={(event) => { event.preventDefault(); void save(review); }}>
-      <label>Status <select disabled={busy} value={review.status} onChange={(event) =>
-        setReview({ ...review, status: event.target.value as Review['status'] })}>
-        <option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option>
-      </select></label>
+      <label>Status <SelectControl label="Case status" disabled={busy} value={review.status}
+        onChange={(value) => setReview({ ...review, status: value as Review['status'] })}
+        options={[{ value: 'open', label: 'Open' }, { value: 'investigating', label: 'Investigating' },
+          { value: 'resolved', label: 'Resolved' }]} /></label>
       <label>Analyst notes <textarea disabled={busy} maxLength={2000} rows={4} value={review.notes}
         onChange={(event) => setReview({ ...review, notes: event.target.value })} /></label>
       <div className="case-links"><button type="submit" disabled={busy || !changed}>Save review</button>

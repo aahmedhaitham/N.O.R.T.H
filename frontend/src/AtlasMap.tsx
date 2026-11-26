@@ -1,3 +1,4 @@
+import { SelectControl } from './SelectControl';
 import { useState } from 'react';
 import { Background, Controls, Position, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { explainAddress, explainMacAddress } from './deviceExplanation';
@@ -131,10 +132,10 @@ export function AtlasMap({ devices, staleTraffic, openEvents, saveLabel }: {
     <header className="atlas-map-heading">
       <div><h2>Network map</h2>
         <p>Devices grouped by the interface that observed them.</p></div>
-      <label>Show <select value={filter} onChange={(event) => { setFilter(event.target.value); setPage(0); setSelected(''); }}>
-        <option value="all">All interfaces</option><option value="wifi">Wi-Fi interfaces</option>
-        <option value="virtual">Virtual adapters</option>
-      </select></label>
+      <label>Show <SelectControl label="Network interfaces" value={filter}
+        onChange={(value) => { setFilter(value); setPage(0); setSelected(''); }}
+        options={[{ value: 'all', label: 'All interfaces' }, { value: 'wifi', label: 'Wi-Fi interfaces' },
+          { value: 'virtual', label: 'Virtual adapters' }]} /></label>
     </header>
     {!displayed.length ? <p>No device observations match this view.</p> : <>
       <div className="atlas-toolbar atlas-pagination">
@@ -160,9 +161,8 @@ export function AtlasMap({ devices, staleTraffic, openEvents, saveLabel }: {
           <h3>{selectedDevice.label}</h3>
         </div>
         <label>Observed device
-          <select value={'device:' + selectedDevice.id} onChange={(event) => setSelected(event.target.value)}>
-            {displayed.map((item) => <option key={item.id} value={'device:' + item.id}>{item.label} · {item.network}</option>)}
-          </select>
+          <SelectControl label="Observed device" value={'device:' + selectedDevice.id} onChange={setSelected}
+            options={displayed.map((item) => ({ value: 'device:' + item.id, label: item.label + ' · ' + item.network }))} />
         </label>
         {saveLabel && /^[0-9a-f]{12}$/.test(selectedMac) && selectedMac !== '000000000000' &&
           <DeviceLabel key={selectedMac} mac={selectedMac} label={selectedDevice.savedLabel ?? ''} save={saveLabel} />}

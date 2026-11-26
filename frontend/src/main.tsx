@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Background, Controls, ReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './style.css';
+import './shell.css';
 import { Network, type AtlasTarget } from './Network';
 import { Events } from './Events';
 import { eventNames } from './eventNames';
 import { Dashboard } from './Dashboard';
 import { InstallApp } from './InstallApp';
-import { CloudGate, type CollectorFleet, type WorkspacePanel } from './CloudGate';
+import { CloudGate, type CloudToolbar, type CollectorFleet, type WorkspacePanel } from './CloudGate';
 import { CaseReview } from './CaseReview';
-import { Appearance } from './Appearance';
+import { AccountMenu } from './ShellControls';
+import { SelectControl } from './SelectControl';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { Activity, FolderSearch, LayoutDashboard, Network as NetworkIcon, Search } from 'lucide-react';
 import { pollVisible } from './pollVisible';
 import { readWorkspacePreference, writeWorkspacePreference } from './workspaceSession';
 
@@ -41,6 +45,13 @@ const navigation = [
 ] as const;
 
 type View = (typeof navigation)[number]['id'];
+
+const navigationIcons = { dashboard: LayoutDashboard, network: NetworkIcon, events: Activity, cases: FolderSearch };
+
+function NavigationIcon({ view }: { view: View }) {
+  const Icon = navigationIcons[view];
+  return <Icon className="nav-icon" aria-hidden="true" strokeWidth={1.65} />;
+}
 
 function QuickNavigation({ view, open }: { view?: View; open: (view: View) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -76,7 +87,7 @@ function QuickNavigation({ view, open }: { view?: View; open: (view: View) => vo
   return <>
     <button className="quick-nav-trigger" type="button" aria-haspopup="dialog"
       aria-keyshortcuts={apple ? 'Meta+K' : 'Control+K'} onClick={show}>
-      Go to <kbd aria-hidden="true">{apple ? '⌘ K' : 'Ctrl K'}</kbd>
+      <Search size={15} aria-hidden="true" /><span>Search NORTH</span><kbd aria-hidden="true">{apple ? '⌘ K' : 'Ctrl K'}</kbd>
     </button>
     <dialog ref={dialog} className="quick-nav" aria-labelledby="quick-nav-title" onClose={() => setQuery('')}>
       <div className="quick-nav-heading">
@@ -93,7 +104,7 @@ function QuickNavigation({ view, open }: { view?: View; open: (view: View) => vo
       <ul className="quick-nav-results">
         {matches.map((item) => <li key={item.id}>
           <button type="button" aria-current={item.id === view ? 'page' : undefined} onClick={() => goTo(item.id)}>
-            <span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />
+            <NavigationIcon view={item.id} />
             <strong>{item.label}</strong><small>{item.detail}</small>
           </button>
         </li>)}
@@ -106,7 +117,7 @@ function QuickNavigation({ view, open }: { view?: View; open: (view: View) => vo
 function App({ source = null, openCollectors, controls, fleet, panel }: {
   source?: string | null;
   openCollectors?: () => void;
-  controls?: import('react').ReactNode;
+  controls?: CloudToolbar;
   fleet?: CollectorFleet;
   panel?: WorkspacePanel;
 }) {
@@ -240,27 +251,44 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
 
   return (
     <div className="shell">
-      <div className="window-heading">NORTH</div>
-      <nav className="console-nav" aria-label="Console">
-        {navigation.map((item) => <button key={item.id} type="button" className="nav-item"
-          aria-current={!panel && view === item.id ? 'page' : undefined} onClick={() => setView(item.id)}>
-          <span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />
-          <span><strong>{item.label}</strong><small>{item.detail}</small></span>
-        </button>)}
-      </nav>
-      <div className="shell-content">
-      {controls}
       <header className="topbar">
-        <span className="topbar-location">{panel?.title ?? navigation.find((item) => item.id === view)?.detail}</span>
+        <div className="toolbar-left">{controls?.collector ?? <strong className="toolbar-brand">NORTH</strong>}</div>
         <QuickNavigation view={panel ? undefined : view} open={setView} />
-        <Appearance />
-        <InstallApp />
-        <span role="status" className={online || portfolio ? 'status online' : 'status'}>
-          {desktopLocal ? 'This computer · Local data' : cloud ? (online ? 'Cloud connection ready' : 'Connecting to cloud') :
-            portfolio ? 'Portfolio demo · Synthetic telemetry' : online ? (publicDemo ? 'Live demo · Synthetic telemetry' : 'Live feed connected') : 'Connecting to live feed'}
-        </span>
+        <div className="toolbar-right">
+          <InstallApp />
+          <span role="status" title={controls?.notice || undefined}
+            aria-label={desktopLocal ? 'Local data' : cloud ? controls?.interrupted ? 'Cloud connection interrupted' :
+              online ? 'Cloud ready' : 'Connecting to cloud' : 'Feed status'}
+            className={(online || portfolio) && !controls?.interrupted ? 'status online' : 'status'}>
+            <span>{desktopLocal ? 'Local data' : cloud ? (controls?.interrupted ? 'Cloud interrupted' : online ? 'Cloud ready' : 'Connecting') :
+              portfolio || publicDemo ? 'Sample data' : online ? 'Live feed' : 'Connecting'}</span>
+          </span>
+          <AccountMenu actions={controls?.actions} />
+        </div>
       </header>
+      <Tooltip.Provider delayDuration={220}>
+        <nav className="console-nav" aria-label="Console"
+          style={{ '--nav-position': Math.max(0, navigation.findIndex((item) => item.id === view)) } as CSSProperties}>
+          {!panel && <span className="rail-indicator" aria-hidden="true" />}
+          {navigation.map((item) => {
+            const count = item.id === 'cases' && loaded ? cases.length : 0;
+            return <Tooltip.Root key={item.id}>
+              <Tooltip.Trigger asChild><button type="button" className="nav-item"
+                aria-label={item.label + (count ? ', ' + count + ' investigations' : '')}
+                aria-current={!panel && view === item.id ? 'page' : undefined} onClick={() => setView(item.id)}>
+                <NavigationIcon view={item.id} />
+                {count > 0 && <span className="rail-badge" aria-hidden="true">{count > 99 ? '99+' : count}</span>}
+              </button></Tooltip.Trigger>
+              <Tooltip.Portal><Tooltip.Content className="rail-tooltip" side="right" sideOffset={9}>
+                <strong>{item.label}</strong><span>{item.detail}</span>
+              </Tooltip.Content></Tooltip.Portal>
+            </Tooltip.Root>;
+          })}
+        </nav>
+      </Tooltip.Provider>
+      <div className="shell-content">
       <div className="view-content" ref={viewContent}>
+      {controls?.notice && <p role="status" className="toolbar-notice">{controls.notice}</p>}
       {panel?.content}
       <div className="workspace-pages" hidden={Boolean(panel)}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
@@ -271,7 +299,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} openEvents={openEvents}
           target={networkTarget} onTarget={setNetworkTarget} demo={publicDemo} readOnly={publicDemo || cloud}
-          labelSource={cloud ? source : null} />
+          labelSource={cloud ? source : null} visible={view === 'network' && !panel} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} source={source} initialSearch={eventSearch}
         canSave={cloud} openNetwork={() => setView('network')} />}
@@ -452,9 +480,8 @@ function Investigation({ incident, sourceQuery, openEvents, visible }: {
                 setPlaying(!playing);
               }}>{playing ? 'Pause' : 'Play'}</button>
               <button disabled={active >= last} onClick={() => seek(active + 1)} aria-label="Next event">›</button>
-              <select aria-label="Replay speed" value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
-                <option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option>
-              </select>
+              <SelectControl label="Replay speed" value={String(speed)} onChange={(value) => setSpeed(Number(value))}
+                options={[0.5, 1, 2].map((value) => ({ value: String(value), label: value + '×' }))} />
             </div>
             <div className="replay-position">
               <input aria-label="Timeline position" aria-valuetext={`Event ${active + 1} of ${last + 1}`}

@@ -1,3 +1,4 @@
+import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
 import { eventNames } from './eventNames';
 import { SavedSearches } from './SavedSearches';
@@ -111,10 +112,8 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
             maxLength={200} value={search} onChange={(event) => setSearch(event.target.value)} />
         </label>
         <label>Event type
-          <select value={kind} onChange={(event) => setKind(event.target.value)}>
-            <option value="">All types</option>
-            {Object.entries(eventNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
+          <SelectControl label="Event type" value={kind} onChange={setKind}
+            options={[{ value: '', label: 'All types' }, ...Object.entries(eventNames).map(([value, label]) => ({ value, label }))]} />
         </label>
         <button type="submit">Apply filters</button>
       </form>

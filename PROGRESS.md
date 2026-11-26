@@ -21,13 +21,19 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Interface Task 1 · Top bar and menus
+
+- Replaced the stacked app headers with a 44 px toolbar and a 56 px icon rail. The rail has tooltips, an investigation-count badge, and a sliding indicator that respects reduced motion.
+- Added a searchable collector picker with platform icons, relative sync times, and a Show inactive filter. The centered Ctrl+K control opens the command palette. The avatar menu groups Settings, Collectors, Appearance, and Sign out.
+- Replaced authored native selects with Radix controls and verified that ATLAS tabs fit at desktop and 375 px widths. Browser checks confirmed Ctrl+K navigation, keyboard event-type selection, and keyboard access to Appearance.
+- Frontend and desktop UI builds passed. Tests passed for the desktop (11), cloud (2), and backend (35 plus 2 subtests). The build flags bundle size, and npm audit flags the existing Vite development dependency. The signed-in picker and redesigned live capture still need a packaged Windows run.
+
 ### Windows v1 release verification
 
-- Staging deployment bundle passed Wrangler's dry run with both collector downloads. Live deployment could not authenticate from this session.
-- The standalone Windows collector passed its self-test in the packaged Electron app. Guided setup and upgrades passed simulated Windows task checks. The local NSIS compiler failed to launch, and the unpacked Electron app exited before opening its dashboard. Installer and live first-sync checks remain pending on a release runner.
-- Npcap listed a loopback adapter but denied live capture under its administrator-only configuration. Synthetic loopback and Ethernet VLAN traces passed parsing.
-- The Linux collector ZIP and simulated journal checks passed. A live Linux collector run remains pending.
-- GitHub verification now builds and starts the Linux download on Ubuntu and checks its first authenticated snapshot against a temporary HTTPS receiver. Windows packaging and installer checks are queued automatically when relevant changes reach main. The first runs of these updated workflows are pending.
+- The user confirmed the staging deployment passed after refreshing Wrangler sign-in.
+- For commit `e704bea`, GitHub passed Windows packaging, install, standalone collector and dashboard launch checks. The user paired a Windows collector from the installed app, and staging received its first snapshot three seconds after startup.
+- The user verified live Wi-Fi capture in the installed build with 268 packets. The redesigned Packet traces view now detects adapters automatically and offers quick recordings with in-app progress and a live mode with Pause and Resume. The new capture controls were tested at the desktop API level with simulated inputs.
+- The Ubuntu runner built the Linux collector download and verified its first authenticated snapshot to a temporary HTTPS receiver in the same run as the backend, frontend, PostgreSQL and public image checks.
 - Trusted Windows signing and public publishing remain pending. The public releases repository currently exposes a prerelease, and the credentials needed for a new upload were unavailable to this session.
 
 ### ATLAS network monitoring roadmap

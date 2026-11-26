@@ -1,3 +1,4 @@
+import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
 import { explainAddress } from './deviceExplanation';
 import { AtlasMap } from './AtlasMap';
@@ -143,10 +144,11 @@ export function useNetworkInventory(endpoint: string) {
   return { inventory, fetchError, refreshing, lastRefresh, reloadAfterChange: () => setRevision((value) => value + 1) };
 }
 
-export function Network({ endpoint, openCase, openEvents, target, onTarget, demo, readOnly, labelSource }: {
+export function Network({ endpoint, openCase, openEvents, target, onTarget, demo, readOnly, labelSource, visible }: {
   endpoint: string; openCase: (id: string) => void; openEvents: (search: string) => void;
   target: AtlasTarget | null; onTarget: (target: null) => void; demo: boolean; readOnly: boolean;
   labelSource: string | null;
+  visible: boolean;
 }) {
   const { inventory, fetchError, refreshing, lastRefresh, reloadAfterChange } = useNetworkInventory(endpoint);
   const oldSnapshot = Boolean(inventory?.collector_synced_at &&
@@ -410,9 +412,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {atlasViews.map(({ id, label }) => <button key={id} type="button"
         aria-current={activeView === id ? 'page' : undefined} onClick={() => { setAtlasView(id); onTarget(null); }}>{label}</button>)}
     </nav>
-    {fetchError && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
+    {fetchError && activeView !== 'traces' && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
     {endpoint && !inventory && !fetchError && activeView !== 'traces' && <p role="status">Loading network observations…</p>}
-    <section className="panel atlas-toolbar" aria-label="Network inventory controls">
+    {activeView !== 'traces' && <section className="panel atlas-toolbar" aria-label="Network inventory controls">
       <label className="network-search">Find device
         <input type="search" placeholder="Host, IP or MAC address" value={search} onChange={(event) => setSearch(event.target.value)} />
       </label>
@@ -422,7 +424,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {inventory?.collector_synced_at ? <small>Collector synced <time dateTime={inventory.collector_synced_at}>
         {new Date(inventory.collector_synced_at).toLocaleTimeString()}</time></small> :
         lastRefresh && <small>{demo ? 'Sample data loaded' : 'Last checked ' + lastRefresh}</small>}
-    </section>
+    </section>}
     <div className="atlas-section-stack" hidden={activeView !== 'devices'}>
     {observedDevices.length > 0 && <section className="panel" aria-labelledby="atlas-coverage">
       <h2 id="atlas-coverage">Device coverage</h2>
@@ -632,9 +634,9 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       {!inventory.internet_health.length && <p>Waiting for the first check.</p>}
       {inventory.internet_health.length > 0 && <details>
         <summary>Recent check history</summary>
-        <label className="router-wifi-filter">Show <select value={healthWindow} onChange={(event) => setHealthWindow(Number(event.target.value))}>
-          <option value={12}>Last 12 checks</option><option value={72}>Last 72 checks</option>
-        </select></label>
+        <label className="router-wifi-filter">Show <SelectControl label="Diagnostic history range" value={String(healthWindow)}
+          onChange={(value) => setHealthWindow(Number(value))}
+          options={[12, 72].map((value) => ({ value: String(value), label: 'Last ' + value + ' checks' }))} /></label>
         <p className="reference">HTTPS responded in {respondingChecks} of {healthHistory.length} sampled checks.</p>
         <div className="diagnostic-history-chart" role="list" aria-label="HTTPS response times">
           {healthHistory.map((sample) => <div key={sample.checked_at} role="listitem"
@@ -675,7 +677,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     {inventory && !inventory.internet_health && !inventory.linux_journal && (!windowsEvents || windowsEvents.state === 'disabled') && <p>This collector has not supplied diagnostics.</p>}
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'traces'}>
-    <PacketTrace />
+    {visible && activeView === 'traces' && <PacketTrace />}
     </div>
   </main>;
 }

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import * as Menu from '@radix-ui/react-dropdown-menu';
+import { ChevronRight, Monitor, Moon, Sun, SunMoon } from 'lucide-react';
 
 type Theme = 'system' | 'light' | 'dark';
 const storageKey = 'north-appearance';
@@ -30,12 +32,14 @@ export function Appearance() {
     }
   }
 
-  return <label className="appearance-control">
-    Appearance
-    <select value={selected} onChange={(event) => changeTheme(event.target.value as Theme)}>
-      <option value="system">System</option>
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
-    </select>
-  </label>;
+  return <Menu.Sub>
+    <Menu.SubTrigger className="shell-menu-item"><SunMoon size={16} />Appearance<ChevronRight size={14} className="menu-end" /></Menu.SubTrigger>
+    <Menu.Portal><Menu.SubContent className="shell-menu" sideOffset={5} collisionPadding={8}>
+      <Menu.RadioGroup value={selected} onValueChange={(value) => changeTheme(value as Theme)}>
+        <Menu.RadioItem value="system" className="shell-menu-item"><Monitor size={16} />System<Menu.ItemIndicator className="menu-end">✓</Menu.ItemIndicator></Menu.RadioItem>
+        <Menu.RadioItem value="light" className="shell-menu-item"><Sun size={16} />Light<Menu.ItemIndicator className="menu-end">✓</Menu.ItemIndicator></Menu.RadioItem>
+        <Menu.RadioItem value="dark" className="shell-menu-item"><Moon size={16} />Dark<Menu.ItemIndicator className="menu-end">✓</Menu.ItemIndicator></Menu.RadioItem>
+      </Menu.RadioGroup>
+    </Menu.SubContent></Menu.Portal>
+  </Menu.Sub>;
 }

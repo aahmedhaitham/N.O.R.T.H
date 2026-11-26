@@ -1,0 +1,156 @@
+.shell { grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr); }
+.topbar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px) minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 12px;
+  align-items: center;
+  font-size: 13px;
+  background: var(--rail);
+}
+.toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.toolbar-right { justify-content: end; }
+.toolbar-right > button, .toolbar-right > .status { white-space: nowrap; }
+.toolbar-right > button { padding: 5px 8px; }
+.toolbar-brand { letter-spacing: .12em; }
+.toolbar-notice { padding: 8px 16px; margin: 0; color: var(--warning); }
+.topbar .status {
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.topbar .quick-nav-trigger { min-width: 0; justify-content: start; background: var(--canvas); padding: 4px 8px; }
+.quick-nav-trigger span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-nav-trigger kbd { margin-inline-start: auto; white-space: nowrap; }
+.toolbar-right .avatar-trigger {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+  padding: 0;
+}
+.collector-trigger {
+  min-width: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 7px;
+  background: transparent;
+  border-color: transparent;
+}
+.collector-trigger strong, .collector-trigger small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.collector-trigger small { color: var(--muted); flex-shrink: 0; }
+.collector-trigger svg { flex-shrink: 0; }
+.collector-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--muted); }
+.collector-dot[data-active="true"] { background: var(--accent); }
+.collector-popover, .shell-menu, .select-content, .rail-tooltip {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 12px 32px #0004;
+  font-size: 13px;
+  z-index: 10;
+}
+.collector-popover { width: min(340px, calc(100vw - 16px)); }
+.collector-search, .collector-inactive { display: flex; align-items: center; gap: 8px; padding: 8px; color: var(--muted); }
+.collector-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--canvas);
+  font: inherit;
+}
+.collector-options { max-height: min(250px, 50vh); overflow: auto; }
+.collector-option, .shell-menu-item, .select-option { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer; }
+.collector-option small { display: block; color: var(--muted); }
+.collector-option strong { overflow-wrap: anywhere; }
+.collector-option[aria-disabled="true"] { cursor: default; opacity: .7; }
+.collector-option[aria-selected="true"] { color: var(--accent); }
+.collector-option[data-highlighted], .collector-option:not([aria-disabled="true"]):hover,
+.shell-menu-item[data-highlighted], .select-option[data-highlighted] { color: var(--text); background: var(--selection); outline: 1px solid var(--selection-line); outline-offset: -1px; }
+.collector-empty { margin: 6px 8px; color: var(--muted); }
+.collector-inactive { border-top: 1px solid var(--line); }
+.shell-menu { min-width: 156px; }
+.shell-menu-item kbd, .menu-end { margin-inline-start: auto; color: var(--muted); }
+.shell-menu-item kbd { padding-inline-start: 12px; font: inherit; font-size: 11px; }
+.menu-separator { margin: 4px; height: 1px; background: var(--line); }
+.select-trigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; max-width: 100%; text-align: left; }
+.select-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-trigger > svg { flex: 0 0 auto; }
+.select-content { min-width: var(--radix-select-trigger-width); max-width: calc(100vw - 16px); max-height: var(--radix-select-content-available-height); }
+.select-option span:last-child { flex-shrink: 0; }
+.select-option { justify-content: space-between; }
+.select-scroll { display: grid; place-items: center; }
+.shell .console-nav {
+  position: relative;
+  top: auto;
+  align-self: stretch;
+  width: 56px;
+  min-height: 0;
+  flex-flow: column nowrap;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  overflow: visible;
+  border-inline-end: 1px solid var(--line);
+  border-bottom: 0;
+}
+.console-nav button.nav-item {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  justify-content: center;
+  flex: 0 0 40px;
+  padding: 0;
+  box-shadow: none;
+}
+.rail-indicator {
+  position: absolute;
+  top: 14px;
+  inset-inline-start: 0;
+  width: 3px;
+  height: 28px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+  transform: translateY(calc(var(--nav-position) * 44px));
+  transition: transform 140ms ease-out;
+}
+.rail-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  border-radius: 999px;
+  padding: 1px 3px;
+  color: var(--on-accent);
+  background: var(--accent);
+  font-size: 9px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.rail-tooltip { display: grid; gap: 2px; padding: 6px 9px; }
+.rail-tooltip span { color: var(--muted); }
+.atlas-view-bar { width: fit-content; max-width: 100%; min-width: 0; }
+.atlas-view-bar button { white-space: nowrap; }
+.replay-actions .select-trigger { margin-inline-start: auto; }
+@media (max-width: 1020px) { .collector-trigger small { display: none; } }
+@media (max-width: 620px) {
+  .topbar { grid-template-columns: minmax(0, 1fr) minmax(40px, 1fr) auto; gap: 5px; padding-inline: 6px; }
+  .topbar .status span, .quick-nav-trigger kbd { display: none; }
+  .toolbar-right { gap: 4px; }
+  .topbar .status { padding: 5px; }
+  .atlas-workspace { padding-inline: 8px; }
+  .atlas-view-bar button { padding-inline: 7px; }
+}
+@media (prefers-reduced-motion: reduce) { .rail-indicator { transition: none; } }

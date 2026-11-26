@@ -1,10 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { maxTraceBytes, readPacketTrace } from './parsePcap';
 import { formatTraffic } from './formatTraffic';
+import { SelectControl } from './SelectControl';
 
 const pageSize = 50;
 type Conversation = { a: string; b: string; packets: number; bytes: number };
-type Adapter = { id: number; label: string };
+type Adapter = { device: string; label: string };
+type CaptureMode = 'live' | 'quick';
 
 function endpoints(source: string, destination: string) {
   return source < destination ? [source, destination] : [destination, source];
@@ -25,10 +27,16 @@ export function PacketTrace() {
   const [pair, setPair] = useState<Conversation | null>(null);
   const [adapters, setAdapters] = useState<Adapter[]>([]);
   const [adapter, setAdapter] = useState('');
-  const [seconds, setSeconds] = useState(15);
+  const [seconds, setSeconds] = useState(10);
   const [captureStatus, setCaptureStatus] = useState('');
-  const [captureBusy, setCaptureBusy] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [captureMode, setCaptureMode] = useState<CaptureMode | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const desktop = location.protocol === 'north:';
+  const capture = useRef<AbortController | null>(null);
+  const pauseRequested = useRef(false);
+  const filePicker = useRef<HTMLInputElement>(null);
   const load = useRef(0);
   const overview = useMemo(() => {
     const groups = new Map<string, Conversation>();
@@ -68,6 +76,7 @@ export function PacketTrace() {
     volume[Math.min(11, Math.floor((durations[index] - earliest) / intervalWidth))] += matching[index].bytes;
   }
   const peak = Math.max(1, ...volume);
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(matching.length / pageSize) - 1));
 
   async function openCapture(read: () => Promise<ArrayBuffer>) {
     const request = ++load.current;
@@ -89,91 +98,155 @@ export function PacketTrace() {
     }
   }
 
-  async function listAdapters() {
-    setCaptureBusy(true);
+  const listAdapters = useCallback(async (signal?: AbortSignal) => {
+    setDetecting(true);
     setCaptureStatus('');
     try {
-      const response = await fetch('/api/desktop/capture/interfaces');
+      const response = await fetch('/api/desktop/capture/interfaces', { signal });
       const body = await response.json();
+      if (signal?.aborted) return;
       if (!response.ok) throw new Error(body.detail);
       const items: Adapter[] = body.interfaces;
       setAdapters(items);
-      setAdapter('');
+      setAdapter((selected) => items.some(({ device }) => device === selected) ? selected :
+        (items.find(({ label }) => /^Wi-?Fi$/i.test(label)) ?? items[0])?.device ?? '');
       if (items.length === 0) setCaptureStatus('No eligible capture adapters were found.');
     } catch (error) {
+      if (signal?.aborted) return;
       setAdapters([]);
       setAdapter('');
       setCaptureStatus(error instanceof Error ? error.message : 'Adapters could not be listed.');
     } finally {
-      setCaptureBusy(false);
+      if (!signal?.aborted) setDetecting(false);
     }
-  }
+  }, []);
 
-  async function startCapture() {
-    setCaptureBusy(true);
-    setCaptureStatus('Waiting for capture confirmation and completion…');
+  useEffect(() => {
+    if (!desktop) return;
+    const detection = new AbortController();
+    void listAdapters(detection.signal);
+    return () => {
+      detection.abort();
+      capture.current?.abort();
+    };
+  }, [desktop, listAdapters]);
+
+  useEffect(() => {
+    if (!captureMode) return;
+    const start = performance.now();
+    const timer = window.setInterval(() => setElapsed(Math.floor((performance.now() - start) / 1000)), 250);
+    return () => window.clearInterval(timer);
+  }, [captureMode]);
+
+  async function startCapture(mode: CaptureMode) {
+    if (capture.current || !adapter) return;
+    const controller = new AbortController();
+    load.current++;
+    capture.current = controller;
+    pauseRequested.current = false;
+    setCaptureMode(mode);
+    setElapsed(0);
+    setCaptureStatus('');
+    setMessage('');
+    if (mode === 'live' && !paused) {
+      setTrace(null);
+      setPair(null);
+      setPage(0);
+    }
+    setPaused(false);
     try {
-      const response = await fetch('/api/desktop/capture/start', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: Number(adapter), seconds }),
-      });
-      if (response.status === 204) {
-        setCaptureStatus('Capture cancelled.');
-        return;
-      }
-      if (!response.ok) throw new Error((await response.json()).detail);
-      await openCapture(() => response.arrayBuffer());
-      setCaptureStatus('');
+      do {
+        const response = await fetch('/api/desktop/capture/start', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-North-Capture': 'local' },
+          body: JSON.stringify({ device: adapter, seconds: mode === 'live' ? 3 : seconds }),
+          signal: controller.signal,
+        });
+        if (response.status === 204 || controller.signal.aborted) return;
+        if (!response.ok) throw new Error((await response.json()).detail);
+        if (mode === 'quick') {
+          await openCapture(() => response.arrayBuffer());
+          break;
+        }
+        const batch = readPacketTrace(await response.arrayBuffer());
+        if (controller.signal.aborted) return;
+        setTrace((previous) => {
+          const packets = [...(previous?.packets ?? []), ...batch.packets];
+          return { ...batch, packets: packets.slice(-5000), limited: packets.length > 5000 || batch.limited || !!previous?.limited };
+        });
+      } while (!pauseRequested.current && !controller.signal.aborted);
     } catch (error) {
-      setCaptureStatus(error instanceof Error ? error.message : 'Capture could not finish.');
+      if (!controller.signal.aborted) setCaptureStatus(error instanceof Error ? error.message : 'Capture could not finish.');
     } finally {
-      setCaptureBusy(false);
+      capture.current = null;
+      if (!controller.signal.aborted) {
+        if (pauseRequested.current) setCaptureStatus((status) => status === 'Pausing after the current batch…' ? '' : status);
+        setPaused(mode === 'live' && pauseRequested.current);
+        setCaptureMode(null);
+      }
     }
   }
 
-  return <details className="panel">
-    <summary>Inspect a packet trace</summary>
-    <p>Open a PCAP or PCAPNG from an authorized network. NORTH reads Ethernet, loopback, raw IP, and Linux cooked headers and keeps the file in this window.</p>
-    {desktop ? <details>
-      <summary>Capture on this computer</summary>
-      <p>Record a short trace on an authorized local adapter. Packet prefixes can contain payload bytes and stay in this app window.</p>
-      <div className="event-filters">
-        <button type="button" disabled={captureBusy} onClick={() => void listAdapters()}>Find adapters</button>
-        {adapters.length > 0 && <>
-          <label>Adapter <select value={adapter} disabled={captureBusy} onChange={(event) => setAdapter(event.target.value)}>
-            <option value="">Select an adapter</option>
-            {adapters.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select></label>
-          <label>Duration <select value={seconds} disabled={captureBusy} onChange={(event) => setSeconds(Number(event.target.value))}>
-            {[10, 15, 30].map((duration) => <option key={duration} value={duration}>{duration} seconds</option>)}
-          </select></label>
-          <button type="button" disabled={captureBusy || !adapter} onClick={() => void startCapture()}>Start capture</button>
-        </>}
+  return <section className="trace-workspace" aria-labelledby="trace-heading">
+    <header className="trace-header">
+      <div><h2 id="trace-heading">Packet capture</h2><p>Record local network traffic or inspect a saved trace.</p></div>
+      <button type="button" disabled={!!captureMode} onClick={() => filePicker.current?.click()}>Open trace file</button>
+    </header>
+    {desktop ? <section className="panel capture-console" aria-label="Capture on this computer">
+      <div className="capture-state" data-recording={!!captureMode}>
+        <span aria-hidden="true" />{captureMode ? 'Recording' : paused ? 'Paused' : detecting ? 'Detecting adapters' : adapter ? 'Ready to capture' : 'Adapter unavailable'}
+        {captureMode && <time>{elapsed}s</time>}
       </div>
-      {captureStatus && <p role="status">{captureStatus}</p>}
-    </details> : <details>
-      <summary>Capture on this computer</summary>
-      <p>The collector bundle includes a short capture tool for computers with Dumpcap and a working capture driver. Capture only on interfaces you’re authorized to monitor.</p>
-      <pre>{'python tools/capture_north.py --list\npython tools/capture_north.py --interface 1 --seconds 15'}</pre>
-      <p>Use the interface number from the list. The capture stops automatically and saves a local PCAPNG you can open here. Packet prefixes can contain payload bytes.</p>
-    </details>}
-    <input type="file" accept=".pcap,.pcapng" aria-label="Open local packet capture" disabled={captureBusy} onChange={(event) => {
+      <div className="capture-controls">
+          <label>Network adapter <SelectControl label="Network adapter" value={adapter} disabled={detecting || !!captureMode} onChange={(value) => {
+            setAdapter(value);
+            setPaused(false);
+          }} options={[{ value: '', label: 'Select an adapter' }, ...adapters.map((item) => ({ value: item.device, label: item.label }))]} /></label>
+          {captureMode === 'live' ?
+            <button type="button" disabled={!!captureStatus} onClick={() => {
+              pauseRequested.current = true;
+              setCaptureStatus('Pausing after the current batch…');
+            }}>Pause</button> :
+            <button className="primary-action" type="button" disabled={detecting || !!captureMode || !adapter}
+              onClick={() => void startCapture('live')}>{paused ? 'Resume capture' : 'Start live capture'}</button>}
+          <label>Quick capture <SelectControl label="Quick capture duration" value={String(seconds)} disabled={!!captureMode}
+            onChange={(value) => setSeconds(Number(value))}
+            options={[10, 15, 30].map((duration) => ({ value: String(duration), label: duration + ' seconds' }))} /></label>
+          <button type="button" disabled={detecting || !!captureMode || !adapter} onClick={() => void startCapture('quick')}>Record {seconds}s</button>
+          {!adapter && !detecting && <button type="button" onClick={() => void listAdapters()}>Retry adapter detection</button>}
+      </div>
+      {captureMode === 'quick' && <progress aria-label="Quick capture progress" max={seconds} value={Math.min(elapsed, seconds)} />}
+      <p className="capture-note">Capture only on networks you’re authorized to monitor. Traces stay in this window.</p>
+      <p className="capture-feedback" role="status">{captureStatus || (paused ? 'Capture paused. The recorded packets are available below.' :
+        captureMode === 'live' ? 'Updating every few seconds. Leaving Packet traces stops capture.' : '')}</p>
+    </section> : <p className="reference">Use NORTH Desktop for live capture or open a saved PCAP or PCAPNG file here.</p>}
+    <input ref={filePicker} hidden type="file" accept=".pcap,.pcapng" aria-label="Open local packet capture" onChange={(event) => {
       const file = event.currentTarget.files?.[0];
-      if (file) void openCapture(() => {
-        if (file.size > maxTraceBytes) throw new Error('Choose a capture up to 8 MiB.');
-        return file.arrayBuffer();
-      });
+      if (file) {
+        setPaused(false);
+        void openCapture(() => {
+          if (file.size > maxTraceBytes) throw new Error('Choose a capture up to 8 MiB.');
+          return file.arrayBuffer();
+        });
+      }
       event.currentTarget.value = '';
     }} />
     {message && <p role="status">{message}</p>}
-    {trace && <button type="button" onClick={() => { setTrace(null); setMessage('Capture cleared from this window.'); }}>Clear capture</button>}
-    {trace && trace.packets.length > 0 && <>
-      <p className="reference">{trace.packets.length.toLocaleString()} loaded packets · {formatTraffic(overview.bytes)} in original packet lengths</p>
+    {trace && <section className="panel trace-results" aria-label="Captured packets">
+      <div className="trace-header">
+        <div><h3>Captured packets</h3><p>{trace.packets.length.toLocaleString()} packets · {formatTraffic(overview.bytes)}
+          {trace.limited && (captureMode === 'live' || paused ? ' · Recent packets only' : ' · Packet limit reached')}</p></div>
+        <button type="button" disabled={!!captureMode} onClick={() => {
+          setTrace(null);
+          setPaused(false);
+          setMessage('');
+        }}>Clear trace</button>
+      </div>
+      {trace.packets.length > 0 && <>
       {overview.conversations.length > 0 && <div className="trace-conversations">
         <h3>Top address pairs</h3>
         <ul>{overview.conversations.map((item) => <li key={item.a + '|' + item.b}>
-          <button type="button" aria-pressed={pair === item} onClick={() => {
-            setPair(pair === item ? null : item);
+          <button type="button" aria-pressed={pair?.a === item.a && pair?.b === item.b} onClick={() => {
+            setPair(pair?.a === item.a && pair?.b === item.b ? null : item);
             setSearch('');
             setProtocol('');
             setPort('');
@@ -185,10 +258,9 @@ export function PacketTrace() {
         <label>Find an IP address
           <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }} />
         </label>
-        <label>Protocol <select value={protocol} onChange={(event) => { setProtocol(event.target.value); setPage(0); }}>
-          <option value="">All protocols</option>
-          {overview.protocols.map((name) => <option key={name}>{name}</option>)}
-        </select></label>
+        <label>Protocol <SelectControl label="Packet protocol" value={protocol}
+          onChange={(value) => { setProtocol(value); setPage(0); }}
+          options={[{ value: '', label: 'All protocols' }, ...overview.protocols.map((name) => ({ value: name, label: name }))]} /></label>
         <label>TCP or UDP port<input type="text" inputMode="numeric" value={port} maxLength={5}
           aria-invalid={invalidPort || undefined} onChange={(event) => { setPort(event.target.value); setPage(0); }} /></label>
         {(search || protocol || port || pair) && <button type="button" onClick={() => {
@@ -214,8 +286,8 @@ export function PacketTrace() {
       <div className="router-traffic-table-wrap">
         <table className="investigation-table" aria-label="Packet headers">
           <thead><tr><th scope="col">Time (UTC)</th><th scope="col">Source</th><th scope="col">Destination</th><th scope="col">Protocol</th><th scope="col">Bytes</th></tr></thead>
-          <tbody>{matching.slice(page * pageSize, (page + 1) * pageSize).map((packet, index) =>
-            <tr key={page * pageSize + index}>
+          <tbody>{matching.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((packet, index) =>
+            <tr key={currentPage * pageSize + index}>
               <td><time dateTime={packet.time}>{packet.time}</time></td>
               <td>{addressWithPort(packet.source, packet.sourcePort)}</td>
               <td>{addressWithPort(packet.destination, packet.destinationPort)}</td><td>{packet.protocol}</td><td>{packet.bytes}</td>
@@ -223,10 +295,11 @@ export function PacketTrace() {
         </table>
       </div>}
       {matching.length > pageSize && <div className="event-pagination">
-        <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
-        <span className="reference">Page {page + 1}</span>
-        <button type="button" disabled={(page + 1) * pageSize >= matching.length} onClick={() => setPage(page + 1)}>Next</button>
+        <button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button>
+        <span className="reference">Page {currentPage + 1}</span>
+        <button type="button" disabled={(currentPage + 1) * pageSize >= matching.length} onClick={() => setPage(currentPage + 1)}>Next</button>
       </div>}
     </>}
-  </details>;
+    </section>}
+  </section>;
 }

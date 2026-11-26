@@ -21,7 +21,7 @@ async function dumpcapPath() {
   return executable;
 }
 
-function makePacketCapture({ confirm, execute = run, locate = dumpcapPath, isWindows = process.platform === 'win32' }) {
+function makePacketCapture({ execute = run, locate = dumpcapPath, isWindows = process.platform === 'win32' }) {
   let active = false;
   return async (request) => {
     const pathname = new URL(request.url).pathname;
@@ -35,11 +35,15 @@ function makePacketCapture({ confirm, execute = run, locate = dumpcapPath, isWin
     try {
       let selection;
       if (!listing) {
+        if (request.headers.get('X-North-Capture') !== 'local' ||
+            request.headers.get('Content-Type') !== 'application/json') {
+          return Response.json({ detail: 'Start the capture from NORTH Desktop.' }, { status: 403 });
+        }
         try {
           const body = await request.text();
           if (body.length > 128) throw new Error();
           selection = JSON.parse(body);
-          if (!Number.isSafeInteger(selection?.id) || ![10, 15, 30].includes(selection?.seconds)) throw new Error();
+          if (typeof selection?.device !== 'string' || ![3, 10, 15, 30].includes(selection?.seconds)) throw new Error();
         } catch {
           return Response.json({ detail: 'Choose an interface and a supported capture duration.' }, { status: 422 });
         }
@@ -47,10 +51,10 @@ function makePacketCapture({ confirm, execute = run, locate = dumpcapPath, isWin
       const executable = await locate();
       const { stdout } = await execute(executable, ['-D'], { windowsHide: true, timeout: 12000 });
       const interfaces = parseWindowsInterfaces(stdout);
-      if (listing) return Response.json({ interfaces: interfaces.map(({ id, label }) => ({ id, label })) });
-      const adapter = interfaces.find(({ id }) => id === selection.id);
+      if (listing) return Response.json({ interfaces: interfaces.map(({ device, label }) => ({ device, label })) });
+      const adapter = interfaces.find(({ device }) => device === selection.device);
       if (!adapter) return Response.json({ detail: 'The selected adapter is unavailable.' }, { status: 404 });
-      if (!await confirm(adapter.label, selection.seconds) || request.signal.aborted) {
+      if (request.signal.aborted) {
         return new Response(null, { status: 204 });
       }
       const { stdout: capture } = await execute(executable, [

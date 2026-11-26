@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CollectorSetup } from './CollectorSetup';
 import { pollVisible } from './pollVisible';
 import { WorkspaceSettings } from './WorkspaceSettings';
+import { CollectorPicker, type WorkspaceActions } from './ShellControls';
 import { clearWorkspacePreferences, readWorkspacePreference, writeWorkspacePreference } from './workspaceSession';
 
 type Source = { id: string; label: string; updated_at: string; platform?: 'Windows' | 'Linux' | null; revoked_at?: string | null };
@@ -10,6 +11,7 @@ export type CollectorFleet = { sources: Source[]; waiting: WaitingCollector[]; s
 type DesktopRequest = { ticket: string; expires: number };
 type WorkspaceSection = 'dashboard' | 'collectors' | 'settings';
 export type WorkspacePanel = { title: string; content: ReactNode; close: () => void };
+export type CloudToolbar = { collector: ReactNode; actions: WorkspaceActions; notice: string; interrupted: boolean };
 const desktop = location.protocol === 'north:';
 const ticketPattern = /^[a-f0-9]{32}\.[a-f0-9]{64}\.\d{10}\.[a-f0-9]{64}$/;
 const desktopCode = (ticket: string) => ticket.slice(0, 8).toUpperCase();
@@ -27,7 +29,7 @@ const desktopPost = (operation: string, payload: object, signal?: AbortSignal) =
 });
 
 export function CloudGate({ children }: {
-  children: (source: string | null, openCollectors: () => void, controls: ReactNode, fleet: CollectorFleet, panel?: WorkspacePanel) => ReactNode;
+  children: (source: string | null, openCollectors: () => void, controls: CloudToolbar, fleet: CollectorFleet, panel?: WorkspacePanel) => ReactNode;
 }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [key, setKey] = useState('');
@@ -210,23 +212,6 @@ export function CloudGate({ children }: {
   }
 
   if (signedIn) {
-    const controls = <div className="cloud-banner">
-      <div className="cloud-context">
-      {source ? <label><span>Collector</span>
-        <select value={source.id} onChange={(event) => selectCollector(event.target.value)}>
-          {sources.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-        </select>
-      </label> : <span>No collector connected</span>}
-      {source && <span>Last sync {new Date(source.updated_at).toLocaleString()}</span>}
-      </div>
-      {message && <span role="alert">{message}</span>}
-      {connectionIssue && <span role="status">{connectionIssue}</span>}
-      <div className="cloud-actions">
-        <button onClick={() => setSection('collectors')} aria-pressed={section === 'collectors'}>Collectors</button>
-        <button onClick={() => setSection('settings')} aria-pressed={section === 'settings'}>Settings</button>
-        <button onClick={() => void signOut()}>Sign out</button>
-      </div>
-    </div>;
     if (approval) return <main className="cloud-sign-in"><section className="panel">
       <h1>Approve NORTH Desktop</h1>
       <p>Approve only if this code matches the one displayed in the desktop app.</p>
@@ -239,6 +224,12 @@ export function CloudGate({ children }: {
     </section></main>;
     const close = () => setSection('dashboard');
     const openCollectors = () => setSection('collectors');
+    const controls: CloudToolbar = {
+      collector: <CollectorPicker current={source} options={[...sources, ...waiting]} choose={selectCollector} />,
+      actions: { settings: () => setSection('settings'), collectors: openCollectors, signOut: () => void signOut() },
+      notice: message || connectionIssue,
+      interrupted: Boolean(connectionIssue),
+    };
     const panel: WorkspacePanel | undefined = section === 'collectors' ? {
       title: 'Collectors', content: <CollectorSetup back={close} availableSources={sources.map(({ id }) => id)}
         useCollector={(id) => { selectCollector(id); close(); }} />, close,
