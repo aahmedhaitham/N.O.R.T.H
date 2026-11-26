@@ -1,0 +1,71 @@
+- id: windows-service-installed
+  title: A Windows service was installed
+  tags: [attack.t1543.003]
+  severity: medium
+  logsource: {source: system}
+  detection:
+    service_install: {EventID: 7045}
+    condition: service_install
+  falsepositives: [Legitimate installers and IT management can create services.]
+  plain_summary: Windows recorded a new service.
+  what_to_do: Compare the service name and executable with recent software changes.
+  requires: ['system:7045']
+  tests: {positive: detections_positive.json, negative: detections_negative.json}
+
+- id: scheduled-task-created
+  title: A Windows scheduled task was created
+  tags: [attack.t1053.005]
+  severity: low
+  logsource: {source: security}
+  detection:
+    task_create: {EventID: 4698}
+    condition: task_create
+  falsepositives: [Software updates and authorized automation often create tasks.]
+  plain_summary: Windows recorded the creation of a scheduled task.
+  what_to_do: Check whether the task name and creator match an expected change.
+  requires: ['security:4698']
+  tests: {positive: detections_positive.json, negative: detections_negative.json}
+
+- id: remote-thread-observed
+  title: A process created a thread in another process
+  tags: [attack.t1055]
+  severity: medium
+  logsource: {source: sysmon}
+  detection:
+    thread: {EventID: 8}
+    condition: thread
+  falsepositives: [Debuggers and legitimate security tools can create remote threads.]
+  plain_summary: Sysmon recorded a thread created in a different process.
+  what_to_do: Review the source and target process and compare them with installed tools.
+  requires: ['sysmon:8']
+  tests: {positive: detections_positive.json, negative: detections_negative.json}
+
+- id: lsass-process-access
+  title: A process opened LSASS
+  tags: [attack.t1003.001]
+  severity: medium
+  logsource: {source: sysmon}
+  detection:
+    access: {EventID: 10}
+    lsass: {'TargetImage|endswith': '\lsass.exe'}
+    condition: access and lsass
+  falsepositives: [Security tools and Windows components can legitimately access LSASS.]
+  plain_summary: Sysmon recorded access to the Windows authentication process.
+  what_to_do: Check which process requested access and whether it is expected on this PC.
+  requires: ['sysmon:10']
+  tests: {positive: detections_positive.json, negative: detections_negative.json}
+
+- id: registry-run-value-set
+  title: A Windows sign-in startup registry value was set
+  tags: [attack.t1547.001]
+  severity: medium
+  logsource: {source: sysmon}
+  detection:
+    set_value: {EventID: 13}
+    startup: {'TargetObject|re': '\\CurrentVersion\\Run(?:Once)?\\[^\\]+$'}
+    condition: set_value and startup
+  falsepositives: [An installed app can register a legitimate sign-in startup entry.]
+  plain_summary: Sysmon recorded a change to a registry entry that can launch a program at sign-in.
+  what_to_do: Confirm the startup entry belongs to software you installed or manage.
+  requires: ['sysmon:13']
+  tests: {positive: detections_positive.json, negative: detections_negative.json}

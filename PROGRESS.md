@@ -23,6 +23,10 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### Local-first product brief · Phase 2 started
 
+- Added a local, named-selection Sigma subset with bounded YAML parsing, field aliases and modifiers, Boolean conditions, and explicitly reported regex timeouts. Five starter rules have positive and negative synthetic fixtures. The authenticated local API evaluates up to 100 recent events and returns their stored evidence IDs.
+- PyYAML parses YAML without object constructors and with alias, nesting and size limits. The regex package supplies match timeouts. Added both modules and the bundled catalog to Docker and both collector ZIPs.
+- In backend, `python -m pytest -q -o faulthandler_timeout=15 tests` passed 59 tests and 2 subtests. Desktop tests passed 12, desktop UI built with the existing size warning, both collector ZIPs included the rule files, and `python backend/run_collector.py --self-test` passed from source. Packaged runtime was not tested.
+
 - Added opt-in Windows event collection for extended Sysmon, Security, System, PowerShell and Defender channels. Readers use fixed channel/event allowlists, bounded fields, per-channel cursors, and source-specific health messages. PowerShell script block metadata is collected without the script body.
 - Rich records go into a separate SQLite table and are readable only through the authenticated local API. The regression test confirms that the new record ID and a synthetic command line never appear in a cloud snapshot. Collection is off by default, enabled by `NORTH_WINDOWS_LOCAL_EVENTS=1` in the Windows backend or standalone collector.
 - `python -m pytest -q -o faulthandler_timeout=15 tests` passed 40 tests and 2 subtests after loopback access was available. `npm --prefix desktop test` passed 12, cloud/GeoIP passed 3, and `npm --prefix desktop run build:ui` passed with the existing bundle-size warning. The PowerShell reader parsed, the Windows and Linux ZIP checks passed, and `python backend/run_collector.py --self-test` passed from source.

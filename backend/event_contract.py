@@ -94,7 +94,9 @@ def event_contract(event):
             "cmdline": _text(fields.get("commandLine")),
             "parent_guid": _text(event.get("parent_guid") or fields.get("parentProcessGuid"), 128),
             "parent_name": PureWindowsPath(parent_path).name,
+            "parent_path": parent_path,
             "parent_cmdline": _text(fields.get("parentCommandLine")),
+            "target_path": _text(fields.get("targetImage")),
             "user": username,
         },
         "user": {

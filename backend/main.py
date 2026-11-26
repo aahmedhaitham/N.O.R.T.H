@@ -23,6 +23,7 @@ from device_watch import demo_findings, findings, mark_reviewed
 from cloud_sync import sync_loop
 from local_access import LocalAccess
 from event_contract import event_contract
+from detection_rules import bundled_rules, evaluate_rules
 from windows_sources import WindowsSources
 
 
@@ -133,6 +134,12 @@ def make_app(store=None):
         @app.get("/api/local/windows-events")
         def local_windows_events(limit: int = Query(100, ge=1, le=500)):
             return {"events": [event_contract(event) for event in store.local_windows_events(limit=limit)]}
+
+        @app.get("/api/local/detections")
+        def local_detections(limit: int = Query(100, ge=1, le=100)):
+            events = store.event_page(limit=limit)["events"] + store.local_windows_events(limit=limit)
+            events.sort(key=lambda item: (item["timestamp"], item["id"]), reverse=True)
+            return evaluate_rules(bundled_rules(), [event_contract(event) for event in events[:limit]])
 
     @app.post("/api/network/devices/{device_id}/review")
     def review_device(device_id: str, review: DeviceReview):

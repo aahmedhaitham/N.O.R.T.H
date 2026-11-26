@@ -1,0 +1,7 @@
+[
+  {"source":"security","host":"WIN-SYNTHETIC","event_id":4624,"record_id":11,"timestamp":"2026-01-15T10:00:00Z","fields":{}},
+  {"source":"security","host":"WIN-SYNTHETIC","event_id":4688,"record_id":12,"timestamp":"2026-01-15T10:00:01Z","fields":{}},
+  {"source":"sysmon","host":"WIN-SYNTHETIC","event_id":7,"record_id":13,"timestamp":"2026-01-15T10:00:02Z","fields":{"Image":"C:\\Example\\target.exe"}},
+  {"source":"sysmon","host":"WIN-SYNTHETIC","event_id":10,"record_id":14,"timestamp":"2026-01-15T10:00:03Z","fields":{"TargetImage":"C:\\Example\\not-lsass.exe"}},
+  {"source":"sysmon","host":"WIN-SYNTHETIC","event_id":13,"record_id":15,"timestamp":"2026-01-15T10:00:04Z","fields":{"TargetObject":"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\RunMRU\\Example"}}
+]

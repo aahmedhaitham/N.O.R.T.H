@@ -1,0 +1,7 @@
+[
+  {"source":"system","host":"WIN-SYNTHETIC","event_id":7045,"record_id":1,"timestamp":"2026-01-15T10:00:00Z","fields":{"ServiceName":"Example Service"}},
+  {"source":"security","host":"WIN-SYNTHETIC","event_id":4698,"record_id":2,"timestamp":"2026-01-15T10:00:01Z","fields":{"TaskName":"Example Task"}},
+  {"source":"sysmon","host":"WIN-SYNTHETIC","event_id":8,"record_id":3,"timestamp":"2026-01-15T10:00:02Z","fields":{"SourceImage":"C:\\Example\\source.exe","TargetImage":"C:\\Example\\target.exe"}},
+  {"source":"sysmon","host":"WIN-SYNTHETIC","event_id":10,"record_id":4,"timestamp":"2026-01-15T10:00:03Z","fields":{"TargetImage":"C:\\Windows\\System32\\lsass.exe"}},
+  {"source":"sysmon","host":"WIN-SYNTHETIC","event_id":13,"record_id":5,"timestamp":"2026-01-15T10:00:04Z","fields":{"TargetObject":"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Example"}}
+]

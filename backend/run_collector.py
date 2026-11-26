@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from starlette.concurrency import run_in_threadpool
 
 from cloud_sync import collector_source, snapshot_target, sync_loop
+from detection_rules import bundled_rules
 from adapter_traffic import AdapterTraffic
 from internet_health import InternetHealth
 from journal_monitor import JournalMonitor
@@ -55,6 +56,7 @@ async def collect():
 
 
 async def self_test():
+    bundled_rules()
     with TemporaryDirectory() as folder:
         store = Store(path=Path(folder) / "smoke.sqlite3")
         await run_in_threadpool(store.initialize)
