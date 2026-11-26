@@ -328,13 +328,33 @@ class Store:
                 )
 
 
+def threshold_groups(events, *, group_key, count, window):
+    pending_by_key = {}
+    for event in sorted(events, key=lambda item: (item["timestamp"], item["id"])):
+        key = group_key(event)
+        pending = pending_by_key.setdefault(key, deque())
+        instant = datetime.fromisoformat(event["timestamp"])
+        while pending and instant - pending[0][0] > window:
+            pending.popleft()
+        pending.append((instant, event))
+        if len(pending) == count:
+            yield key, [item for _, item in pending]
+            pending.clear()
+
+
+def events_in_window(anchor, candidates, window):
+    started = datetime.fromisoformat(anchor["timestamp"])
+    return [candidate for candidate in candidates
+            if timedelta(0) <= datetime.fromisoformat(candidate["timestamp"]) - started <= window]
+
+
 def windows_cases(events: list[dict]) -> list[dict]:
     """Correlate process creation with a subsequent file write by the same process."""
     writes: dict[tuple[str, str], list[dict]] = {}
     connections: dict[tuple[str, str], list[dict]] = {}
     for event in events:
         key = (event["asset_id"], event["process_guid"])
-        if event["kind"] == 11:
+        if event["kind"] == 11 and event["target"].lower().endswith(".ps1"):
             writes.setdefault(key, []).append(event)
         elif event["kind"] == 3:
             connections.setdefault(key, []).append(event)
@@ -347,19 +367,11 @@ def windows_cases(events: list[dict]) -> list[dict]:
         if image not in ("powershell.exe", "pwsh.exe"):
             continue
         key = (event["asset_id"], event["process_guid"])
-        started = datetime.fromisoformat(event["timestamp"])
-
-        def within_window(candidate):
-            elapsed = datetime.fromisoformat(candidate["timestamp"]) - started
-            return 0 <= elapsed.total_seconds() <= 120
-
-        matching_writes = [
-            item for item in writes.get(key, [])
-            if within_window(item) and item["target"].lower().endswith(".ps1")
-        ]
+        window = timedelta(seconds=120)
+        matching_writes = events_in_window(event, writes.get(key, ()), window)
         if not matching_writes:
             continue
-        network = [item for item in connections.get(key, []) if within_window(item)]
+        network = events_in_window(event, connections.get(key, ()), window)
         timeline = sorted([event, *matching_writes, *network], key=lambda item: (item["timestamp"], item["id"]))
         cases.append({
             "id": event["id"],
@@ -377,31 +389,20 @@ def windows_cases(events: list[dict]) -> list[dict]:
 
 
 def linux_cases(events: list[dict]) -> list[dict]:
-    windows = {}
     cases = []
-    failures = sorted(
-        (event for event in events if event["kind"] == SSH_FAILURE),
-        key=lambda event: (event["timestamp"], event["id"]),
-    )
-    for event in failures:
-        key = (event["asset_id"], event["source_ip"])
-        pending = windows.setdefault(key, deque())
-        instant = datetime.fromisoformat(event["timestamp"])
-        while pending and instant - datetime.fromisoformat(pending[0]["timestamp"]) > timedelta(minutes=5):
-            pending.popleft()
-        pending.append(event)
-        if len(pending) == 3:
-            first = pending[0]
-            cases.append({
-                "id": first["id"],
-                "title": "Repeated SSH authentication failures",
-                "host": first["host"],
-                "asset_id": first["asset_id"],
-                "summary": "OpenSSH recorded three failed authentication attempts from one address within five minutes. These records do not establish whether a login later succeeded.",
-                "evidence": list(pending),
-                "links": [{"destination": key[1], "evidence_id": first["id"], "direction": "inbound"}],
-            })
-            pending.clear()
+    failures = (event for event in events if event["kind"] == SSH_FAILURE)
+    for key, evidence in threshold_groups(failures, group_key=lambda event: (event["asset_id"], event["source_ip"]),
+                                          count=3, window=timedelta(minutes=5)):
+        first = evidence[0]
+        cases.append({
+            "id": first["id"],
+            "title": "Repeated SSH authentication failures",
+            "host": first["host"],
+            "asset_id": first["asset_id"],
+            "summary": "OpenSSH recorded three failed authentication attempts from one address within five minutes. These records do not establish whether a login later succeeded.",
+            "evidence": evidence,
+            "links": [{"destination": key[1], "evidence_id": first["id"], "direction": "inbound"}],
+        })
     return cases
 
 
