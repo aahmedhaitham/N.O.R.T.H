@@ -2,6 +2,8 @@ import { WorkspaceSettingsMessages as strings, formatMessage } from './messages'
 import { useEffect, useState } from 'react';
 import { TimezoneControl } from './TimeDisplay';
 import { DisplayModeControl } from './DisplayMode';
+import { setupEvent } from './onboardingState';
+import { onboardingMessages } from './messages';
 
 type Settings = {
   ai_available: boolean;
@@ -45,7 +47,9 @@ export function WorkspaceSettings({ back, openCollectors }: { back: () => void; 
   return <main className="collector-settings collector-workspace">
     <header className="collector-heading dashboard-heading"><h1>{strings.workspaceSettings}</h1><button type="button" onClick={back}>{strings.backToWorkspace}</button></header>
     {error && <p role="alert">{error}</p>}
-    <section className="panel"><DisplayModeControl /></section>
+    <section className="panel"><DisplayModeControl />
+      <button type="button" onClick={() => window.dispatchEvent(new Event(setupEvent))}>{onboardingMessages.reopen}</button>
+    </section>
     <section className="panel"><h2>{strings.timezone}</h2><TimezoneControl /></section>
     {!settings && !error && <p role="status">{strings.loadingWorkspaceSettings}</p>}
     {settings && <>

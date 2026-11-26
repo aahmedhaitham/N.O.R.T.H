@@ -21,6 +21,12 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Local-first product brief · Phase 6 first-run setup
+
+- First-run setup checks existing source visibility, explains missing logs and denied access, offers Simple or Analyst mode, and explains local storage and cloud sync. Finish or skip without changing permissions, starting monitoring, or pairing a collector.
+- Optional desktop monitoring uses the existing local collector after a separate confirmation. The cloud setup guide links to the existing Collectors page. Reopen the guide from Settings.
+- The desktop UI build and 22 desktop tests passed. The installed Windows walkthrough now checks setup completion, persistence after reload, and reopening and skipping the guide. The updated walkthrough still needs a GitHub runner result.
+
 ### Local-first product brief · Phase 5 NORTH Assistant
 
 - Added a docked panel available through **Assistant**, **Ctrl+J**, and the **Ctrl+K** command palette. It matches 34 question intents, offers autocomplete and follow-ups, and keeps a clearable history for the current workspace session.

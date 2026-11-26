@@ -17,6 +17,9 @@ import { ProcessTree } from './ProcessTree';
 import { AssistantPanel, AssistantProvider, useAssistant } from './Assistant';
 import type { Area, Row } from './assistantEngine';
 import { DisplayModeControl, DisplayModeProvider } from './DisplayMode';
+import { Onboarding } from './Onboarding';
+import { setupEvent, setupKey } from './onboardingState';
+import { onboardingMessages } from './messages';
 import { simpleMessages as simpleText } from './messages';
 import { InstallApp } from './InstallApp';
 import { CloudGate, type CloudToolbar, type CollectorFleet, type WorkspacePanel } from './CloudGate';
@@ -172,6 +175,26 @@ function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [localSettings, setLocalSettings] = useState(false);
+  const completionKey = setupKey(cloud);
+  const [onboarding, setOnboarding] = useState(() => {
+    if (publicDemo) return false;
+    try { return localStorage.getItem(completionKey) !== 'complete'; } catch { return true; }
+  });
+  useEffect(() => {
+    function reopen() {
+      panel?.close();
+      setLocalSettings(false);
+      setOnboarding(true);
+    }
+    window.addEventListener(setupEvent, reopen);
+    return () => window.removeEventListener(setupEvent, reopen);
+  }, [panel]);
+
+  function finishOnboarding() {
+    try { localStorage.setItem(completionKey, 'complete'); } catch { /* Continue for this session. */ }
+    setOnboarding(false);
+    setView('dashboard');
+  }
   const incident = cases.find((item) => item.id === selected) ?? cases[0];
   const caseQuery = caseSearch.trim().toLowerCase();
   const matchingCases = caseQuery ? cases.filter((item) =>
@@ -330,6 +353,9 @@ function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
     };
   }, [sourceQuery]);
 
+  if (onboarding && !panel) return <Onboarding endpoint={networkEndpoint} cloud={cloud} desktop={desktopLocal}
+    finish={finishOnboarding} collectors={openCollectors} />;
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -375,7 +401,9 @@ function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
       {panel?.content}
       {localSettings && <main className="dashboard"><header className="dashboard-heading">
         <h1>{simpleText.settings}</h1><button type="button" onClick={() => setLocalSettings(false)}>{simpleText.back}</button>
-      </header><section className="panel"><DisplayModeControl /></section></main>}
+      </header><section className="panel"><DisplayModeControl />
+        <button type="button" onClick={() => window.dispatchEvent(new Event(setupEvent))}>{onboardingMessages.reopen}</button>
+      </section></main>}
       <div className="workspace-pages" hidden={Boolean(panel) || localSettings}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} localFindings={!cloud && !publicDemo}

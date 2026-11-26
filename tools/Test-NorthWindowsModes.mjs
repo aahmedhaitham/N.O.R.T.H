@@ -96,6 +96,23 @@ try {
     await click('button', 'Back to workspace');
   }
 
+  await see('Set up NORTH');
+  await see('What NORTH can see');
+  await click('button', 'Continue');
+  await see('Choose your display mode');
+  await click('button', 'Continue');
+  await see('Your data and privacy');
+  await click('button', 'Open dashboard');
+  await see('Is my PC okay?');
+  await call('Page.reload');
+  await see('Is my PC okay?');
+  assert.equal(await bodyContains('Set up NORTH'), false);
+  await evaluate(`document.querySelector('button[aria-label="Workspace menu"]').dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))`);
+  await click('[role=menuitem]', 'SettingsAlt Shift S');
+  await click('button', 'Open setup guide');
+  await see('Set up NORTH');
+  await click('button', 'Skip setup');
   await see('Is my PC okay?');
   for (const heading of ['Who is on my network?', 'What did my PC connect to?', 'What should I do?']) {
     assert.equal(await bodyContains(heading), true);

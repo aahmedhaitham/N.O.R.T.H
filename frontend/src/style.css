@@ -491,3 +491,9 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .assistant-dock header { display: flex; justify-content: space-between; gap: var(--space-2); align-items: center; }
 .assistant-history article { border-block-start: var(--border); padding-block: var(--space-2); }
 .assistant-evidence { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); overflow-wrap: anywhere; }
+.north-onboarding { max-width: 760px; margin-inline: auto; }
+.onboarding-progress { display: flex; flex-wrap: wrap; gap: var(--space-4); padding-inline-start: var(--space-5); }
+.onboarding-progress [aria-current="step"] { color: var(--accent); font-weight: 650; }
+.onboarding-checks > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); border-block-end: var(--border); padding: var(--space-2) 0; }
+.onboarding-checks dd { margin: 0; color: var(--muted); }
+.north-onboarding details, .onboarding-monitor { margin-block-start: var(--space-3); }
