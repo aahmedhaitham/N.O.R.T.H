@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from ipaddress import ip_address
 from pathlib import Path
+from event_contract import event_contract
 
 
 SSH_FAILURE = 1001
@@ -318,7 +319,7 @@ def windows_cases(events: list[dict]) -> list[dict]:
     for event in events:
         if event["kind"] != 1 or not event["process_guid"]:
             continue
-        image = event["process"].replace("\\", "/").rsplit("/", 1)[-1].lower()
+        image = event_contract(event)["process"]["name"].lower()
         if image not in ("powershell.exe", "pwsh.exe"):
             continue
         key = (event["asset_id"], event["process_guid"])

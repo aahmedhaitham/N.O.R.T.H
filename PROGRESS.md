@@ -21,6 +21,13 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Local-first product brief · Phase 2 started
+
+- Added the local rule-engine event projection in `backend/event_contract.py`. It reads existing stored evidence and reuses its ID and UTC timestamp. It exposes bounded process, user, network, file, registry and DNS fields when the original event contains them. The projected `raw` field contains only channel and event type. Stored and uploaded evidence formats remain compatible.
+- The existing Windows correlation now uses the projected process name. Both Docker build definitions and the Windows and Linux collector bundles include the projection.
+- In backend, `.venv/Scripts/python.exe -m pytest -q tests` passed 38 tests and 2 subtests. `npm --prefix desktop run build:ui` passed with the existing bundle-size warning. Built both collector ZIPs and checked for `backend/event_contract.py` in each.
+- Phase 2 remains open. Add source-specific cursors and status, then the bounded Sigma loader and tested catalog. Service installation event 7045 belongs in the System log. Build a verified local-only retention path before expanding the fields and channels collected by a cloud-paired device. Custom rule regexes require bounded execution.
+
 ### Local-first product brief · Phases 0 and 1
 
 - **Phase 0 audit.** The standalone collector uses SQLite and can sync a bounded snapshot. FastAPI reads normalized events and derives cases for HTTP and WebSockets. Electron local mode runs fixed PowerShell readers and applies its own recent-event correlation. Move shared rules into the bundled collector over a backward-compatible event contract. The repository does not contain an MIT license file.

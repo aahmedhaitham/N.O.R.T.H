@@ -9,7 +9,7 @@ $staging = Join-Path $root ('.north-launcher/collector-package-' + [guid]::NewGu
 $files = @(
     'tools/capture_north.py',
     'backend/requirements.txt', 'backend/run_collector.py', 'backend/cloud_sync.py',
-    'backend/neighbors.py', 'backend/sysmon.py', 'backend/north.py', 'backend/device_watch.py',
+    'backend/neighbors.py', 'backend/sysmon.py', 'backend/north.py', 'backend/device_watch.py', 'backend/event_contract.py',
     'backend/network.py', 'backend/router_usage.py', 'backend/internet_health.py', 'backend/adapter_traffic.py',
     'backend/journal_monitor.py'
 )
