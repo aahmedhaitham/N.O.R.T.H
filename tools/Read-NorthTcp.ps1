@@ -46,4 +46,7 @@ $rows = @(foreach ($connection in $sample) {
         process = $name
     }
 })
-ConvertTo-Json -InputObject @{ state = 'ready'; rows = $rows; limited = ($listeners.Count -gt 100 -or $active.Count -gt 100) } -Depth 4 -Compress
+ConvertTo-Json -InputObject @{
+    state = 'ready'; rows = $rows; limited = ($listeners.Count -gt 100 -or $active.Count -gt 100)
+    listeners_limited = ($listeners.Count -gt 100)
+} -Depth 4 -Compress

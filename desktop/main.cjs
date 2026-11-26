@@ -7,6 +7,7 @@ const { desktopStartup, workspaceOrigin, parseWorkspaceConnection } = require('.
 const { makeCloudProxy } = require('./cloud-proxy.cjs');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
 const { deviceHistory } = require('./device-history.cjs');
+const { listenerHistory } = require('./listener-history.cjs');
 const { makePacketCapture } = require('./packet-capture.cjs');
 const { makeCollectorInstall } = require('./collector-install.cjs');
 
@@ -35,7 +36,9 @@ const collectorInstall = makeCollectorInstall({
     return response === 1;
   },
 });
-const localWorkspace = makeLocalWorkspace(scripts, undefined, deviceHistory(path.join(app.getPath('userData'), 'device-history.json')));
+const localWorkspace = makeLocalWorkspace(scripts, undefined,
+  deviceHistory(path.join(app.getPath('userData'), 'device-history.json')),
+  listenerHistory(path.join(app.getPath('userData'), 'listener-history.json')));
 const packetCapture = makePacketCapture({});
 let offlineCountryLookup;
 

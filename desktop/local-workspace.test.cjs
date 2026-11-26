@@ -5,6 +5,7 @@ const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
 const { deviceHistory } = require('./device-history.cjs');
+const { listenerHistory } = require('./listener-history.cjs');
 
 test('local workspace reads Windows data without cloud configuration', async () => {
   const makeEvent = (id, kind, fields) => ({ data: { win: {
@@ -86,6 +87,31 @@ test('TCP permission failure is distinct from an empty snapshot', async () => {
   const sample = await (await api(new Request('north://app/api/local/tcp'))).json();
   assert.equal(sample.state, 'access_denied');
   assert.deepEqual(sample.rows, []);
+});
+
+test('listening history ignores partial samples and persists new local endpoints', async (t) => {
+  const folder = await fs.mkdtemp(path.join(tmpdir(), 'north-listeners-'));
+  t.after(() => fs.rm(folder, { recursive: true, force: true }));
+  const file = path.join(folder, 'listeners.json');
+  let observe = listenerHistory(file);
+  const baseline = '2026-11-25T10:00:00.000Z';
+  const next = '2026-11-25T10:05:00.000Z';
+  const later = '2026-11-25T10:10:00.000Z';
+  const listener = (local_port) => ({ state: 'Listen', local_address: '::', local_port });
+  assert.equal((await observe([listener(777)], baseline, true)).baseline_at, null);
+  const first = await observe([listener(8443)], baseline, false);
+  assert.equal(first.baseline_at, baseline);
+  assert.deepEqual(first.recent, []);
+  observe = listenerHistory(file);
+  assert.deepEqual((await observe([listener(443)], next, true)).recent, []);
+  const update = await observe([listener(8443), listener(443)], next, false);
+  assert.equal(update.recent.length, 1);
+  assert.deepEqual(update.recent[0], {
+    local_address: '::', local_port: 443, first_seen: next, last_seen: next, baseline: false,
+  });
+  const repeat = await observe([listener(443)], later, false);
+  assert.equal(repeat.recent[0].first_seen, next);
+  assert.equal(repeat.recent[0].last_seen, later);
 });
 
 test('local device review persists across desktop sessions', async (t) => {

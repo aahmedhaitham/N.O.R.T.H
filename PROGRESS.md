@@ -23,6 +23,9 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### Local-first product brief · Phase 2 started
 
+- ATLAS now retains first and last observation times for local TCP listeners. The first complete, nonempty listener sample establishes the baseline. The view shows up to 12 recent new address/port pairs. Truncated samples do not update history. History stays in the desktop app data directory and is separate from the rules engine.
+- `npm --prefix desktop test` passed 15 tests, including restart, repeated observations, and truncated samples. `npm --prefix desktop run build:ui` passed with the existing bundle-size warning. A successful live Windows sample and packaged app run remain unverified.
+
 - Added desktop local-mode **ATLAS → Traffic → Live TCP on this PC**. It passively samples the Windows TCP table while visible, separates connections and listeners, and shows PID plus process name when timestamps support attribution. Snapshots are capped, kept in memory, and excluded from cloud synchronization. They are not yet retained as historical evidence or used for listening-port baselines.
 - `npm --prefix desktop test` passed 14 tests and `npm --prefix desktop run build:ui` passed. A controlled mock of the PowerShell providers passed the listening/connection and PID-reuse checks. The live Windows provider returned access denied in this session, and the reader reported that state. Packaged UI and a successful live sample remain unverified.
 
@@ -43,7 +46,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 - Extracted reusable sequence-window and threshold grouping from the existing PowerShell and SSH cases. The original cases and evidence references remain compatible. Exact-boundary, just-outside-window and group-isolation tests passed. The full backend rerun passed 62 tests and 2 subtests.
 - Added YAML-driven threshold and sequence rules for repeated SSH failures and PowerShell script creation. PowerShell includes related network events as context. The seven bundled rules all have positive and negative fixtures. The compatibility check matches both legacy cases' ordered evidence IDs.
 - `python -m pytest -q -o faulthandler_timeout=15 tests` passed 66 tests and 2 subtests. `npm --prefix desktop run build:ui` passed with the existing bundle-size warning and the source collector self-test passed.
-- Still open for Phase 2 are TCP snapshot persistence and listening-port baselines, the remaining 40-rule catalog work and desktop findings integration. The first-seen detections are evaluated by the local automatic scanner.
+- Still open for Phase 2 are full TCP snapshot retention, feeding listener observations into the rule engine, the remaining 40-rule catalog work, and desktop findings integration. The existing process and destination baselines use the local automatic scanner.
 
 - Added opt-in Windows event collection for extended Sysmon, Security, System, PowerShell and Defender channels. Readers use fixed channel/event allowlists, bounded fields, per-channel cursors, and source-specific health messages. PowerShell script block metadata is collected without the script body.
 - Rich records go into a separate SQLite table and are readable only through the authenticated local API. The regression test confirms that the new record ID and a synthetic command line never appear in a cloud snapshot. Collection is off by default, enabled by `NORTH_WINDOWS_LOCAL_EVENTS=1` in the Windows backend or standalone collector.

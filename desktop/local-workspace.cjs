@@ -78,7 +78,7 @@ function activity(events) {
   };
 }
 
-function makeLocalWorkspace(scripts, read = readScript, history) {
+function makeLocalWorkspace(scripts, read = readScript, history, observeListeners) {
   const states = new Set(['Listen', 'Established', 'SynSent', 'SynReceived', 'CloseWait']);
   const tcp = cachedReader(async () => {
     const sample = await read(path.join(scripts, 'Read-NorthTcp.ps1'), []);
@@ -94,7 +94,14 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
       state: row.state, local_address: row.local_address, local_port: row.local_port,
       remote_address: row.remote_address, remote_port: row.remote_port, pid: row.pid, process: row.process,
     })) : [];
-    return { state: sample.state, limited: sample.limited === true, rows };
+    const limited = sample.limited === true;
+    const incompleteListeners = (sample.listeners_limited ?? limited) ||
+      sample.rows.filter((row) => row?.state === 'Listen').length !== rows.filter((row) => row.state === 'Listen').length;
+    const listenerHistory = sample.state === 'ready' && observeListeners
+      ? await observeListeners(rows, new Date().toISOString(), incompleteListeners)
+        .catch(() => ({ unavailable: true }))
+      : undefined;
+    return { state: sample.state, limited, rows, listener_history: listenerHistory };
   }, { rows: [], limited: false });
   const neighbors = cachedReader(async () => ({
     records: await read(path.join(scripts, 'Export-NorthNeighbors.ps1'), ['-AsJson']),

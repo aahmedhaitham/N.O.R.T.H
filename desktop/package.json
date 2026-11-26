@@ -23,7 +23,7 @@
     "appId": "app.north.console",
     "productName": "NORTH",
     "artifactName": "NORTH-Desktop-Windows-x64.exe",
-    "files": ["main.cjs", "workspace.cjs", "cloud-proxy.cjs", "local-workspace.cjs", "device-history.cjs", "packet-capture.cjs", "collector-install.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
+    "files": ["main.cjs", "workspace.cjs", "cloud-proxy.cjs", "local-workspace.cjs", "device-history.cjs", "listener-history.cjs", "packet-capture.cjs", "collector-install.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
     "extraResources": [
       {"from": "ui", "to": "north-ui"},
       {"from": "../backend", "to": "north-collector/backend", "filter": ["requirements.txt", "run_collector.py", "cloud_sync.py", "neighbors.py", "sysmon.py", "north.py", "device_watch.py", "event_contract.py", "windows_sources.py", "detection_rules.py", "rules.yaml", "network.py", "router_usage.py", "internet_health.py", "adapter_traffic.py", "journal_monitor.py", "NORTH-Collector.exe"]},
