@@ -14,6 +14,24 @@ NORTH is a Windows-first investigation console. **ATLAS** shows devices and obse
 
 To run the synthetic developer demo, see [Development](docs/DEVELOPMENT.md). Source builds and the optional hosted deployment have separate setup instructions.
 
+## What you can do with NORTH
+
+| Workspace | What you can do |
+| --- | --- |
+| **ATLAS · Network inventory** | Inspect nearby devices, adapter traffic, and observed connections. Review DNS and gateway diagnostics or open a PCAP/PCAPNG trace. |
+| **IRIS · Event explorer** | Search recorded events, filter by host or event type, and open the underlying evidence. |
+| **ECHO · Investigations** | Replay an incident timeline, inspect process relationships, and export an evidence-linked report. |
+| **Detections** | Review local findings and enabled rules, then inspect which event sources support each ATT&CK tactic. |
+| **NORTH Assistant** | Ask plain-language questions about loaded data and open cited evidence. It works offline. |
+
+## Try a short investigation
+
+1. Open **This computer** and check **Overview** to see which sources NORTH can read.
+2. In **ATLAS**, select a device or observed connection. In **IRIS**, filter recorded events by host and inspect an event's details.
+3. If an investigation is available, open it in **ECHO**, step through the timeline, and export its report. Press **Ctrl+J** and ask “What needs attention?” to see how the Assistant links back to evidence.
+
+A fresh install may have an empty event list until a supported source records activity. Use the [synthetic developer demo](docs/DEVELOPMENT.md) for a repeatable walkthrough with sample evidence.
+
 ## How it works
 
 ```mermaid
@@ -28,6 +46,15 @@ flowchart LR
 ```
 
 [Documentation index](docs/README.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant intent guide](docs/ASSISTANT.md) · [Cloud setup](docs/CLOUD.md) · [Lab and Wazuh](docs/LAB.md)
+
+The desktop uses **Electron, React, and TypeScript**, with a bundled **Python** collector and **SQLite** for local evidence. The development backend uses **FastAPI** and supports **PostgreSQL** in Docker. An optional hosted workspace uses **Cloudflare Workers and D1**. Local use requires no cloud account.
+
+## Build and verification
+
+- [Build from source and run tests](docs/DEVELOPMENT.md)
+- [Verify NORTH workflow](https://github.com/aahmedhaitham/N.O.R.T.H/actions/workflows/verify.yml) for API tests, frontend builds, Docker persistence, and Linux collector first sync
+- [Windows packaging workflow](https://github.com/aahmedhaitham/N.O.R.T.H/actions/workflows/desktop.yml) for the installer, checksums, and an installed walkthrough of both display modes
+- [Performance results](docs/PERFORMANCE.md), including before-and-after measurements for local event search on 500,000 synthetic events
 
 ## Coverage and limits
 
