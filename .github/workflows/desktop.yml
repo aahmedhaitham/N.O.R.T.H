@@ -112,7 +112,7 @@ jobs:
             attestation = $env:ATTESTATION_OUTCOME
             files = @($files)
           } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 desktop/dist/BUILD-INFO.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: NORTH-Windows-x64
           path: |
