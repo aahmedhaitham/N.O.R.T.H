@@ -286,3 +286,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added a two-file SHA-256 verifier that cross-checks the checksum list, BUILD-INFO.json, and optional commit pin. A synthetic artifact set passed and a modified installer was rejected.
 - Documented a clean Windows VM pass for disconnected first launch, upgrade, and uninstall. The current release candidate installer and its artifact inventory were not available to verify here. No signing, publishing, visibility, or account changes were made.
 - Commands: desktop test (28 passed), desktop UI build (passed), backend pytest (119 passed, 2 subtests), cloud tests (3 passed).
+
+### Stabilization Phase E
+
+- Added a passive Windows VM runbook and a CI coverage claims check. The checker accepted an isolated matching fixture and rejected missing or changed evidence. The tracked live coverage document remains empty and marked not yet run.
+- The read-only NORTH reporting path is available for already recorded approved data. Live attack-tool execution and technique execution instructions are outside the delivered runbook.
+- Commands: coverage checker against the repository and temporary fixtures (passed), desktop test (28 passed), desktop UI build (passed), backend pytest (119 passed, 2 subtests), and cloud tests (3 passed).

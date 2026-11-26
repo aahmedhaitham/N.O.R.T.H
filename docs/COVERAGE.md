@@ -2,8 +2,8 @@
 
 The bundled rule catalog is tested with synthetic positive and negative fixtures. Those checks establish behavior on the recorded fixtures. Live validation is **not yet run**.
 
-| Technique | Recorded test | Rule | Finding observed | False-positive notes |
-|---|---|---|---|---|
+<!-- north-coverage:start -->
+<!-- north-coverage:end -->
 
 For an offline review, use findings from a separately approved exercise or an existing synthetic recording. Record the time bounds, NORTH commit, sources available during the run, exact evidence IDs, and any negative control. A missing finding is meaningful only if the required source was available and the evidence was actually collected.
 
