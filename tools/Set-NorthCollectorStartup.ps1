@@ -1,10 +1,13 @@
 param(
-    [ValidateSet('Status', 'Enable', 'Disable')][string]$Action = 'Status'
+    [ValidateSet('Status', 'Enable', 'Disable', 'Restart')][string]$Action = 'Status',
+    [string]$CollectorDirectory,
+    [switch]$AsJson
 )
 
 $ErrorActionPreference = 'Stop'
-$root = (Resolve-Path -LiteralPath (Split-Path -Parent $PSScriptRoot)).Path
-$launcher = Join-Path $PSScriptRoot 'Start-NorthCollector.ps1'
+$rootPath = if ($CollectorDirectory) { $CollectorDirectory } else { Split-Path -Parent $PSScriptRoot }
+$root = (Resolve-Path -LiteralPath $rootPath).Path
+$launcher = Join-Path $root 'tools\Start-NorthCollector.ps1'
 $settings = Join-Path $root '.north-launcher\collector-connection.json'
 $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $hasher = [Security.Cryptography.SHA256]::Create()
@@ -20,10 +23,16 @@ $task = Get-ScheduledTask -TaskName $taskName -TaskPath '\' -ErrorAction Silentl
 switch ($Action) {
     'Status' {
         if (!$task) {
-            Write-Host 'Automatic startup is off for this collector folder.'
+            if ($AsJson) { @{ state = 'Not scheduled'; last_start = $null; last_result = $null } | ConvertTo-Json -Compress }
+            else { Write-Host 'Automatic startup is off for this collector folder.' }
             return
         }
         $info = Get-ScheduledTaskInfo -TaskName $taskName -TaskPath '\'
+        if ($AsJson) {
+            $lastStart = if ($info.LastRunTime.Year -gt 2000) { $info.LastRunTime.ToUniversalTime().ToString('o') } else { $null }
+            @{ state = [string]$task.State; last_start = $lastStart; last_result = $info.LastTaskResult } | ConvertTo-Json -Compress
+            return
+        }
         Write-Host "Task Scheduler status: $($task.State)"
         if ($info.LastRunTime.Year -gt 2000) {
             Write-Host "Last start: $($info.LastRunTime) | Task result: $($info.LastTaskResult)"
@@ -70,5 +79,25 @@ switch ($Action) {
             Unregister-ScheduledTask -TaskName $taskName -TaskPath '\' -Confirm:$false
         }
         Write-Host 'Automatic startup is off for this collector folder.'
+    }
+    'Restart' {
+        if (!$task -or $task.State -eq 'Disabled') { throw 'Enable automatic startup before restarting this collector.' }
+        if ($task.State -eq 'Running') {
+            Stop-ScheduledTask -TaskName $taskName -TaskPath '\'
+            $deadline = [DateTime]::UtcNow.AddSeconds(10)
+            $lockPath = Join-Path $root '.north-launcher\collector.lock'
+            do {
+                Start-Sleep -Milliseconds 250
+                try {
+                    $probe = [IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None')
+                    $probe.Dispose()
+                    break
+                } catch [IO.IOException] {
+                    if ([DateTime]::UtcNow -ge $deadline) { throw 'The collector did not finish stopping.' }
+                }
+            } while ($true)
+        }
+        Start-ScheduledTask -TaskName $taskName -TaskPath '\'
+        Write-Host 'Windows requested a collector restart.'
     }
 }

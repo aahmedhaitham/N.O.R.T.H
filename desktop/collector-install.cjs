@@ -1,7 +1,8 @@
-const { spawn } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const { access, copyFile, mkdir } = require('node:fs/promises');
 const path = require('node:path');
+const { promisify } = require('node:util');
 
 const collectorFiles = [
   'backend/requirements.txt', 'backend/run_collector.py', 'backend/cloud_sync.py',
@@ -13,11 +14,12 @@ const collectorFiles = [
 ];
 const sourcePattern = /^collector-[0-9a-f]{20}$/;
 const keyPattern = /^[0-9a-f]{64}$/;
+const run = promisify(execFile);
+const windowsPowerShell = () => path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
 
 function runPowerShell(script, args, input = '') {
-  const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   return new Promise((resolve, reject) => {
-    const child = spawn(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, ...args],
+    const child = spawn(windowsPowerShell(), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, ...args],
       { windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'], timeout: 180000 });
     child.on('error', reject);
     child.on('exit', (code) => code === 0 ? resolve() : reject(new Error('Collector setup command failed.')));
@@ -26,14 +28,24 @@ function runPowerShell(script, args, input = '') {
   });
 }
 
-function makeCollectorInstall({ root, data, confirm, execute = runPowerShell, isWindows = process.platform === 'win32' }) {
+async function queryStartup(script, directory) {
+  const { stdout } = await run(windowsPowerShell(), [
+    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script,
+    '-CollectorDirectory', directory, '-Action', 'Status', '-AsJson',
+  ], { windowsHide: true, timeout: 12000, maxBuffer: 16000 });
+  return JSON.parse(stdout);
+}
+
+function makeCollectorInstall({ root, data, confirm, execute = runPowerShell, readStatus = queryStartup,
+  isWindows = process.platform === 'win32' }) {
   let installing = false;
+  const startup = path.join(root, 'tools', 'Set-NorthCollectorStartup.ps1');
   return async (request, origin, cloud) => {
     if (!isWindows || !origin) return Response.json({ detail: 'Open a cloud workspace in NORTH for Windows.' }, { status: 501 });
     const url = new URL(request.url);
-    const operation = /^\/api\/desktop\/collector\/(setup|connect|status|enable|disable)$/.exec(url.pathname)?.[1];
+    const operation = /^\/api\/desktop\/collector\/(setup|connect|status|enable|disable|restart)$/.exec(url.pathname)?.[1];
     const status = operation === 'status' && request.method === 'GET';
-    if (!status && (request.method !== 'POST' || !['setup', 'connect', 'enable', 'disable'].includes(operation))) {
+    if (!status && (request.method !== 'POST' || !['setup', 'connect', 'enable', 'disable', 'restart'].includes(operation))) {
       return Response.json({ detail: 'Method not allowed.' }, { status: 405 });
     }
     if (operation !== 'setup' && operation !== 'connect') {
@@ -41,15 +53,19 @@ function makeCollectorInstall({ root, data, confirm, execute = runPowerShell, is
       if (!sourcePattern.test(source)) return Response.json({ detail: 'Invalid collector source.' }, { status: 422 });
       const destination = collectorDirectory(data, origin, source);
       const installed = await access(path.join(destination, '.north-launcher', 'collector-connection.json')).then(() => true, () => false);
-      if (status) return Response.json({ installed });
+      if (status) {
+        if (!installed) return Response.json({ installed: false });
+        const task = await readStatus(startup, destination).catch(() => ({ state: 'Unavailable' }));
+        return Response.json({ installed: true, task });
+      }
       if (!installed) return Response.json({ detail: 'This collector is not installed by NORTH on this PC.' }, { status: 404 });
       if (installing) return Response.json({ detail: 'Collector setup is already running.' }, { status: 409 });
       installing = true;
       try {
         if (operation === 'enable' && !await confirm()) return new Response(null, { status: 204 });
-        await execute(path.join(destination, 'tools', 'Set-NorthCollectorStartup.ps1'),
-          ['-Action', operation === 'enable' ? 'Enable' : 'Disable']);
-        return Response.json({ enabled: operation === 'enable' });
+        const action = { enable: 'Enable', disable: 'Disable', restart: 'Restart' }[operation];
+        await execute(startup, ['-CollectorDirectory', destination, '-Action', action]);
+        return Response.json({ requested: operation });
       } catch {
         return Response.json({ detail: 'Windows could not update the background collector task.' }, { status: 503 });
       } finally {

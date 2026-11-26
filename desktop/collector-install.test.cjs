@@ -15,6 +15,7 @@ test('guided collector setup keeps the key off command lines and scopes local st
   const actions = [];
   const api = makeCollectorInstall({
     root: path.join(__dirname, '..'), data, isWindows: true, confirm: async () => allowed,
+    readStatus: async () => ({ state: 'Running', last_start: null, last_result: 0 }),
     async execute(script, args, input) {
       assert.ok(!args.includes(token));
       actions.push(path.basename(script) + ':' + args.at(-1));
@@ -39,13 +40,17 @@ test('guided collector setup keeps the key off command lines and scopes local st
   assert.deepEqual(actions, []);
   allowed = true;
   assert.equal((await invoke('setup', trusted, { source, token })).status, 200);
-  assert.deepEqual(await (await invoke('status')).json(), { installed: true });
+  assert.deepEqual(await (await invoke('status')).json(), {
+    installed: true, task: { state: 'Running', last_start: null, last_result: 0 },
+  });
   assert.deepEqual(await (await invoke('status', 'https://other.example')).json(), { installed: false });
   assert.equal((await invoke('disable', 'https://other.example')).status, 404);
+  assert.equal((await invoke('restart')).status, 200);
   assert.equal((await invoke('disable')).status, 200);
   assert.deepEqual(actions, [
     'Start-NorthCollector.ps1:-PairFromStdin',
     'Set-NorthCollectorStartup.ps1:Enable',
+    'Set-NorthCollectorStartup.ps1:Restart',
     'Set-NorthCollectorStartup.ps1:Disable',
   ]);
 });
