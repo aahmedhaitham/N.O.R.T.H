@@ -183,13 +183,15 @@ function makeLocalWorkspace(scripts, read = readScript, history) {
       const search = (searchParams.get('q') ?? '').toLowerCase().slice(0, 200);
       const kind = searchParams.get('kind');
       const before = searchParams.get('before');
+      const requested = Number(searchParams.get('limit') ?? 25);
+      const limit = Number.isSafeInteger(requested) ? Math.max(1, Math.min(100, requested)) : 25;
       const cursor = (event) => event.timestamp + '|' + event.id;
       const { events, state } = await sysmon();
       const matches = events.filter((event) =>
         (!search || JSON.stringify(event).toLowerCase().includes(search)) &&
         (!kind || String(event.kind) === kind) && (!before || cursor(event) < before),
       ).sort((a, b) => cursor(b).localeCompare(cursor(a)));
-      const page = matches.slice(0, 25);
+      const page = matches.slice(0, limit);
       return Response.json({ events: page, next: matches.length > page.length ? cursor(page.at(-1)) : null,
         coverage: state === 'unavailable' ? 'sysmon_unavailable' : undefined });
     }

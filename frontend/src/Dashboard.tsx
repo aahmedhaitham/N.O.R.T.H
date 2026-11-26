@@ -1,53 +1,20 @@
+import { Activity, CircleAlert, Clock3, Network, Server } from 'lucide-react';
 import { groupNeighbors, useNetworkInventory, type AtlasTarget } from './Network';
-import { eventNames } from './eventNames';
 import type { CollectorFleet } from './CloudGate';
+import { AnimatedCount, MotionCard } from './InterfaceMotion';
+import { TimeDisplay } from './TimeDisplay';
+import { investigationSeverity } from './investigationSeverity';
+import { OverviewCharts, type ChartSelection } from './OverviewCharts';
 
-type CaseSummary = { id: string; title: string; host: string; evidence: { timestamp: string }[] };
+type CaseSummary = {
+  id: string; title: string; host: string; evidence: { id: string; timestamp: string; kind: number }[];
+  review_status?: 'open' | 'investigating' | 'resolved';
+};
 type Section = 'cases' | 'network' | 'events';
 
-const collectorStatus = {
-  starting: 'Connecting',
-  ready: 'Collecting',
-  unavailable: 'Needs attention',
-  disabled: 'Disabled',
-};
+const collectorStatus = { starting: 'Connecting', ready: 'Collecting', unavailable: 'Needs attention', disabled: 'Disabled' };
 
-function Fleet({ fleet, source, manage }: { fleet: CollectorFleet; source?: string | null; manage?: () => void }) {
-  const now = Date.now();
-  return <section className="panel" aria-labelledby="fleet-heading">
-    <header className="dashboard-section-heading">
-      <h2 id="fleet-heading">Collector fleet</h2>
-      {manage && <button type="button" onClick={manage}>Manage collectors</button>}
-    </header>
-    <div className="router-traffic-table-wrap">
-      <table className="investigation-table fleet-table" aria-label="Workspace collectors">
-        <thead><tr><th scope="col">Collector</th><th scope="col">Platform</th><th scope="col">Status</th><th scope="col">Last sync</th><th scope="col">Workspace</th></tr></thead>
-        <tbody>
-          {fleet.sources.map((item) => {
-            const recent = now - Date.parse(item.updated_at) <= 3 * 60 * 1000;
-            const state = item.revoked_at ? 'revoked' : recent ? 'synced' : 'waiting';
-            return <tr key={item.id}>
-              <th scope="row">{item.label}</th>
-              <td>{item.platform ?? 'Unknown'}</td>
-              <td><span className="collector-state" data-state={state}>{item.revoked_at ? 'Revoked' :
-                recent ? 'Synced recently' : 'No recent snapshot'}</span></td>
-              <td><time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time></td>
-              <td>{source === item.id ? <span className="reference">Selected</span> :
-                <button type="button" onClick={() => fleet.select(item.id)}>{item.revoked_at ? 'View history' : 'Switch collector'}</button>}</td>
-            </tr>;
-          })}
-          {fleet.waiting.map((item) => <tr key={item.id}>
-            <th scope="row">{item.label}</th><td>—</td>
-            <td><span className="collector-state" data-state="waiting">Waiting for first sync</span></td><td>—</td>
-            <td>{manage && <button type="button" onClick={manage}>Open setup</button>}</td>
-          </tr>)}
-        </tbody>
-      </table>
-    </div>
-  </section>;
-}
-
-export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase, openAtlas, connect, fleet, source, manageCollectors }: {
+export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase, openAtlas, connect, fleet, source, manageCollectors, openChart }: {
   endpoint: string;
   cases: CaseSummary[];
   loaded: boolean;
@@ -60,134 +27,90 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, open, openCase
   fleet?: CollectorFleet;
   source?: string | null;
   manageCollectors?: () => void;
+  openChart: (selection: ChartSelection) => void;
 }) {
   const { inventory, fetchError } = useNetworkInventory(endpoint);
-  const total = inventory?.assets.reduce((count, asset) => count + asset.events, 0);
-  const nearby = inventory?.neighbors?.state === 'ready' ? groupNeighbors(inventory.neighbors.records).length : undefined;
-  const sysmonUnavailable = inventory?.sysmon?.state === 'unavailable';
-  const metrics: { label: string; count?: number; section: Section }[] = [
-    { label: local ? 'Nearby devices' : 'Reporting devices',
-      count: local ? nearby : inventory?.assets.length, section: 'network' },
-    { label: local ? 'Recent Windows events' : 'Collected events', count: local && sysmonUnavailable ? undefined : total, section: 'events' },
-    { label: 'Investigations', count: loaded ? cases.length : undefined, section: 'cases' },
-    { label: 'Observed connections', count: inventory?.links.length, section: 'network' },
-  ];
-  const latest = cases.map((item) => ({
-    ...item, timestamp: item.evidence.at(-1)?.timestamp ?? '',
-  })).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 5);
-  const collectors = [
-    { label: 'Network inventory', status: inventory?.neighbors },
-    { label: 'Windows events', status: inventory?.sysmon },
-    { label: 'Linux journal', status: inventory?.linux_journal },
-  ].filter((item) => item.status && item.status.state !== 'disabled');
   const newDevices = inventory?.device_findings?.unreviewed ?? 0;
-  const coverageIssue = collectors.some((item) => item.status?.state === 'unavailable');
-  const activity = inventory?.activity;
-  const buckets = activity?.buckets ?? [];
-  const highest = Math.max(1, ...buckets.map((item) => item.count));
-  const eventTypes = activity?.types ?? [];
-  const eventMax = Math.max(1, ...eventTypes.map((item) => item.count));
-  const axisLabel = (value: string) => new Date(value).toLocaleString(undefined,
-    activity?.interval === 'day' ? { month: 'short', day: 'numeric', timeZone: 'UTC' } :
-      { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' });
+  const openCases = cases.filter((item) => item.review_status !== 'resolved');
+  const recent = [...cases].sort((a, b) =>
+    (b.evidence.at(-1)?.timestamp ?? '').localeCompare(a.evidence.at(-1)?.timestamp ?? ''));
+  const tableCases = [...recent.filter((item) => item.review_status !== 'resolved'),
+    ...recent.filter((item) => item.review_status === 'resolved')];
+  const sources = [
+    { label: 'Network observations', status: inventory?.neighbors, Icon: Network, target: 'atlas-local-devices' },
+    { label: 'Windows events', status: inventory?.sysmon, Icon: Activity, target: 'atlas-windows-events' },
+    { label: 'Linux journal', status: inventory?.linux_journal, Icon: Server, target: 'atlas-linux-events' },
+  ] as const;
+  const observedSources = sources.filter((item) => item.status && item.status.state !== 'disabled');
+  const metrics = [
+    { label: local ? 'Nearby devices' : 'Reporting devices', count: local && inventory?.neighbors ?
+      groupNeighbors(inventory.neighbors.records).length : inventory?.assets.length, to: 'network' },
+    { label: 'Collected events', count: inventory?.assets.reduce((sum, asset) => sum + asset.events, 0), to: 'events' },
+    { label: 'Observed connections', count: inventory?.links.length, to: 'network' },
+  ] as const;
 
-  return <main className="dashboard">
-    <header className="dashboard-heading">
-      <h1>Security overview</h1>
-    </header>
-    {connect && <section className="panel dashboard-connect">
-      <div><h2>Connect your first collector</h2>
-        <p>Pair a Windows device to start receiving network observations and security events.</p></div>
-      <button className="primary-action" onClick={connect}>Set up collector</button>
-    </section>}
-    {fleet && (fleet.sources.length > 0 || fleet.waiting.length > 0) && <Fleet fleet={fleet} source={source} manage={manageCollectors} />}
-    {!connect && <>
-    {fetchError && <p role="status">The device and event counts could not refresh.</p>}
-    <section className="dashboard-metrics" aria-label="Security overview counts">
-      {metrics.map((metric) => <button type="button" className="dashboard-metric" key={metric.label}
-        onClick={() => open(metric.section)}>
-        <span>{metric.label}</span>
-        <strong>{metric.count?.toLocaleString() ?? (inventory || fetchError ? '—' : '…')}</strong>
-      </button>)}
-    </section>
-    <div className="dashboard-console">
-      <section className="panel dashboard-activity">
-        <header className="dashboard-section-heading">
-          <h2>Telemetry activity</h2>
-          {activity && <span>Events per {activity.interval} · UTC</span>}
-        </header>
-        {buckets.length ? <>
-          <div className="activity-plot">
-          <div className="activity-scale" aria-hidden="true">
-            <span>{highest}</span><span>{highest >= 2 && Number.isInteger(highest / 2) ? highest / 2 : ''}</span><span>0</span>
-          </div>
-          <div className="activity-chart" aria-label="Collected events by time" role="list">
-            {buckets.map((item) => <div className="activity-slot" role="listitem" key={item.start}
-              aria-label={axisLabel(item.start) + ' UTC: ' + item.count + ' events'}
-              title={axisLabel(item.start) + ' UTC · ' + item.count + ' events'}>
-              <div className="activity-bar" style={{ height: item.count ? `${item.count / highest * 100}%` : '2px' }} />
-            </div>)}
-          </div>
-          </div>
-          <div className="activity-axis">
-            <span>{axisLabel(buckets[0].start)} UTC</span>
-            <span>{axisLabel(buckets[buckets.length - 1].start)} UTC</span>
-          </div>
-        </> : <p>{inventory ? 'Activity appears after NORTH receives events.' : 'Loading activity…'}</p>}
-      </section>
-      <div className="dashboard-monitor">
-      <section className="panel">
-        <h2>Events by type</h2>
-        <ul className="event-breakdown">{eventTypes.map((item) => <li key={item.kind}>
-          <div><span>{eventNames[item.kind] ?? 'Event ' + item.kind}</span><strong>{item.count.toLocaleString()}</strong></div>
-          <div className="breakdown-track" aria-hidden="true"><span style={{ width: `${item.count / eventMax * 100}%` }} /></div>
-        </li>)}</ul>
-        {!eventTypes.length && <p>{inventory ? 'No event types recorded yet.' : 'Loading event types…'}</p>}
-      </section>
-      <section className="panel">
-        <h2>Needs attention</h2>
-        {newDevices > 0 && <p><button className="network-case" onClick={() => openAtlas('atlas-new-devices')}>
-          Review {newDevices} newly observed {newDevices === 1 ? 'device' : 'devices'}
-        </button></p>}
-        {coverageIssue && <p><button className="network-case" onClick={() => openAtlas(sysmonUnavailable ? 'atlas-windows-events' :
-          inventory?.linux_journal?.state === 'unavailable' ? 'atlas-linux-events' : 'atlas-local-devices')}>
-          Check data source access
-        </button></p>}
-        {!newDevices && !coverageIssue && <p>{inventory ? 'No device reviews or data source issues reported.' : 'Checking available data sources…'}</p>}
-      </section>
-      </div>
-    </div>
-      <section className="panel dashboard-recent">
-        <header className="dashboard-section-heading">
-          <h2>Recent investigations</h2>
-          {latest.length > 0 && <button type="button" onClick={() => open('cases')}>Open ECHO</button>}
-        </header>
-        {!latest.length && <p>{loaded ? 'No investigations have been recorded yet.' : 'Checking for recent investigations…'}</p>}
-        {latest.length > 0 && <table className="investigation-table" aria-label="Recent investigations">
-          <thead><tr><th scope="col">Investigation</th><th scope="col">Host</th><th scope="col">Latest event</th></tr></thead>
-          <tbody>{latest.map((item) => <tr key={item.id}>
-            <td><button onClick={() => openCase(item.id)}>{item.title}</button></td>
-            <td>{item.host || '—'}</td>
-            <td>{item.timestamp ? <time dateTime={item.timestamp}>{new Date(item.timestamp).toLocaleString()}</time> : '—'}</td>
-          </tr>)}</tbody>
-        </table>}
-      </section>
-      <section className="panel dashboard-sources">
-        <h2>{local ? 'What NORTH can see on this PC' : 'Data sources'}</h2>
-        {local && <p>Nearby devices come from the Windows neighbor cache. Event history comes from the Sysmon log when readable.</p>}
-        {demo && <p>This demo uses synthetic evidence.</p>}
-        {!local && !demo && !collectors.length && <p>{inventory ? 'No collector health details are available for this feed.' : 'Checking collector status…'}</p>}
-        <ul className="coverage-list">{collectors.map(({ label, status }) => status && <li key={label}>
-          <span>{label}</span><strong data-state={status.state}>{collectorStatus[status.state]}</strong>
-        </li>)}</ul>
-      </section>
-    {inventory?.device_findings?.baseline_at && (
-      <section className="panel">
-        <h2>Device history</h2>
-        <p>Review devices first observed after the baseline was saved.</p>
-        <button onClick={() => openAtlas('atlas-new-devices')}>Review device history</button>
-      </section>
-    )}
-    </>}
+  return <main className="dashboard overview-grid">
+    <header className="dashboard-heading"><h1>Security overview</h1>{demo && <p className="reference">Synthetic telemetry</p>}</header>
+    <MotionCard index={0} label="Needs attention">
+      <header className="overview-heading"><CircleAlert size={18} /><h2>Needs attention</h2></header>
+      {newDevices > 0 && <button type="button" onClick={() => openAtlas('atlas-new-devices')}>
+        Review {newDevices} newly observed {newDevices === 1 ? 'device' : 'devices'}
+      </button>}
+      {inventory?.device_findings?.items.filter((item) => !item.reviewed_at).map((item) =>
+        <div className="overview-source-row" key={item.id}>
+          <Network size={16} /><span><code>{item.addresses[0] ?? item.mac}</code><small>{item.interface}</small></span>
+          <TimeDisplay value={item.first_seen} />
+          <button type="button" onClick={() => openAtlas('atlas-new-devices')}>Review</button>
+        </div>)}
+      {openCases.length === 0 && <p className="reference">{loaded ? 'No open investigations.' : 'Checking investigations…'}</p>}
+      {tableCases.length > 0 && <div className="router-traffic-table-wrap">
+        <table className="investigation-table" aria-label="Investigations">
+          <thead><tr><th>Investigation</th><th>Severity</th><th>Status</th><th>Latest event</th><th>Action</th></tr></thead>
+          <tbody>{tableCases.map((item) => {
+            const severity = investigationSeverity(item.evidence);
+            return <tr key={item.id}>
+              <th scope="row">{item.title}<small>{item.host}</small></th>
+              <td><span className="severity-label" data-severity={severity}>{severity}</span></td>
+              <td className="review-status">{item.review_status ?? 'open'}</td>
+              <td><TimeDisplay value={item.evidence.at(-1)?.timestamp} /></td>
+              <td><button type="button" onClick={() => openCase(item.id)}>Open</button></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>}
+    </MotionCard>
+    <MotionCard index={1} label="What changed">
+      <header className="overview-heading"><Clock3 size={18} /><h2>What changed</h2></header>
+      {fetchError && <p role="status">Network totals could not refresh.</p>}
+      <div className="overview-metrics">{metrics.map(({ label, count, to }) => <button type="button" key={label} onClick={() => open(to)}>
+        <span>{label}</span><strong>{count === undefined ? (fetchError ? '—' : <span className="loading-skeleton" aria-label="Loading" />) :
+          <AnimatedCount value={count} />}</strong>
+      </button>)}</div>
+      {inventory?.device_findings?.baseline_at && <div className="overview-source-row">
+        <Network size={16} /><span>Device history</span><TimeDisplay value={inventory.device_findings.baseline_at} />
+        <button type="button" onClick={() => openAtlas('atlas-new-devices')}>Review</button>
+      </div>}
+      <OverviewCharts endpoint={endpoint} source={source} demo={demo} cases={cases} open={openChart} />
+    </MotionCard>
+    <MotionCard index={2} label="What NORTH can see">
+      <header className="overview-heading"><Server size={18} /><h2>What NORTH can see</h2></header>
+      {connect && <button className="primary-action" onClick={connect}>Set up first collector</button>}
+      {!observedSources.length && !connect && <p className="reference">{inventory ? 'This feed has no collector health details.' : 'Waiting for source health.'}</p>}
+      {observedSources.map(({ label, status, Icon, target }) => status && <div className="overview-source-row" key={label}>
+        <Icon size={16} /><span>{label}<small>{collectorStatus[status.state]}</small></span><TimeDisplay value={status.updated_at} />
+        <button type="button" onClick={() => openAtlas(target)}>{status.state === 'unavailable' ? 'Fix access' : 'Inspect'}</button>
+      </div>)}
+      {fleet?.sources.map((item) => <div className="overview-source-row" key={item.id}>
+        <Server size={16} /><span>{item.label}<small>{item.revoked_at ? 'Revoked' :
+          Date.now() - Date.parse(item.updated_at) < 180000 ? 'Synced recently' : 'No recent snapshot'}</small></span>
+        <TimeDisplay value={item.updated_at} />
+        {source !== item.id ? <button type="button" onClick={() => fleet.select(item.id)}>View</button> :
+          manageCollectors && <button type="button" onClick={manageCollectors}>Manage</button>}
+      </div>)}
+      {fleet?.waiting.map((item) => <div className="overview-source-row" key={item.id}>
+        <Server size={16} /><span>{item.label}<small>Waiting for first sync</small></span><TimeDisplay />
+        {manageCollectors && <button type="button" onClick={manageCollectors}>Set up</button>}
+      </div>)}
+    </MotionCard>
   </main>;
 }

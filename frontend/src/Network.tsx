@@ -1,9 +1,11 @@
+import { TimeDisplay, formatAbsolute } from './TimeDisplay';
 import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
 import { explainAddress } from './deviceExplanation';
 import { AtlasMap } from './AtlasMap';
 import { pollVisible } from './pollVisible';
 import { PacketTrace } from './PacketTrace';
+import { RemoteEndpointMap } from './RemoteEndpointMap';
 import { readRouterCsv } from './routerCsv';
 import { formatTraffic, type TrafficTotals } from './formatTraffic';
 
@@ -43,6 +45,7 @@ export type AtlasTarget = 'atlas-new-devices' | 'atlas-windows-events' | 'atlas-
 const atlasViews = [
   { id: 'devices', label: 'Devices' }, { id: 'traffic', label: 'Traffic' },
   { id: 'health', label: 'Diagnostics' }, { id: 'traces', label: 'Packet traces' },
+  { id: 'remote', label: 'Remote endpoints' },
 ] as const;
 type AtlasView = (typeof atlasViews)[number]['id'];
 const coverageFilters = [
@@ -124,7 +127,7 @@ export function useNetworkInventory(endpoint: string) {
         if (!controller.signal.aborted) {
           setInventory(result);
           setFetchError(false);
-          setLastRefresh(new Date().toLocaleTimeString());
+          setLastRefresh(new Date().toISOString());
         }
       } catch {
         if (!controller.signal.aborted) setFetchError(true);
@@ -160,6 +163,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
   const [healthWindow, setHealthWindow] = useState(12);
   const [adapterSelection, setAdapterSelection] = useState('');
   const [atlasView, setAtlasView] = useState<AtlasView>('devices');
+  const [traceLinks, setTraceLinks] = useState<{ source: string; destination: string }[]>([]);
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
   const targetView = target === 'atlas-windows-events' || target === 'atlas-linux-events' ? 'health' : 'devices';
   const activeView = target ? targetView : atlasView;
@@ -414,16 +418,15 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     </nav>
     {fetchError && activeView !== 'traces' && <p role="status">The telemetry inventory is temporarily unavailable.</p>}
     {endpoint && !inventory && !fetchError && activeView !== 'traces' && <p role="status">Loading network observations…</p>}
-    {activeView !== 'traces' && <section className="panel atlas-toolbar" aria-label="Network inventory controls">
+    {activeView !== 'traces' && activeView !== 'remote' && <section className="panel atlas-toolbar" aria-label="Network inventory controls">
       <label className="network-search">Find device
         <input type="search" placeholder="Host, IP or MAC address" value={search} onChange={(event) => setSearch(event.target.value)} />
       </label>
       {endpoint.startsWith('/api/') && <span className="atlas-live-state" data-state={fetchError || oldSnapshot ? 'waiting' : 'automatic'}>
         {fetchError ? 'Connection interrupted · retrying' : oldSnapshot ? 'Automatic updates · no new snapshot in 3 minutes' : 'Automatic updates'}
       </span>}
-      {inventory?.collector_synced_at ? <small>Collector synced <time dateTime={inventory.collector_synced_at}>
-        {new Date(inventory.collector_synced_at).toLocaleTimeString()}</time></small> :
-        lastRefresh && <small>{demo ? 'Sample data loaded' : 'Last checked ' + lastRefresh}</small>}
+      {inventory?.collector_synced_at ? <small>Collector synced <TimeDisplay value={inventory.collector_synced_at} /></small> :
+        lastRefresh && <small>{demo ? 'Sample data loaded' : <>Last checked <TimeDisplay value={lastRefresh} /></>}</small>}
     </section>}
     <div className="atlas-section-stack" hidden={activeView !== 'devices'}>
     {observedDevices.length > 0 && <section className="panel" aria-labelledby="atlas-coverage">
@@ -452,7 +455,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     </section>}
     {watch && (watch.baseline_at || collector?.state === 'starting') && <section className="panel">
       <h2 id="atlas-new-devices" tabIndex={-1}>Newly observed devices</h2>
-      <p>{watch.baseline_at ? `${watch.unreviewed} awaiting review · Baseline started ${new Date(watch.baseline_at).toLocaleString()}` :
+      <p>{watch.baseline_at ? <>{watch.unreviewed} awaiting review · Baseline started <TimeDisplay value={watch.baseline_at} /></> :
         'Waiting for the first usable device snapshot.'}</p>
       {demo && <p>Sample finding from a synthetic network.</p>}
       {reviewError && <p role="alert">That finding could not be marked as reviewed.</p>}
@@ -460,8 +463,8 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       <ul className="network-list">{watch.items.filter((item) => fits(item.mac, item.interface, ...item.addresses)).map((item) => (
         <li key={item.id}>
           <strong>{item.addresses.join(', ')}</strong>
-          <small>{item.mac} · {item.interface} · First seen {new Date(item.first_seen).toLocaleString()}</small>
-          <small>{item.reviewed_at ? 'Reviewed' : 'Needs review'} · Last seen {new Date(item.last_seen).toLocaleString()}</small>
+          <small><code>{item.mac}</code> · {item.interface} · First seen <TimeDisplay value={item.first_seen} /></small>
+          <small>{item.reviewed_at ? 'Reviewed' : 'Needs review'} · Last seen <TimeDisplay value={item.last_seen} /></small>
           <details className="device-explanation">
             <summary>Why did this appear?</summary>
             <p>NORTH saw this hardware address on this interface after the first snapshot. A new device or a randomized hardware address can produce this finding.</p>
@@ -476,7 +479,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       <h2 id="atlas-local-devices" tabIndex={-1}>Local network devices</h2>
       <p role="status">{collector.state === 'starting' ? 'Reading the local neighbor cache…' :
         collector.state === 'unavailable' ? 'The collector could not read the cache. It will retry automatically.' :
-        `${liveDevices.length} device groups · Last refreshed ${new Date(collector.updated_at ?? '').toLocaleTimeString()}`}</p>
+        <>{liveDevices.length} device groups · Last refreshed <TimeDisplay value={collector.updated_at} /></>}</p>
       <p>Addresses are grouped by interface and MAC. Router usage appears when the router reports byte totals for that MAC.</p>
       {mapDevices.length ? devicesList(liveDevices.filter(([id]) => visibleIds.has(id)), true) :
         liveDevices.length > 0 && <p>No observed devices match the current filters.</p>}
@@ -486,7 +489,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         <h2>Reporting devices</h2>
         <ul className="network-list">{matchingHosts.map((asset) => <li key={asset.id}>
           <strong>{asset.host}</strong>
-          <small>{asset.events} events · Last seen {new Date(asset.last_seen).toLocaleString()}</small>
+          <small>{asset.events} events · Last seen <TimeDisplay value={asset.last_seen} /></small>
           <div className="case-links">
             {asset.host && <button type="button" className="network-case" onClick={() => openEvents(asset.host)}>Search host in IRIS</button>}
             {caseButtons(asset.cases)}
@@ -527,7 +530,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
     {adapterTraffic && <section className="panel">
       <h2>Windows adapter traffic</h2>
       <p>Traffic through the selected endpoint’s network adapters. Rates are averages between samples.</p>
-      {adapterTraffic.updated_at && <p className="reference">Last sample {new Date(adapterTraffic.updated_at).toLocaleString()}</p>}
+      {adapterTraffic.updated_at && <p className="reference">Last sample <TimeDisplay value={adapterTraffic.updated_at} /></p>}
       {adapterTraffic.state === 'unavailable' && <p role="status">Adapter counters could not refresh. Any rows shown are from the last successful sample.</p>}
       {adapterTraffic.state === 'starting' && <p>Waiting for the first adapter sample…</p>}
       {adapterTraffic.state === 'ready' && !adapterRows.length && <p>{query ? 'No adapters match the search.' : 'No adapter counters were reported.'}</p>}
@@ -550,7 +553,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
           <p className="reference">Received and sent per second between samples.</p>
           <div className="atlas-usage-chart" role="list" aria-label="Adapter rates">
             {adapterRates.map((sample) => {
-              const description = `${new Date(sample.sampled_at).toLocaleTimeString()} · ${formatTraffic(sample.receive_rate)}/s received · ${formatTraffic(sample.send_rate)}/s sent`;
+              const description = `${formatAbsolute(sample.sampled_at)} · ${formatTraffic(sample.receive_rate)}/s received · ${formatTraffic(sample.send_rate)}/s sent`;
               return <div className="atlas-usage-column" role="listitem" aria-label={description} title={description} key={sample.sampled_at}>
                 <span style={{ height: `${sample.send_rate / maxAdapterRate * 100}%` }} />
                 <span style={{ height: `${sample.receive_rate / maxAdapterRate * 100}%` }} />
@@ -569,7 +572,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       </label>}
       {router.state === 'unavailable' && <p role="status">Router data is unavailable. Any figures below are from the last successful refresh.</p>}
       {router.state === 'starting' && <p>Waiting for the first router update…</p>}
-      {router.updated_at && <p className="reference">Last updated {new Date(router.updated_at).toLocaleString()}</p>}
+      {router.updated_at && <p className="reference">Last updated <TimeDisplay value={router.updated_at} /></p>}
       {router.state === 'ready' && !routerDevices.length && <p>No matching device totals.</p>}
       {routerDevices.length > 0 && <div className="router-traffic-table-wrap">
         <table className="investigation-table router-traffic-table" aria-label="Router traffic by device">
@@ -622,7 +625,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
       <h2>Internet health from the collector</h2>
       <p>Default IPv4 gateway response, plus DNS lookup and HTTPS response time for NORTH Cloud. Some gateways block ping replies.</p>
       {latestHealth && <>
-        <p className="reference">Last checked <time dateTime={latestHealth.checked_at}>{new Date(latestHealth.checked_at).toLocaleString()}</time>
+        <p className="reference">Last checked <TimeDisplay value={latestHealth.checked_at} />
           {!demo && healthIsStale(latestHealth) && <strong className="health-stale"> Older than 12 minutes</strong>}</p>
         <dl className="health-summary">
           <div><dt>Gateway</dt><dd>{latestHealth.gateway === 'responded' ? 'Replied' : latestHealth.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</dd></div>
@@ -640,7 +643,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         <p className="reference">HTTPS responded in {respondingChecks} of {healthHistory.length} sampled checks.</p>
         <div className="diagnostic-history-chart" role="list" aria-label="HTTPS response times">
           {healthHistory.map((sample) => <div key={sample.checked_at} role="listitem"
-            aria-label={`${new Date(sample.checked_at).toLocaleString()}, ${httpsResult(sample)}${sample.https_ms === null ? '' : ', ' + sample.https_ms + ' ms'}`}
+            aria-label={`${formatAbsolute(sample.checked_at)}, ${httpsResult(sample)}${sample.https_ms === null ? '' : ', ' + sample.https_ms + ' ms'}`}
             title={`${httpsResult(sample)}${sample.https_ms === null ? '' : ' · ' + sample.https_ms + ' ms'}`}>
             <span data-missed={sample.https_ms === null || undefined}
               style={{ height: sample.https_ms === null ? '4px' : `max(2px, ${sample.https_ms / peakLatency * 100}%)` }} />
@@ -650,7 +653,7 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         <table className="investigation-table router-traffic-table" aria-label="Collector internet checks">
           <thead><tr><th scope="col">Checked</th><th scope="col">Gateway</th><th scope="col">DNS</th><th scope="col">HTTPS</th><th scope="col">Response</th></tr></thead>
           <tbody>{[...healthHistory].reverse().map((sample) => <tr key={sample.checked_at}>
-            <td><time dateTime={sample.checked_at}>{new Date(sample.checked_at).toLocaleString()}</time></td>
+            <td><TimeDisplay value={sample.checked_at} /></td>
             <td>{sample.gateway === 'responded' ? 'Replied' : sample.gateway === 'no_reply' ? 'No reply' : 'Unavailable'}</td>
             <td>{sample.dns_ms === null ? 'Lookup failed' : sample.dns_ms + ' ms'}</td>
             <td>{sample.https_ms === null ? 'No response' : sample.https_ms + ' ms'}</td>
@@ -660,24 +663,29 @@ export function Network({ endpoint, openCase, openEvents, target, onTarget, demo
         </div>
       </details>}
     </section>}
-    {windowsEvents && windowsEvents.state !== 'disabled' && <section className="panel">
+    <section className="panel">
       <h2 id="atlas-windows-events" tabIndex={-1}>Windows event collection</h2>
-      <p role="status">{windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
+      <p className="reference">For connection telemetry, enable NetworkConnect (event ID 3) in the managed Sysmon configuration, then check that the Windows collector can read the Sysmon log.</p>
+      <p role="status">{!windowsEvents || windowsEvents.state === 'disabled' ? 'No Windows event source is active for this view.' :
+        windowsEvents.state === 'starting' ? 'Connecting to the Sysmon log…' :
         windowsEvents.state === 'unavailable' ? sysmonProblems[windowsEvents.problem ?? 'read_failed'] :
-        `${windowsEvents.session_events} ${windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked ${new Date(windowsEvents.updated_at ?? '').toLocaleTimeString()}`}</p>
-    </section>}
+        <>{windowsEvents.session_events} {windowsEvents.recent ? 'recent events available' : 'new events since launch'} · Last checked <TimeDisplay value={windowsEvents.updated_at} /></>}</p>
+    </section>
     {inventory?.linux_journal && <section className="panel">
       <h2 id="atlas-linux-events" tabIndex={-1}>Linux event collection</h2>
       <p>Collects recent OpenSSH authentication failures and sudo events visible to the Linux account.</p>
       <p role="status">{inventory.linux_journal.state === 'unavailable' ?
         'The collector could not read the system journal. It will retry.' : inventory.linux_journal.state === 'starting' ?
         'Waiting for the first journal check…' :
-        `${inventory.linux_journal.session_events} new events since launch · Last checked ${new Date(inventory.linux_journal.updated_at ?? '').toLocaleTimeString()}`}</p>
+        <>{inventory.linux_journal.session_events} new events since launch · Last checked <TimeDisplay value={inventory.linux_journal.updated_at} /></>}</p>
     </section>}
     {inventory && !inventory.internet_health && !inventory.linux_journal && (!windowsEvents || windowsEvents.state === 'disabled') && <p>This collector has not supplied diagnostics.</p>}
     </div>
     <div className="atlas-section-stack" hidden={activeView !== 'traces'}>
-    {visible && activeView === 'traces' && <PacketTrace />}
+    <PacketTrace active={visible && activeView === 'traces'} onTrace={setTraceLinks} />
     </div>
+    {visible && activeView === 'remote' && <RemoteEndpointMap links={inventory?.links ?? []} trace={traceLinks}
+      source={labelSource} cloud={Boolean(labelSource)} localAddresses={inventory?.local_device?.addresses.map((entry) => entry.address) ?? []}
+      inspectCollection={() => { setAtlasView('health'); onTarget(null); requestAnimationFrame(() => document.getElementById('atlas-windows-events')?.focus()); }} />}
   </main>;
 }

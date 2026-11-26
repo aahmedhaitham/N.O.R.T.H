@@ -1,0 +1,8 @@
+The country lookup files contain data from DB-IP IP to Country Lite, November 2026.
+IP Geolocation by DB-IP (https://db-ip.com/), CC BY 4.0:
+https://creativecommons.org/licenses/by/4.0/
+The original CSV was converted to fixed-width binary range records and ZZ entries were removed.
+
+The simplified world GeoJSON is derived from Natural Earth Admin 0 Countries, 1:110m,
+version 5.1.2 (https://www.naturalearthdata.com/). Natural Earth is public domain.
+NORTH retains the country identifiers and label positions and rounds geometry coordinates.

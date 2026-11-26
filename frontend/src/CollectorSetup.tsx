@@ -1,3 +1,4 @@
+import { TimeDisplay } from './TimeDisplay';
 import { Fragment, useEffect, useState } from 'react';
 import { pollVisible } from './pollVisible';
 
@@ -277,7 +278,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
             <td><span className="collector-state" data-state={item.revoked_at ? 'revoked' : item.updated_at ? 'synced' : 'waiting'}>
               {item.revoked_at ? 'Revoked' : item.updated_at ? 'Has synced' : 'Waiting for first sync'}
             </span></td>
-            <td>{item.updated_at ? <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time> : '—'}</td>
+            <td>{item.updated_at ? <TimeDisplay value={item.updated_at} /> : '—'}</td>
             <td>{!item.revoked_at && (confirm === item.source_id ? <div className="case-links">
               <button type="button" disabled={busy} onClick={() => void mutate('/api/cloud/pairings/' + item.source_id + '/revoke', {}, false)}>
                 Confirm revoke
@@ -290,7 +291,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
               <section className="collector-details" id="collector-details" aria-label={`${item.label} details`}>
                 <h3>{item.label}</h3>
                 <p>Source ID <code>{item.source_id}</code></p>
-                <p>{item.updated_at ? <>Last synced <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time></> :
+                <p>{item.updated_at ? <>Last synced <TimeDisplay value={item.updated_at} /></> :
                   'No sync recorded yet.'}</p>
                 {desktop && installedSource === item.source_id && <div className="case-links" aria-label="Local collector startup">
                   {!item.revoked_at && <button type="button" disabled={desktopSetupBusy}
@@ -304,7 +305,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
                     onClick={() => void changeStartup(item.source_id, 'disable')}>Disable background startup</button>
                 </div>}
                 {task && <p className="reference">Windows task: {task.state}
-                  {task.last_start && <> · Last start <time dateTime={task.last_start}>{new Date(task.last_start).toLocaleString()}</time></>}
+                  {task.last_start && <> · Last start <TimeDisplay value={task.last_start} /></>}
                   {task.last_result != null && task.state !== 'Running' && <> · Result {task.last_result}</>}</p>}
                 {bundle && <p className="reference">Collector build {bundle.current?.slice(0, 10) ?? 'Unrecorded'}
                   {bundle.available && ' · Update available in this app'}</p>}

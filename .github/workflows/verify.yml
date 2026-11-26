@@ -37,7 +37,7 @@ jobs:
           npm ci
           npm run build
       - name: Test cloud authentication and snapshot API
-        run: node --test cloud/worker.test.mjs
+        run: node --test cloud/worker.test.mjs cloud/geoip.test.mjs
 
   compose:
     name: Docker demo and PostgreSQL persistence

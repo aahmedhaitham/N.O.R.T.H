@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TimezoneControl } from './TimeDisplay';
 
 type Settings = {
   ai_available: boolean;
@@ -42,6 +43,7 @@ export function WorkspaceSettings({ back, openCollectors }: { back: () => void; 
   return <main className="collector-settings collector-workspace">
     <header className="collector-heading dashboard-heading"><h1>Workspace settings</h1><button type="button" onClick={back}>Back to workspace</button></header>
     {error && <p role="alert">{error}</p>}
+    <section className="panel"><h2>Timezone</h2><TimezoneControl /></section>
     {!settings && !error && <p role="status">Loading workspace settings…</p>}
     {settings && <>
       <section className="panel">

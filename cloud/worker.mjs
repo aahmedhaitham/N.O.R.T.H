@@ -1,3 +1,16 @@
+import { countryResolver } from '../frontend/public/geo/ip-country.mjs';
+
+const countryLoaders = new WeakMap();
+function resolveCountries(assets, origin, addresses) {
+  if (!addresses.length) return {};
+  if (!countryLoaders.has(assets)) countryLoaders.set(assets, countryResolver(async (file) => {
+    const response = await assets.fetch(new Request(origin + '/geo/' + file));
+    if (!response.ok || response.headers.get('Content-Type')?.includes('text/html')) throw new Error('Missing country data');
+    return response.arrayBuffer();
+  }));
+  return countryLoaders.get(assets)(addresses);
+}
+
 const cookieName = '__Host-north_session';
 const sessionSeconds = 8 * 60 * 60;
 const workspaceAiLimit = 20;
@@ -668,9 +681,11 @@ export default {
     if (path === '/api/cases') {
       if (!source) return json([]);
       const { results } = await env.DB.prepare(
-        'SELECT payload FROM cloud_cases WHERE source_id = ? ORDER BY timestamp DESC, id DESC LIMIT 100',
+        `SELECT c.payload, coalesce(r.status, 'open') AS review_status FROM cloud_cases c
+         LEFT JOIN cloud_case_reviews r ON r.source_id = c.source_id AND r.case_id = c.id
+         WHERE c.source_id = ? ORDER BY c.timestamp DESC, c.id DESC LIMIT 100`,
       ).bind(source.id).all();
-      return json(results.map((row) => JSON.parse(row.payload)));
+      return json(results.map((row) => ({ ...JSON.parse(row.payload), review_status: row.review_status ?? 'open' })));
     }
     const relatedId = /^\/api\/cases\/([0-9a-f]{24})\/related$/.exec(path)?.[1];
     if (relatedId) {
@@ -680,6 +695,15 @@ export default {
     if (path === '/api/network') return json(source ? {
       ...JSON.parse(source.network), collector_synced_at: source.updated_at,
     } : emptyNetwork);
+    if (path === '/api/network/remote-locations') {
+      const links = source ? JSON.parse(source.network).links ?? [] : [];
+      const addresses = links.filter((link) => link.direction === 'outbound').map((link) => link.address);
+      try {
+        return json(await resolveCountries(env.ASSETS, url.origin, addresses));
+      } catch {
+        return json({ detail: 'Offline country database unavailable.' }, 503);
+      }
+    }
     if (path === '/api/network/device-labels') {
       if (!sourceId || !source) return json({ detail: 'Select a collector first.' }, 404);
       if (request.method === 'GET') {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { maxTraceBytes, readPacketTrace } from './parsePcap';
 import { formatTraffic } from './formatTraffic';
 import { SelectControl } from './SelectControl';
+import { TimeDisplay } from './TimeDisplay';
 
 const pageSize = 50;
 type Conversation = { a: string; b: string; packets: number; bytes: number };
@@ -17,7 +18,9 @@ function addressWithPort(address: string, port?: number) {
   return (address.includes(':') ? '[' + address + ']' : address) + ':' + port;
 }
 
-export function PacketTrace() {
+export function PacketTrace({ active, onTrace }: {
+  active: boolean; onTrace: (packets: { source: string; destination: string }[]) => void;
+}) {
   const [trace, setTrace] = useState<ReturnType<typeof readPacketTrace> | null>(null);
   const [message, setMessage] = useState('');
   const [page, setPage] = useState(0);
@@ -38,6 +41,9 @@ export function PacketTrace() {
   const pauseRequested = useRef(false);
   const filePicker = useRef<HTMLInputElement>(null);
   const load = useRef(0);
+  useEffect(() => {
+    if (trace) onTrace(trace.packets.map(({ source, destination }) => ({ source, destination })));
+  }, [trace, onTrace]);
   const overview = useMemo(() => {
     const groups = new Map<string, Conversation>();
     const protocols = new Set<string>();
@@ -122,14 +128,20 @@ export function PacketTrace() {
   }, []);
 
   useEffect(() => {
-    if (!desktop) return;
+    if (!desktop || !active) return;
     const detection = new AbortController();
     void listAdapters(detection.signal);
     return () => {
       detection.abort();
       capture.current?.abort();
     };
-  }, [desktop, listAdapters]);
+  }, [desktop, active, listAdapters]);
+
+  useEffect(() => {
+    if (active) return;
+    setCaptureMode(null);
+    setCaptureStatus('');
+  }, [active]);
 
   useEffect(() => {
     if (!captureMode) return;
@@ -150,6 +162,7 @@ export function PacketTrace() {
     setMessage('');
     if (mode === 'live' && !paused) {
       setTrace(null);
+      onTrace([]);
       setPair(null);
       setPage(0);
     }
@@ -237,6 +250,7 @@ export function PacketTrace() {
           {trace.limited && (captureMode === 'live' || paused ? ' · Recent packets only' : ' · Packet limit reached')}</p></div>
         <button type="button" disabled={!!captureMode} onClick={() => {
           setTrace(null);
+          onTrace([]);
           setPaused(false);
           setMessage('');
         }}>Clear trace</button>
@@ -285,12 +299,12 @@ export function PacketTrace() {
       {matching.length > 0 &&
       <div className="router-traffic-table-wrap">
         <table className="investigation-table" aria-label="Packet headers">
-          <thead><tr><th scope="col">Time (UTC)</th><th scope="col">Source</th><th scope="col">Destination</th><th scope="col">Protocol</th><th scope="col">Bytes</th></tr></thead>
+          <thead><tr><th scope="col">Time</th><th scope="col">Source</th><th scope="col">Destination</th><th scope="col">Protocol</th><th scope="col">Bytes</th></tr></thead>
           <tbody>{matching.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((packet, index) =>
             <tr key={currentPage * pageSize + index}>
-              <td><time dateTime={packet.time}>{packet.time}</time></td>
-              <td>{addressWithPort(packet.source, packet.sourcePort)}</td>
-              <td>{addressWithPort(packet.destination, packet.destinationPort)}</td><td>{packet.protocol}</td><td>{packet.bytes}</td>
+              <td><TimeDisplay value={packet.time} /></td>
+              <td className="packet-endpoint">{addressWithPort(packet.source, packet.sourcePort)}</td>
+              <td className="packet-endpoint">{addressWithPort(packet.destination, packet.destinationPort)}</td><td>{packet.protocol}</td><td>{packet.bytes}</td>
             </tr>)}</tbody>
         </table>
       </div>}

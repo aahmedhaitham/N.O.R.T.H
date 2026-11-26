@@ -1,3 +1,4 @@
+import { TimeDisplay } from './TimeDisplay';
 import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
 
@@ -55,7 +56,7 @@ export function CaseReview({ endpoint }: { endpoint: string }) {
       <label>Analyst notes <textarea disabled={busy} maxLength={2000} rows={4} value={review.notes}
         onChange={(event) => setReview({ ...review, notes: event.target.value })} /></label>
       <div className="case-links"><button type="submit" disabled={busy || !changed}>Save review</button>
-        {review.updated_at && <small>Saved {new Date(review.updated_at).toLocaleString()}</small>}</div>
+        {review.updated_at && <small>Saved <TimeDisplay value={review.updated_at} /></small>}</div>
     </form>}
     {message && <p role={error ? 'alert' : 'status'}>{message}</p>}
     {error && <button onClick={() => { setMessage(''); setError(false); setReview(null); setRevision((value) => value + 1); }}>Reload review</button>}

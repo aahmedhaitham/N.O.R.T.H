@@ -1,3 +1,4 @@
+import { TimeDisplay } from './TimeDisplay';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Background, Controls, ReactFlow } from '@xyflow/react';
@@ -12,6 +13,8 @@ import { InstallApp } from './InstallApp';
 import { CloudGate, type CloudToolbar, type CollectorFleet, type WorkspacePanel } from './CloudGate';
 import { CaseReview } from './CaseReview';
 import { AccountMenu } from './ShellControls';
+import { PageMotion } from './InterfaceMotion';
+import type { ChartSelection } from './OverviewCharts';
 import { SelectControl } from './SelectControl';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Activity, FolderSearch, LayoutDashboard, Network as NetworkIcon, Search } from 'lucide-react';
@@ -24,6 +27,7 @@ type Evidence = {
 };
 type Case = {
   id: string; title: string; host: string; asset_id: string; summary: string;
+  review_status?: 'open' | 'investigating' | 'resolved';
   evidence: Evidence[]; links: { destination: string; evidence_id: string; direction?: 'inbound' }[];
 };
 type Claim = { text: string; evidence_ids: string[] };
@@ -128,6 +132,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
   const handledCitation = useRef('');
   const viewContent = useRef<HTMLDivElement>(null);
   const [eventSearch, setEventSearch] = useState('');
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [networkTarget, setNetworkTarget] = useState<AtlasTarget | null>(null);
   const [cases, setCases] = useState<Case[]>([]);
   const [caseSearch, setCaseSearch] = useState('');
@@ -169,6 +174,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
   }
 
   function openEvents(search: string) {
+    setChartSelection(null);
     setEventSearch(search.slice(0, 200));
     setView('events');
   }
@@ -289,19 +295,22 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
       <div className="shell-content">
       <div className="view-content" ref={viewContent}>
       {controls?.notice && <p role="status" className="toolbar-notice">{controls.notice}</p>}
+      <PageMotion page={panel?.title ?? view}>
       {panel?.content}
       <div className="workspace-pages" hidden={Boolean(panel)}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} open={setView} openCase={openCase}
         fleet={fleet} source={source} manageCollectors={openCollectors}
         openAtlas={(target) => { setView('network'); setNetworkTarget(target); }}
-        connect={cloud && !source ? openCollectors : undefined} />}
+        connect={cloud && !source ? openCollectors : undefined}
+        openChart={(selection) => { setEventSearch(''); setChartSelection(selection); setView('events'); }} />}
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} openEvents={openEvents}
           target={networkTarget} onTarget={setNetworkTarget} demo={publicDemo} readOnly={publicDemo || cloud}
           labelSource={cloud ? source : null} visible={view === 'network' && !panel} />
       </div>
       {view === 'events' && <Events portfolio={portfolio} source={source} initialSearch={eventSearch}
+        chartSelection={chartSelection} clearChartSelection={() => setChartSelection(null)}
         canSave={cloud} openNetwork={() => setView('network')} />}
       {view === 'cases' && <div className="workspace">
         <aside className="echo-case-list" aria-label="Investigations">
@@ -332,6 +341,7 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
         </main>
       </div>}
       </div>
+      </PageMotion>
       </div>
       </div>
     </div>
@@ -493,7 +503,7 @@ function Investigation({ incident, sourceQuery, openEvents, visible }: {
         <ol className="timeline">
           {incident.evidence.map((item, index) => (
             <li id={'event-' + item.id} key={item.id} aria-current={index === active ? 'step' : undefined}>
-              <time dateTime={item.timestamp}>{item.timestamp.slice(11, 19)} UTC</time>
+              <TimeDisplay value={item.timestamp} />
               <strong>{eventNames[item.kind] ?? 'Event ' + item.kind}</strong>
               <small>{item.target || item.destination || item.source_ip || item.process}</small>
               <details><summary>Raw evidence</summary><pre>{JSON.stringify(item.raw, null, 2)}</pre></details>
@@ -525,7 +535,7 @@ function Investigation({ incident, sourceQuery, openEvents, visible }: {
       {related?.length === 0 && <p>No matching events from another collector.</p>}
       <ul className="network-list">{related?.map((event) => <li key={event.source_id + '/' + event.id + '/' + event.address}>
         <strong>{eventNames[event.kind] ?? 'Event ' + event.kind}</strong>
-        <small>{event.collector}{event.host ? ' · ' + event.host : ''} · {event.address} · {new Date(event.timestamp).toLocaleString()}</small>
+        <small>{event.collector}{event.host ? ' · ' + event.host : ''} · {event.address} · <TimeDisplay value={event.timestamp} /></small>
         <RelatedEvidence event={event} />
       </li>)}</ul>
     </section>}

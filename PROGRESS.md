@@ -21,6 +21,33 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Interface Task 6 · Remote endpoint map
+
+- Added a separate ATLAS Remote endpoints view using embedded Natural Earth country shapes and November 2026 DB-IP Lite data. Windows and the Cloud Worker resolve country codes offline. Browser trace lookups use the bundled database in the browser, and loaded traces stay local.
+- Country arcs use a user-selected origin. Packet mapping uses the machine's interface addresses or a source IP selected for the trace. Private and documentation IPs are omitted. The empty state links to connection collection diagnostics.
+- Verified the map and IRIS chart drill-down in a browser with synthetic telemetry. GeoIP tests cover public IPv4 and IPv6 and private/documentation exclusions. The Cloudflare staging dry run accepted the assets. Live staging and the packaged Windows UI remain to be verified.
+
+### Interface Task 5 · Charts
+
+- Added five charts in What changed using the existing Motion/CSS approach. The time brush, ranked rows, severity segments and legend, and heatmap open matching events from a sample of up to 100 records in IRIS.
+- Frontend production build and 11 desktop tests passed.
+
+### Interface Task 4 · Overview
+
+- Rebuilt Overview as three panels. Open investigations and unreviewed device findings appear first, and source rows link to the relevant ATLAS diagnostics or collector setup.
+- The cloud case list includes review status. Overview labels severity by recorded evidence, and the workspace timezone preference controls absolute timestamp detail.
+- Frontend production build and both cloud tests passed.
+
+### Interface Task 3 · Motion
+
+- Added Motion transitions, animated counts and chart bars, static loading placeholders, visible pressed states, and a reduced-motion path. Page transitions take 140 ms.
+- Frontend production build and 11 desktop tests passed.
+
+### Interface Task 2 · Design tokens
+
+- Centralized theme, spacing, type, borders, severity, and monospace tokens in `frontend/src/tokens.css`. The shell uses the shared type and border values, and Overview removes decorative borders from panels inside its existing dashboard container.
+- Frontend production build and 11 desktop tests passed.
+
 ### Interface Task 1 · Top bar and menus
 
 - Replaced the stacked app headers with a 44 px toolbar and a 56 px icon rail. The rail has tooltips, an investigation-count badge, and a sliding indicator that respects reduced motion.

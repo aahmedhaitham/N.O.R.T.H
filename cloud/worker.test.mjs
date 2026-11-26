@@ -143,7 +143,7 @@ test('cloud sources keep independent event and investigation history', async (t)
   assert.deepEqual(status.sources.map((item) => item.id).sort(), ['alpha', 'beta']);
   const network = await (await call('/api/network?source=alpha', { headers })).json();
   assert.equal(network.collector_synced_at, status.sources.find((item) => item.id === 'alpha').updated_at);
-  assert.deepEqual(await (await call('/api/cases?source=alpha', { headers })).json(), [{ id, evidence: [] }]);
+  assert.deepEqual(await (await call('/api/cases?source=alpha', { headers })).json(), [{ id, evidence: [], review_status: 'open' }]);
   const alpha = await (await call('/api/events?kind=1&source=alpha', { headers })).json();
   const beta = await (await call('/api/events?source=beta', { headers })).json();
   assert.equal(alpha.events.length, 1);

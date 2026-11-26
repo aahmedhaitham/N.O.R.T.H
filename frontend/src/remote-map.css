@@ -1,0 +1,13 @@
+.remote-endpoints { display: grid; gap: var(--space-3); }
+.remote-endpoints h2 { margin-top: 0; }
+.remote-endpoints p { margin: var(--space-1) 0; }
+.remote-origin { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.remote-world { display: block; width: 100%; min-height: 140px; border-radius: var(--space-2); background: var(--canvas); border: var(--border); }
+.remote-world path { fill: var(--button); stroke: var(--line); stroke-width: .35px; fill-rule: evenodd; }
+.remote-world path[data-destination="true"] { fill: var(--selection); }
+.remote-world path.remote-arc { fill: none; stroke: var(--accent); stroke-width: 1px; opacity: .62; }
+.remote-destination { fill: var(--accent); }
+.remote-from { fill: var(--chart-blue); stroke: var(--surface); stroke-width: 1px; }
+.remote-countries { padding: 0; margin: 0; list-style: none; }
+.remote-countries li { display: flex; justify-content: space-between; gap: var(--space-2); border-bottom: var(--border); padding-block: var(--space-2); }
+.remote-countries span { color: var(--muted); }

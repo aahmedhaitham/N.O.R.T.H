@@ -3,6 +3,7 @@ import * as Menu from '@radix-ui/react-dropdown-menu';
 import * as Popover from '@radix-ui/react-popover';
 import { ChevronDown, Laptop, LogOut, Monitor, Search, Server, Settings, UserRound } from 'lucide-react';
 import { Appearance } from './Appearance';
+import { formatAbsolute } from './TimeDisplay';
 
 type Collector = { id: string; label: string; updated_at?: string; platform?: 'Windows' | 'Linux' | null };
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'always' });
@@ -63,7 +64,7 @@ export function CollectorPicker({ current, options, choose }: {
         <span className="collector-dot" data-active={isActive(current)} />
         <CollectorIcon collector={current} />
         <strong>{current?.label ?? 'No collector'}</strong>
-        {current && <small title={new Date(current.updated_at ?? '').toLocaleString()}>{syncLabel(current.updated_at, now)}</small>}
+        {current && <small title={formatAbsolute(current.updated_at ?? '')}>{syncLabel(current.updated_at, now)}</small>}
         <ChevronDown size={14} aria-hidden="true" />
       </button>
     </Popover.Trigger>

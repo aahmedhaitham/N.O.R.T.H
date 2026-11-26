@@ -1,4 +1,5 @@
 import { SelectControl } from './SelectControl';
+import { TimeDisplay } from './TimeDisplay';
 import { useState } from 'react';
 import { Background, Controls, Position, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { explainAddress, explainMacAddress } from './deviceExplanation';
@@ -54,7 +55,7 @@ function RouterTraffic({ traffic, stale }: { traffic: AtlasDevice['traffic']; st
         </div>)}
       </div>
       <ul>{[...intervals].reverse().map((interval) => <li key={interval.to}>
-        <p>{new Date(interval.from).toLocaleTimeString()}–{new Date(interval.to).toLocaleTimeString()}</p>
+        <p><TimeDisplay value={interval.from} /> – <TimeDisplay value={interval.to} /></p>
         <p>↓ {formatTraffic(interval.download_bytes)} · ↑ {formatTraffic(interval.upload_bytes)}</p>
       </li>)}</ul>
     </details>}

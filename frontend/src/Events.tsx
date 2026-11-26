@@ -1,8 +1,10 @@
+import { TimeDisplay } from './TimeDisplay';
 import { SelectControl } from './SelectControl';
 import { useEffect, useState } from 'react';
 import { eventNames } from './eventNames';
 import { SavedSearches } from './SavedSearches';
 import { pollVisible } from './pollVisible';
+import type { ChartSelection } from './OverviewCharts';
 
 type Event = {
   id: string; timestamp: string; kind: number; host: string; process: string;
@@ -31,8 +33,10 @@ function staticPage(events: Event[], filter: Filter): Page {
   };
 }
 
-export function Events({ portfolio, source, initialSearch, openNetwork, canSave }: {
+export function Events({ portfolio, source, initialSearch, openNetwork, canSave, chartSelection, clearChartSelection }: {
   portfolio: boolean; source: string | null; initialSearch: string; openNetwork: () => void; canSave: boolean;
+  chartSelection?: ChartSelection | null;
+  clearChartSelection?: () => void;
 }) {
   const [search, setSearch] = useState(initialSearch);
   const [kind, setKind] = useState('');
@@ -47,6 +51,11 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
 
   useEffect(() => {
     const filter = { ...criteria, before };
+    if (chartSelection) {
+      setPage(staticPage(chartSelection.events, filter));
+      setError(false);
+      return;
+    }
     const controller = new AbortController();
     async function load() {
       try {
@@ -73,7 +82,7 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
       controller.abort();
       stop();
     };
-  }, [criteria, before, attempt, portfolio, source]);
+  }, [criteria, before, attempt, portfolio, source, chartSelection]);
 
   function resetResults() {
     setPage(null);
@@ -102,6 +111,8 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
     <header className="dashboard-heading">
       <h1>IRIS <span className="workspace-title">Event explorer</span></h1>
     </header>
+    {chartSelection && <div className="panel chart-filter"><span>Chart filter: {chartSelection.label}</span>
+      <button type="button" onClick={() => { applyCriteria('', ''); clearChartSelection?.(); }}>Clear chart filter</button></div>}
     <section className="panel iris-filters">
       <form className="event-filters" aria-label="Filter events" onSubmit={(event) => {
         event.preventDefault();
@@ -152,7 +163,7 @@ export function Events({ portfolio, source, initialSearch, openNetwork, canSave 
                 {observed && <span className="event-observation" title={observed}>{observed}</span>}
               </span>
               <span className="event-host">{event.host}</span>
-              <time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time>
+              <TimeDisplay value={event.timestamp} />
             </button>
           </li>;
         })}</ul>

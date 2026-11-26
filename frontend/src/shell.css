@@ -6,7 +6,7 @@
   gap: 10px;
   padding: 0 12px;
   align-items: center;
-  font-size: 13px;
+  font-size: var(--type-sm);
   background: var(--rail);
 }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -18,7 +18,7 @@
 .topbar .status {
   margin: 0;
   padding: 4px 8px;
-  border: 1px solid var(--line);
+  border: var(--border);
   border-radius: 999px;
   background: var(--surface);
 }
@@ -52,11 +52,11 @@
 .collector-popover, .shell-menu, .select-content, .rail-tooltip {
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: var(--border);
   border-radius: 10px;
   padding: 4px;
   box-shadow: 0 12px 32px #0004;
-  font-size: 13px;
+  font-size: var(--type-sm);
   z-index: 10;
 }
 .collector-popover { width: min(340px, calc(100vw - 16px)); }
@@ -65,7 +65,7 @@
   width: 100%;
   min-width: 0;
   padding: 6px 8px;
-  border: 1px solid var(--line);
+  border: var(--border);
   border-radius: 6px;
   color: var(--text);
   background: var(--canvas);
@@ -80,7 +80,7 @@
 .collector-option[data-highlighted], .collector-option:not([aria-disabled="true"]):hover,
 .shell-menu-item[data-highlighted], .select-option[data-highlighted] { color: var(--text); background: var(--selection); outline: 1px solid var(--selection-line); outline-offset: -1px; }
 .collector-empty { margin: 6px 8px; color: var(--muted); }
-.collector-inactive { border-top: 1px solid var(--line); }
+.collector-inactive { border-top: var(--border); }
 .shell-menu { min-width: 156px; }
 .shell-menu-item kbd, .menu-end { margin-inline-start: auto; color: var(--muted); }
 .shell-menu-item kbd { padding-inline-start: 12px; font: inherit; font-size: 11px; }
@@ -103,7 +103,7 @@
   gap: 4px;
   padding: 8px 0;
   overflow: visible;
-  border-inline-end: 1px solid var(--line);
+  border-inline-end: var(--border);
   border-bottom: 0;
 }
 .console-nav button.nav-item {
