@@ -44,22 +44,45 @@ function makeLocalFindings({ root, data, launch = spawn, supported = process.pla
     }
   }
 
-  function read(callback) {
+  function accessStore(callback, readOnly = true) {
     if (!existsSync(dbPath)) return null;
-    const db = new DatabaseSync(dbPath, { readOnly: true, timeout: 100 });
+    const db = new DatabaseSync(dbPath, { readOnly, timeout: 100 });
     try { return callback(db); } finally { db.close(); }
   }
 
-  function handle(request) {
+  async function handle(request) {
     const { pathname } = new URL(request.url);
     if (pathname === '/api/local/findings/monitor' && request.method === 'POST') {
       if (request.headers.get('origin') !== 'north://app') return new Response(null, { status: 403 });
       return Response.json({ running: start() });
     }
+    const reviewId = /^\/api\/local\/findings\/([a-f0-9]{24})\/review$/.exec(pathname)?.[1];
+    if (reviewId && request.method === 'POST') {
+      if (request.headers.get('origin') !== 'north://app') return new Response(null, { status: 403 });
+      let status;
+      try {
+        if (request.headers.get('content-type') !== 'application/json') throw new Error();
+        const body = await request.text();
+        if (body.length > 64) throw new Error();
+        ({ status } = JSON.parse(body));
+        if (!['new', 'reviewed', 'benign'].includes(status)) throw new Error();
+      } catch {
+        return Response.json({ detail: 'Invalid finding status.' }, { status: 422 });
+      }
+      try {
+        const updated = accessStore((db) => db.prepare(
+          'UPDATE local_detection_findings SET status = ? WHERE id = ?',
+        ).run(status, reviewId).changes, false);
+        return updated ? Response.json({ status }) :
+          Response.json({ detail: 'Finding not found.' }, { status: 404 });
+      } catch {
+        return Response.json({ detail: 'Local findings storage is temporarily unavailable.' }, { status: 503 });
+      }
+    }
     if (request.method !== 'GET') return new Response(null, { status: 405 });
     try {
       if (pathname === '/api/local/findings') {
-        const findings = read((db) => db.prepare(`
+        const findings = accessStore((db) => db.prepare(`
           SELECT status, payload FROM local_detection_findings
           ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, last_seen DESC, id DESC LIMIT 100
         `).all().map(({ status, payload }) => ({ ...JSON.parse(payload), status })));
@@ -67,7 +90,7 @@ function makeLocalFindings({ root, data, launch = spawn, supported = process.pla
       }
       const id = /^\/api\/local\/evidence\/([a-f0-9]{24})$/.exec(pathname)?.[1];
       if (id) {
-        const row = read((db) => db.prepare(`
+        const row = accessStore((db) => db.prepare(`
           SELECT payload FROM local_windows_events WHERE id = ?
           UNION ALL SELECT payload FROM events WHERE id = ? LIMIT 1
         `).get(id, id));

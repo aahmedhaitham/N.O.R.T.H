@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TimeDisplay } from './TimeDisplay';
 
+type FindingStatus = 'new' | 'reviewed' | 'benign';
 type Finding = {
-  id: string; title: string; severity: string; last_seen: string; status: string;
+  id: string; title: string; severity: string; last_seen: string; status: FindingStatus; attack?: string[];
   plain_summary: string; what_to_do: string; evidence_ids: string[];
 };
 type Feed = { findings: Finding[]; monitor?: 'running' | 'stopped' | 'failed' };
@@ -42,22 +43,68 @@ function FindingEvidence({ id }: { id: string }) {
   </button>{failed && <p role="status">This evidence could not be loaded. It may have expired.</p>}</div>;
 }
 
+function FindingRow({ finding, onReviewed }: {
+  finding: Finding; onReviewed: (id: string, status: FindingStatus) => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function review(status: FindingStatus) {
+    setPending(true);
+    setFailed(false);
+    try {
+      const response = await fetch('/api/local/findings/' + encodeURIComponent(finding.id) + '/review', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error();
+      onReviewed(finding.id, status);
+    } catch {
+      setFailed(true);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return <details className="local-finding">
+    <summary>
+      <strong>{finding.title}</strong> <span className="severity-label" data-severity={finding.severity}>{finding.severity}</span>
+      {' '}<span className="review-status">{finding.status === 'new' ? 'Unreviewed' : finding.status}</span>
+      {' '}<TimeDisplay value={finding.last_seen} />
+    </summary>
+    <p>{finding.plain_summary}</p>
+    <p>{finding.what_to_do}</p>
+    {!!finding.attack?.length && <ul className="finding-tags" aria-label="ATT&CK techniques">
+      {finding.attack.map((tag) => <li key={tag}><code>{tag.replace(/^attack\./, '').toUpperCase()}</code></li>)}
+    </ul>}
+    {finding.evidence_ids.map((id) => <FindingEvidence key={id} id={id} />)}
+    <div className="finding-actions">
+      {finding.status === 'new' ? <>
+        <button type="button" disabled={pending} onClick={() => void review('reviewed')}>Mark reviewed</button>
+        <button type="button" disabled={pending} onClick={() => void review('benign')}>Mark benign</button>
+      </> : <button type="button" disabled={pending} onClick={() => void review('new')}>Reopen finding</button>}
+    </div>
+    {failed && <p role="status">The review could not be saved. Try again.</p>}
+  </details>;
+}
+
 export function LocalFindings({ desktop }: { desktop: boolean }) {
   const [feed, setFeed] = useState<Feed>();
   const [unavailable, setUnavailable] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(false);
+  const revision = useRef(0);
 
   useEffect(() => {
     const controller = new AbortController();
     let next: ReturnType<typeof setTimeout>;
     async function refresh() {
+      const requested = revision.current;
       try {
         const response = await fetch('/api/local/findings', { signal: controller.signal, cache: 'no-store' });
         if (!response.ok) throw new Error();
         const result = await response.json() as Feed;
         if (!Array.isArray(result.findings)) throw new Error();
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && requested === revision.current) {
           setFeed(result);
           setUnavailable(false);
         }
@@ -77,6 +124,7 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
     try {
       const response = await fetch('/api/local/findings/monitor', { method: 'POST' });
       if (!response.ok || !(await response.json()).running) throw new Error();
+      revision.current++;
       setFeed((previous) => ({ findings: previous?.findings ?? [], monitor: 'running' }));
     } catch {
       setStartError(true);
@@ -85,7 +133,16 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
     }
   }
 
+  function onReviewed(id: string, status: FindingStatus) {
+    revision.current++;
+    setFeed((previous) => previous && ({
+      ...previous, findings: previous.findings.map((finding) => finding.id === id ? { ...finding, status } : finding),
+    }));
+  }
+
   const findings = feed?.findings ?? [];
+  const unreviewed = findings.filter((finding) => finding.status === 'new');
+  const reviewed = findings.filter((finding) => finding.status !== 'new');
   return <section aria-labelledby="local-findings-title">
     <h3 id="local-findings-title">Local findings</h3>
     {desktop && feed?.monitor === 'running' && <p className="reference">Monitoring this computer</p>}
@@ -97,14 +154,12 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
     </div>}
     {(startError || feed?.monitor === 'failed') && <p role="status">The local collector could not run.</p>}
     {unavailable && <p role="status">Local findings could not refresh.</p>}
-    {!unavailable && !findings.length && <p className="reference">{!feed ? 'Checking local findings…' :
-      'No findings recorded yet. New observations can take time to establish a baseline.'}</p>}
-    {findings.map((finding) => <details key={finding.id} className="local-finding">
-      <summary><strong>{finding.title}</strong> <span className="severity-label" data-severity={finding.severity}>
-        {finding.severity}</span> <TimeDisplay value={finding.last_seen} /></summary>
-      <p>{finding.plain_summary}</p>
-      <p>{finding.what_to_do}</p>
-      {finding.evidence_ids.map((id) => <FindingEvidence key={id} id={id} />)}
-    </details>)}
+    {!unavailable && !unreviewed.length && <p className="reference">{!feed ? 'Checking local findings…' :
+      'No unreviewed local findings.'}</p>}
+    {unreviewed.map((finding) => <FindingRow key={finding.id} finding={finding} onReviewed={onReviewed} />)}
+    {reviewed.length > 0 && <details className="finding-history">
+      <summary>Recent reviewed findings ({reviewed.length})</summary>
+      {reviewed.map((finding) => <FindingRow key={finding.id} finding={finding} onReviewed={onReviewed} />)}
+    </details>}
   </section>;
 }

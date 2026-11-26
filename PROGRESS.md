@@ -21,6 +21,11 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Local-first product brief · Phase 3 finding review
+
+- Overview's **Needs attention** now lists local unreviewed findings with severity, status, ATT&CK techniques, and links to their evidence. Mark a finding reviewed or benign to move it into recent history, or reopen it. The desktop writes review status to its private database. The view shows up to 100 findings with unreviewed items first.
+- All 16 desktop tests and the desktop UI build passed. The review test covers persistence across reopening the store, reopening a finding, and rejecting invalid or cross-origin requests. Installed app verification remains open.
+
 ### Local-first product brief · Phase 2 engine and rules
 
 - NORTH ships 41 ATT&CK-tagged YAML rules with synthetic positive and negative fixtures for each rule. The catalog includes registry, process, authentication and DNS interval observations. Tags identify the technique a signal can help investigate.

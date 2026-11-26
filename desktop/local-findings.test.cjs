@@ -39,17 +39,30 @@ test('desktop findings use only the private local database and launch one window
     return worker;
   } });
   const call = (route, init) => local.handle(new Request('north://app/api/local/' + route, init));
-  assert.equal((await call('findings').json()).monitor, 'stopped');
-  assert.equal(call('findings/monitor', { method: 'POST' }).status, 403);
+  const json = async (...args) => (await call(...args)).json();
+  assert.equal((await json('findings')).monitor, 'stopped');
+  assert.equal((await call('findings/monitor', { method: 'POST' })).status, 403);
   const start = { method: 'POST', headers: { origin: 'north://app' } };
-  assert.deepEqual(await call('findings/monitor', start).json(), { running: true });
-  await call('findings/monitor', start).json();
+  assert.deepEqual(await json('findings/monitor', start), { running: true });
+  await json('findings/monitor', start);
   assert.equal(launches, 1);
-  const feed = await call('findings').json();
+  const feed = await json('findings');
   assert.equal(feed.monitor, 'running');
   assert.deepEqual(feed.findings, [{ id, evidence_ids: [id], status: 'new' }]);
-  assert.deepEqual(await call('evidence/' + id).json(), { id, host: 'TEST', source: 'neighbor', addresses: ['192.0.2.1'] });
-  assert.equal(call('evidence/invalid').status, 404);
+  assert.deepEqual(await json('evidence/' + id), { id, host: 'TEST', source: 'neighbor', addresses: ['192.0.2.1'] });
+  assert.equal((await call('evidence/invalid')).status, 404);
+  const review = (status, origin = 'north://app') => ({
+    method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify({ status }),
+  });
+  const route = 'findings/' + id + '/review';
+  assert.equal((await call(route, review('reviewed', 'https://other.example'))).status, 403);
+  assert.equal((await call(route, review('invalid'))).status, 422);
+  assert.equal((await call('findings/' + 'b'.repeat(24) + '/review', review('reviewed'))).status, 404);
+  assert.deepEqual(await json(route, review('benign')), { status: 'benign' });
+  const reopenedStore = makeLocalFindings({ root, data: root });
+  const stored = await reopenedStore.handle(new Request('north://app/api/local/findings'));
+  assert.equal((await stored.json()).findings[0].status, 'benign');
+  assert.deepEqual(await json(route, review('new')), { status: 'new' });
   local.stop();
   assert.equal(ended, true);
 });

@@ -163,6 +163,11 @@ button:disabled { opacity: .65; cursor: wait; }
 .overview-metrics strong { font-size: var(--type-section); }
 .overview-source-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto auto; gap: var(--space-2); align-items: center; padding: var(--space-2) 0; border-bottom: var(--border); }
 .overview-source-row small, .overview-card th small { display: block; color: var(--muted); margin-top: var(--space-1); }
+.local-finding, .finding-history { border-top: var(--border); padding: var(--space-2) 0; }
+.local-finding summary, .finding-history summary { cursor: pointer; }
+.finding-actions, .finding-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-2) 0; }
+.finding-tags { list-style: none; padding: 0; }
+.finding-tags li { border: var(--border); border-radius: 4px; padding: 2px var(--space-1); }
 @media (max-width: 460px) {
   .overview-grid .overview-card { padding: var(--space-3); }
   .overview-source-row { grid-template-columns: 16px minmax(0, 1fr) auto; }

@@ -55,6 +55,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings,
     <header className="dashboard-heading"><h1>Security overview</h1>{demo && <p className="reference">Synthetic telemetry</p>}</header>
     <MotionCard index={0} label="Needs attention">
       <header className="overview-heading"><CircleAlert size={18} /><h2>Needs attention</h2></header>
+      {localFindings && <LocalFindings desktop={local} />}
       {newDevices > 0 && <button type="button" onClick={() => openAtlas('atlas-new-devices')}>
         Review {newDevices} newly observed {newDevices === 1 ? 'device' : 'devices'}
       </button>}
@@ -92,7 +93,6 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings,
         <Network size={16} /><span>Device history</span><TimeDisplay value={inventory.device_findings.baseline_at} />
         <button type="button" onClick={() => openAtlas('atlas-new-devices')}>Review</button>
       </div>}
-      {localFindings && <LocalFindings desktop={local} />}
       <OverviewCharts endpoint={endpoint} source={source} demo={demo} cases={cases} open={openChart} />
     </MotionCard>
     <MotionCard index={2} label="What NORTH can see">
