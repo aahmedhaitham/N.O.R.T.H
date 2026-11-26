@@ -34,3 +34,37 @@ GitHub supports attestations in public repositories and eligible private reposit
 - Add a screenshot or short GIF captured from synthetic data.
 - Label the release **unsigned preview** and keep the download available only to its intended audience.
 - Reserve the v1 label for a signed release. Live detection coverage remains [unverified](COVERAGE.md).
+
+## Clean Windows VM verification
+
+Use a disposable Windows VM and a fresh standard user. Take a snapshot before
+testing. Start with copies of the workflow artifacts and record the commit,
+runner link, checksum results, and each outcome.
+
+1. Run the artifact verifier from a checkout of the same commit.
+
+   ```powershell
+   powershell.exe -NoProfile -File ./tools/Test-NorthPreviewArtifacts.ps1 -ArtifactDirectory 'C:\NORTH-preview'
+   gh attestation verify 'C:\NORTH-preview\NORTH-Setup-Windows-x64.exe' --repo aahmedhaitham/N.O.R.T.H
+   ```
+
+   Run the second command only if the workflow generated an attestation. Record
+   a skipped attestation as skipped. Compare the commit to the completed run.
+
+2. Disconnect the VM network before installation and keep it disconnected for
+   first launch. Install, open This computer, finish or skip setup, change the
+   display mode, and verify that NORTH opens without any cloud login.
+3. Revert to a clean snapshot. Install the earlier preview, change the mode
+   and appearance, and record a synthetic review state. Update with the new
+   installer. Compare the preferences and local evidence before and after.
+4. Uninstall using Windows Installed apps. Verify the program and launch
+   shortcuts are removed. Inspect the app-data directory while signed in as
+   the test user and record what remains. Uninstaller data retention for the
+   candidate has not yet been verified. Review or back up local evidence
+   before removing a test profile.
+5. Revert the VM snapshot when done. Keep screenshots synthetic and keep raw
+   collected evidence and profile contents out of release artifacts.
+
+The GitHub walkthrough checks a fresh application profile and a clean install.
+That check cannot establish upgrade, uninstallation, or a disconnected first-run
+result by itself.

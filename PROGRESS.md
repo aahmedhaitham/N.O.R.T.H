@@ -280,3 +280,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added a docked width control that remembers its setting, styled file picker buttons, reset rule search when leaving the view, and grouped technique status by the published Enterprise ATT&CK tactic mapping. Coverage groups include text states and link to source guidance in affected rules.
 - Added an SQLite trigram search index with exact literal filtering and an indexed-data regression test. The pre-change 500,000-event rerun measured 1327.37 ms median for the rare-match query. The indexed run is recorded separately when it finishes.
 - Commands: desktop test (28 passed), desktop UI build (passed), backend pytest (119 passed, 2 subtests), cloud tests (3 passed). Synthetic screenshots, every-screen axe and keyboard verification, and the size/theme matrix remain blocked by the local Electron launch.
+
+### Stabilization Phase D
+
+- Added a two-file SHA-256 verifier that cross-checks the checksum list, BUILD-INFO.json, and optional commit pin. A synthetic artifact set passed and a modified installer was rejected.
+- Documented a clean Windows VM pass for disconnected first launch, upgrade, and uninstall. The current release candidate installer and its artifact inventory were not available to verify here. No signing, publishing, visibility, or account changes were made.
+- Commands: desktop test (28 passed), desktop UI build (passed), backend pytest (119 passed, 2 subtests), cloud tests (3 passed).
