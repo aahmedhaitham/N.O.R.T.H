@@ -1,0 +1,68 @@
+import json
+from types import SimpleNamespace
+
+import pytest
+from fastapi.testclient import TestClient
+
+from cloud_sync import build_snapshot
+from main import demo_alerts, make_app
+from north import Store
+from windows_sources import collect_source
+
+
+def sample():
+    return {
+        "host": "WIN-SYNTHETIC", "event_id": 4688, "record_id": 41,
+        "timestamp": "2026-01-15T12:00:00+02:00",
+        "fields": {
+            "NewProcessName": r"C:\Example\test.exe", "NewProcessId": "0x20",
+            "CommandLine": "synthetic-local-only-marker", "UnlistedField": "discard-this",
+        },
+    }
+
+
+def test_rich_records_are_resumable_and_excluded_from_cloud(tmp_path, monkeypatch):
+    store = Store(path=tmp_path / "windows.sqlite3")
+    store.initialize()
+    store.ingest(demo_alerts())
+    args = []
+
+    def run(command, **_kwargs):
+        args.append(command)
+        return SimpleNamespace(stdout=json.dumps({"state": "collecting", "position": 41, "events": [sample()]}))
+
+    monkeypatch.setattr("windows_sources.subprocess.run", run)
+    assert collect_source(store, "security") == ("collecting", 1)
+    assert collect_source(store, "security") == ("collecting", 1)
+    assert args[0][-4:] == ["-Source", "security", "-After", "0"]
+    assert args[1][-4:] == ["-Source", "security", "-After", "41"]
+    event, = store.local_windows_events()
+    assert event["timestamp"] == "2026-01-15T10:00:00.000000+00:00"
+    assert "UnlistedField" not in event["raw"]
+    snapshot, _, pending = build_snapshot(store, {}, {}, "https://north.example")
+    assert len(pending) == 3
+    assert event["id"].encode() not in snapshot
+    assert b"synthetic-local-only-marker" not in snapshot
+    with TestClient(make_app(store), base_url="http://localhost") as client:
+        assert client.get("/api/local/windows-events").status_code == 401
+        assert client.post("/api/local-session", headers={"X-North-Local-Session": "start"}).status_code == 200
+        item, = client.get("/api/local/windows-events?limit=1").json()["events"]
+        assert item["id"] == event["id"]
+        assert item["process"]["pid"] == 32
+        assert item["process"]["cmdline"] == "synthetic-local-only-marker"
+
+
+def test_invalid_windows_batch_does_not_advance_cursor(tmp_path, monkeypatch):
+    store = Store(path=tmp_path / "invalid.sqlite3")
+    store.initialize()
+    batch = {"state": "collecting", "position": 42, "events": [sample()]}
+    monkeypatch.setattr("windows_sources.subprocess.run",
+                        lambda *_args, **_kwargs: SimpleNamespace(stdout=json.dumps(batch)))
+    with pytest.raises(ValueError, match="cursor ordering"):
+        collect_source(store, "security")
+    assert store.local_windows_events() == []
+    assert store.collection_offset("local-windows:security") == 0
+
+    batch.update(state="access_denied", position=99, events=[])
+    assert collect_source(store, "security") == ("access_denied", 0)
+    assert store.collection_offset("local-windows:security") == 0

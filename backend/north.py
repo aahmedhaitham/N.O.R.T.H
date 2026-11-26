@@ -146,6 +146,12 @@ class Store:
                 """)
             db.execute("CREATE INDEX IF NOT EXISTS events_time ON events (timestamp, id)")
             db.execute("""
+                CREATE TABLE IF NOT EXISTS local_windows_events (
+                    id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, payload TEXT NOT NULL
+                )
+                """)
+            db.execute("CREATE INDEX IF NOT EXISTS local_windows_time ON local_windows_events (timestamp, id)")
+            db.execute("""
                 CREATE TABLE IF NOT EXISTS collection_offsets (
                     source TEXT PRIMARY KEY, position BIGINT NOT NULL
                 )
@@ -231,12 +237,21 @@ class Store:
     def ingest(self, alerts: list[dict], *, checkpoint: tuple[str, int] | None = None) -> int:
         # Normalize the whole batch before opening the transaction.
         events = [normalize(alert) for alert in alerts]
+        return self._store_events(events, checkpoint, local=False)
+
+    def ingest_local_windows(self, events, *, checkpoint):
+        if self.url:
+            raise ValueError("Expanded Windows events require the local SQLite store")
+        return self._store_events(events, checkpoint, local=True)
+
+    def _store_events(self, events, checkpoint, *, local):
+        table = "local_windows_events" if local else "events"
         marker = "%s" if self.url else "?"
         values = ", ".join([marker] * 3)
         with self.connect() as db:
             inserted = sum(
                 db.execute(
-                    f"INSERT INTO events (id, timestamp, payload) VALUES ({values}) "
+                    f"INSERT INTO {table} (id, timestamp, payload) VALUES ({values}) "
                     "ON CONFLICT (id) DO NOTHING",
                     (event["id"], event["timestamp"], json.dumps(event)),
                 ).rowcount
@@ -249,6 +264,15 @@ class Store:
                     checkpoint,
                 )
             return inserted
+
+    def local_windows_events(self, *, limit=100):
+        marker = "%s" if self.url else "?"
+        with self.connect() as db:
+            rows = db.execute(
+                f"SELECT payload FROM local_windows_events ORDER BY timestamp DESC, id DESC LIMIT {marker}",
+                (min(max(1, limit), 500),),
+            ).fetchall()
+        return [json.loads(row[0]) for row in rows]
 
     def events(self) -> list[dict]:
         with self.connect() as db:

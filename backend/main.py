@@ -22,6 +22,8 @@ from sysmon import SysmonMonitor
 from device_watch import demo_findings, findings, mark_reviewed
 from cloud_sync import sync_loop
 from local_access import LocalAccess
+from event_contract import event_contract
+from windows_sources import WindowsSources
 
 
 class Batch(BaseModel):
@@ -48,6 +50,9 @@ def make_app(store=None):
     neighbors = NeighborMonitor(store, watch_neighbors)
     watch_sysmon = not public_demo and sys.platform == "win32" and os.getenv("NORTH_SYSMON_AUTO") == "1"
     sysmon = SysmonMonitor(store, watch_sysmon)
+    watch_local_windows = (not public_demo and not store.url and sys.platform == "win32"
+                           and os.getenv("NORTH_WINDOWS_LOCAL_EVENTS") == "1")
+    windows_sources = WindowsSources(store, watch_local_windows)
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -56,7 +61,8 @@ def make_app(store=None):
             store.ingest(demo_alerts(include_linux=public_demo))
         tasks = [
             asyncio.create_task(monitor.run())
-            for enabled, monitor in ((watch_neighbors, neighbors), (watch_sysmon, sysmon)) if enabled
+            for enabled, monitor in ((watch_neighbors, neighbors), (watch_sysmon, sysmon),
+                                     (watch_local_windows, windows_sources)) if enabled
         ]
         cloud_url, cloud_key = os.getenv("NORTH_CLOUD_URL"), os.getenv("NORTH_CLOUD_INGEST_KEY")
         if not public_demo and cloud_url and cloud_key:
@@ -118,6 +124,15 @@ def make_app(store=None):
             **snapshot(store.events()), "neighbors": neighbors.current, "sysmon": sysmon.current,
             "device_findings": demo_findings() if public_demo else findings(store),
         }
+
+    if not public_demo:
+        @app.get("/api/local/windows-sources")
+        def local_windows_sources():
+            return windows_sources.current
+
+        @app.get("/api/local/windows-events")
+        def local_windows_events(limit: int = Query(100, ge=1, le=500)):
+            return {"events": [event_contract(event) for event in store.local_windows_events(limit=limit)]}
 
     @app.post("/api/network/devices/{device_id}/review")
     def review_device(device_id: str, review: DeviceReview):

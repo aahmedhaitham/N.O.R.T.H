@@ -18,6 +18,7 @@ from neighbors import NeighborMonitor
 from north import Store, collector_tool, configured_store
 from router_usage import RouterUsage
 from sysmon import SysmonMonitor
+from windows_sources import WindowsSources
 
 
 async def collect():
@@ -40,6 +41,8 @@ async def collect():
         tasks.create_task(health.run())
         if sys.platform == "win32":
             tasks.create_task(sysmon.run())
+            if not store.url and os.getenv("NORTH_WINDOWS_LOCAL_EVENTS") == "1":
+                tasks.create_task(WindowsSources(store, True).run())
         if traffic:
             tasks.create_task(traffic.run())
         if journal:
@@ -57,7 +60,8 @@ async def self_test():
         await run_in_threadpool(store.initialize)
         if await run_in_threadpool(store.events):
             raise RuntimeError("Collector self-test expected an empty database")
-    for script in ("Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "Read-NorthAdapterTraffic.ps1"):
+    for script in ("Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "Read-NorthAdapterTraffic.ps1",
+                   "Read-NorthWindowsSource.ps1"):
         if not collector_tool(script).is_file():
             raise RuntimeError("Collector script is missing: " + script)
     print("NORTH Collector runtime checks passed.")

@@ -23,10 +23,15 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### Local-first product brief · Phase 2 started
 
+- Added opt-in Windows event collection for extended Sysmon, Security, System, PowerShell and Defender channels. Readers use fixed channel/event allowlists, bounded fields, per-channel cursors, and source-specific health messages. PowerShell script block metadata is collected without the script body.
+- Rich records go into a separate SQLite table and are readable only through the authenticated local API. The regression test confirms that the new record ID and a synthetic command line never appear in a cloud snapshot. Collection is off by default, enabled by `NORTH_WINDOWS_LOCAL_EVENTS=1` in the Windows backend or standalone collector.
+- `python -m pytest -q -o faulthandler_timeout=15 tests` passed 40 tests and 2 subtests after loopback access was available. `npm --prefix desktop test` passed 12, cloud/GeoIP passed 3, and `npm --prefix desktop run build:ui` passed with the existing bundle-size warning. The PowerShell reader parsed, the Windows and Linux ZIP checks passed, and `python backend/run_collector.py --self-test` passed from source.
+- Live event-channel permissions and packaged Windows ingestion remain unverified. Live TCP sampling, desktop surfacing, and the Sigma rules and fixtures are still open.
+
 - Added the local rule-engine event projection in `backend/event_contract.py`. It reads existing stored evidence and reuses its ID and UTC timestamp. It exposes bounded process, user, network, file, registry and DNS fields when the original event contains them. The projected `raw` field contains only channel and event type. Stored and uploaded evidence formats remain compatible.
 - The existing Windows correlation now uses the projected process name. Both Docker build definitions and the Windows and Linux collector bundles include the projection.
 - In backend, `.venv/Scripts/python.exe -m pytest -q tests` passed 38 tests and 2 subtests. `npm --prefix desktop run build:ui` passed with the existing bundle-size warning. Built both collector ZIPs and checked for `backend/event_contract.py` in each.
-- Phase 2 remains open. Add source-specific cursors and status, then the bounded Sigma loader and tested catalog. Service installation event 7045 belongs in the System log. Build a verified local-only retention path before expanding the fields and channels collected by a cloud-paired device. Custom rule regexes require bounded execution.
+- Phase 2 remains open. Next is the bounded Sigma loader and tested catalog. Service installation event 7045 uses the System log. Custom rule regexes require bounded execution.
 
 ### Local-first product brief · Phases 0 and 1
 
