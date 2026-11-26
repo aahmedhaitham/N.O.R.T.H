@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { networkInterfaces } = require('node:os');
 const { pathToFileURL } = require('node:url');
-const { desktopStartup, workspaceOrigin } = require('./workspace.cjs');
+const { desktopStartup, workspaceOrigin, parseWorkspaceConnection } = require('./workspace.cjs');
 const { makeCloudProxy } = require('./cloud-proxy.cjs');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
 const { deviceHistory } = require('./device-history.cjs');
@@ -93,7 +93,7 @@ async function handleLocalRequest(request, api, origin) {
   if (!filename.endsWith('.html')) return response;
   const headers = new Headers(response.headers);
   headers.set('Content-Security-Policy',
-    "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'self'");
+    "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   return new Response(response.body, { status: response.status, headers });
 }
 
@@ -192,9 +192,13 @@ async function openSavedWorkspace() {
 }
 
 ipcMain.handle('north:connect', async (event, value) => {
-  if (hostedOrigin || !setupWindow || event.sender !== setupWindow.webContents) return 'Workspace setup is unavailable.';
+  const expected = pathToFileURL(path.join(__dirname, 'setup.html')).href;
+  if (hostedOrigin || !setupWindow || event.sender !== setupWindow.webContents ||
+      event.senderFrame !== event.sender.mainFrame || event.senderFrame?.url !== expected) {
+    return 'Workspace setup is unavailable.';
+  }
   try {
-    const nextOrigin = workspaceOrigin(value);
+    const nextOrigin = parseWorkspaceConnection(value);
     await openWorkspace(nextOrigin, true);
     return null;
   } catch (error) {

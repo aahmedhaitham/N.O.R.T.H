@@ -21,6 +21,7 @@ from neighbors import NeighborMonitor
 from sysmon import SysmonMonitor
 from device_watch import demo_findings, findings, mark_reviewed
 from cloud_sync import sync_loop
+from local_access import LocalAccess
 
 
 class Batch(BaseModel):
@@ -75,6 +76,8 @@ def make_app(store=None):
         redoc_url=None if public_demo else "/redoc",
         openapi_url=None if public_demo else "/openapi.json",
     )
+    if not public_demo:
+        app.add_middleware(LocalAccess)
 
     def get_case(case_id):
         for case in build_cases(store.events()):

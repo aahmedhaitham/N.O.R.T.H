@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from north import build_cases, journal_activity, normalize
 
@@ -66,6 +66,7 @@ def main():
     parser.add_argument("--format", choices=("wazuh", "journal"), default="wazuh")
     parser.add_argument("--check", action="store_true", help="Validate and preview locally without sending data")
     args = parser.parse_args()
+    inserted = 0
     try:
         alerts, events, skipped = prepare(args.export.read_text(encoding="utf-8-sig"), args.format)
         unique = {event["id"]: event for event in reversed(events)}
@@ -73,14 +74,16 @@ def main():
         print(f"Supported events: {len(alerts)}. Skipped: {skipped}. Cases in export: {case_count}.")
         if args.check:
             return
-        inserted = 0
+        from local_client import local_session
+
+        session = local_session(args.base_url)
         for offset in range(0, len(alerts), 1000):
             request = Request(
                 args.base_url.rstrip("/") + "/api/ingest",
                 data=json.dumps({"alerts": alerts[offset:offset + 1000]}).encode(),
                 headers={"Content-Type": "application/json"},
             )
-            with urlopen(request, timeout=30) as response:
+            with session.open(request, timeout=30) as response:
                 inserted += json.load(response)["inserted"]
     except HTTPError as exc:
         parser.exit(1, f"Import stopped after {inserted} new alerts (HTTP {exc.code}). Repeating the import is safe.\n")

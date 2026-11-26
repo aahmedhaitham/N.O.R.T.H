@@ -108,7 +108,7 @@ For another device source, choose **Import a device list**. You can load a saved
 - **Linux OpenSSH.** If OpenSSH already writes to your Linux journal, export your own service's existing records with `journalctl -u ssh.service -u sshd.service --since today --no-pager -o json > ssh-journal.jsonl`. Preview with `python3 backend/ingest.py ssh-journal.jsonl --format journal --check`. Omit `--check` to import to your local NORTH instance. IRIS flags groups of three failures from the same source on the same host within five minutes, ATLAS maps the inbound address, and ECHO lists the original events. Keep real exports local.
 - **Ollama.** With a local server running and `qwen2.5-coder:7b` available, click **Generate draft** in IRIS. Override the server or model with `OLLAMA_URL` or `OLLAMA_MODEL` as needed. NORTH derives observations and their citations from Sysmon event types. Ollama ranks those observations, and NORTH accepts only selections drawn from the current case. Analysts can open the cited raw events in ECHO. The rule-based report works independently.
 
-The console binds to localhost in the documented setups. Its API has no user authentication and is intended for a single analyst in a local lab.
+The console binds to localhost in the documented setups. The browser and importer establish a loopback session automatically. This protects against requests from other websites and is intended for a single analyst on a trusted PC. See [SECURITY.md](SECURITY.md) and [THREAT_MODEL.md](THREAT_MODEL.md).
 
 ### Local model benchmark
 

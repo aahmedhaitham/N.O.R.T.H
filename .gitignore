@@ -9,6 +9,16 @@ cloud/wrangler.ai.local.jsonc
 cloud/wrangler.staging*.local.jsonc
 .wrangler/
 cloud/.dev.vars
+cloud/.dev.vars.*
+*.pem
+*.key
+*.pfx
+*.p12
+*.pcap
+*.pcapng
+*.har
+*-neighbors.json
+gitleaks-report.*
 
 # Dependencies and build output
 .venv/

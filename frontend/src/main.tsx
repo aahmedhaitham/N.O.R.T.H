@@ -591,6 +591,23 @@ function RelatedEvidence({ event }: { event: RelatedEvent }) {
   </details>;
 }
 
-createRoot(document.getElementById('root')!).render(cloud ?
-  <CloudGate>{(source, openCollectors, controls, fleet, panel) =>
-    <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} fleet={fleet} panel={panel} />}</CloudGate> : <App />);
+const root = createRoot(document.getElementById('root')!);
+async function startApp() {
+  if (!desktop && !cloud && !publicDemo) {
+    try {
+      const response = await fetch('/api/local-session', {
+        method: 'POST', headers: { 'X-North-Local-Session': 'start' }, cache: 'no-store',
+      });
+      if (!response.ok) throw new Error('Local session unavailable');
+    } catch {
+      root.render(<main><h1>Local NORTH is unavailable</h1>
+        <p>Start the local NORTH service, then reload this window.</p>
+        <button type="button" onClick={() => location.reload()}>Reload</button></main>);
+      return;
+    }
+  }
+  root.render(cloud ?
+    <CloudGate>{(source, openCollectors, controls, fleet, panel) =>
+      <App key={source ?? ''} source={source} openCollectors={openCollectors} controls={controls} fleet={fleet} panel={panel} />}</CloudGate> : <App />);
+}
+void startApp();

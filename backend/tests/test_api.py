@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.error import URLError
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, WebSocketDisconnect
 from fastapi.testclient import TestClient
 
 import main
@@ -17,11 +17,12 @@ def test_seed_websocket_report_and_offline_draft(tmp_path, monkeypatch):
         raise URLError("offline")
 
     monkeypatch.setattr(main, "urlopen", unavailable)
-    with TestClient(main.make_app(Store(path=tmp_path / "test.sqlite3"))) as client:
+    with TestClient(main.make_app(Store(path=tmp_path / "test.sqlite3")), base_url="http://localhost:8000") as client:
         assert client.get("/api/health").json() == {"status": "ok"}
+        assert client.post("/api/local-session", headers={"X-North-Local-Session": "start"}).status_code == 200
         case, = client.get("/api/cases").json()
         for _ in range(2):
-            with client.websocket_connect("/api/live") as socket:
+            with client.websocket_connect("ws://localhost:8000/api/live") as socket:
                 assert socket.receive_json() == [case]
         url = "/api/cases/" + case["id"]
         assert client.post(url + "/draft").status_code == 503
@@ -29,6 +30,34 @@ def test_seed_websocket_report_and_offline_draft(tmp_path, monkeypatch):
         assert report.status_code == 200
         assert all(item["id"] in report.text for item in case["evidence"])
         assert client.post("/api/ingest", json={"alerts": [{}]}).status_code == 422
+
+
+def test_local_session_rejects_untrusted_hosts_origins_and_tokens(tmp_path):
+    app = main.make_app(Store(path=tmp_path / "local.sqlite3"))
+    with TestClient(app, base_url="http://localhost:8000") as client:
+        assert client.get("/api/cases").status_code == 401
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("ws://localhost:8000/api/live"):
+                pytest.fail("Unauthenticated socket accepted")
+        assert client.get("/api/health", headers={"Host": "other.example"}).status_code == 400
+        assert client.post("/api/local-session").status_code == 403
+        start = {"X-North-Local-Session": "start"}
+        for hostile in ({"Origin": "https://other.example"}, {"Sec-Fetch-Site": "same-site"}):
+            response = client.post("/api/local-session", headers={**start, **hostile})
+            assert response.status_code == 403
+            assert "access-control-allow-origin" not in response.headers
+        response = client.post("/api/local-session", headers=start)
+        assert response.status_code == 200
+        assert "HttpOnly" in response.headers["Set-Cookie"]
+        assert "SameSite=strict" in response.headers["Set-Cookie"]
+        another_session = client.post("/api/local-session", headers=start)
+        assert another_session.headers["Set-Cookie"] != response.headers["Set-Cookie"]
+        assert client.get("/api/cases").status_code == 200
+        assert client.get("/api/cases", headers={"Cookie": "north_local_session=wrong"}).status_code == 401
+        assert client.get("/api/cases", headers={"Origin": "http://localhost:9999"}).status_code == 403
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("ws://localhost:8000/api/live", headers={"Origin": "https://other.example"}):
+                pytest.fail("Cross-origin socket accepted")
 
 
 def test_draft_prioritizes_supported_observations():

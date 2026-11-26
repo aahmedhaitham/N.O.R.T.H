@@ -21,6 +21,15 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
+### Local-first product brief · Phases 0 and 1
+
+- **Phase 0 audit.** The standalone collector uses SQLite and can sync a bounded snapshot. FastAPI reads normalized events and derives cases for HTTP and WebSockets. Electron local mode runs fixed PowerShell readers and applies its own recent-event correlation. Move shared rules into the bundled collector over a backward-compatible event contract. The repository does not contain an MIT license file.
+- **Phase 1 local boundary.** Added one random signed, HttpOnly session cookie per loopback client, Host validation, exact-origin and Fetch Metadata checks, and denied cross-origin reads, writes, and WebSockets. Updated the UI, import tool and smoke runner. A local program can still initiate its own session, so this is a browser boundary rather than Windows user authentication.
+- **Desktop boundary.** Zod validates the sole preload IPC input, alongside exact sender frame checks. The Electron CSP now starts from default deny. Inline styles are allowed for visualizations. The existing Windows tools run fixed scripts with `-File` and argument arrays.
+- **History and hygiene.** `gitleaks git --log-opts=--all --redact=100 --no-banner .` scanned 123 commits and reported no leaks. Tracked telemetry candidates are `backend/fixtures/demo.json`, `backend/fixtures/linux-ssh-demo.jsonl`, and the inline records in backend, cloud, and desktop tests. Keep those synthetic. Added ignore patterns for captures, export files, and key material. Added SECURITY.md, THREAT_MODEL.md, and THIRD_PARTY_NOTICES.md.
+- **Verification.** In backend, `.venv/Scripts/python.exe -m pytest -q tests` passed 36 tests and 2 subtests. `npm --prefix desktop test` passed 12. `node --test cloud/worker.test.mjs cloud/geoip.test.mjs` passed 3. Frontend `npm --prefix frontend run build` and desktop UI `npm --prefix desktop run build:ui` passed with the previously seen size warning. `python backend/smoke_demo.py http://127.0.0.1:8194` passed HTTP, WebSocket reconnect, report, and import retry checks against a disposable local database.
+- A new installer launch and Docker run were not verified in this phase. Later phases start with the backward-compatible event contract, source coverage and rule engine. The offline assistant and Simple mode remain unimplemented.
+
 ### Interface Task 6 · Remote endpoint map
 
 - Added a separate ATLAS Remote endpoints view using embedded Natural Earth country shapes and November 2026 DB-IP Lite data. Windows and the Cloud Worker resolve country codes offline. Browser trace lookups use the bundled database in the browser, and loaded traces stay local.

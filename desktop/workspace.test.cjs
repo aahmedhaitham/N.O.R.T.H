@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { desktopStartup, workspaceOrigin } = require('./workspace.cjs');
+const { desktopStartup, workspaceOrigin, parseWorkspaceConnection } = require('./workspace.cjs');
 
 test('accepts an HTTPS workspace origin only', () => {
   assert.equal(workspaceOrigin(' https://north.example.com/ '), 'https://north.example.com');
@@ -16,4 +16,12 @@ test('cloud-only startup uses a bundled HTTPS service origin', () => {
     { cloudOnly: true, origin: 'https://north.example.com' });
   assert.throws(() => desktopStartup({ cloudOnly: true }));
   assert.throws(() => desktopStartup({ cloudOnly: true, origin: 'http://north.example.com' }));
+});
+
+test('workspace setup rejects malformed and oversized IPC data', () => {
+  assert.equal(parseWorkspaceConnection(' https://north.example.com/ '), 'https://north.example.com');
+  for (const payload of [{ address: 'https://north.example.com' }, [], '', null,
+    'https://north.example.com/' + 'x'.repeat(2048), 'https://north.example.com/;Start-Process']) {
+    assert.throws(() => parseWorkspaceConnection(payload));
+  }
 });
