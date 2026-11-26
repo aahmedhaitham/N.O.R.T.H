@@ -44,6 +44,17 @@ jobs:
       - name: Test the desktop client
         working-directory: desktop
         run: npm test
+      - name: Check Windows scripts and TypeScript
+        shell: pwsh
+        run: |
+          Get-ChildItem desktop -File -Filter *.cjs | ForEach-Object {
+            node --check $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Invalid script: $($_.Name)" }
+          }
+          node --check tools/Test-NorthWindowsModes.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Invalid Windows walkthrough script.' }
+          & frontend/node_modules/.bin/tsc.cmd --project frontend/tsconfig.json
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend type check failed.' }
       - name: Package Windows downloads
         run: |
           npm --prefix desktop run package:windows

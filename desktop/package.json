@@ -16,21 +16,89 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "axe-core": "4.14.1",
     "electron": "45.5.0",
-    "electron-builder": "26.18.0"
+    "electron-builder": "26.18.0",
+    "fast-check": "4.11.0"
   },
   "build": {
     "appId": "app.north.console",
     "productName": "NORTH",
     "artifactName": "NORTH-Desktop-Windows-x64.exe",
-    "files": ["main.cjs", "messages.js", "workspace.cjs", "cloud-proxy.cjs", "local-workspace.cjs", "local-findings.cjs", "device-history.cjs", "listener-history.cjs", "packet-capture.cjs", "collector-install.cjs", "preload.cjs", "setup.html", "setup.js", "setup.css", "icons/north.ico"],
-    "extraResources": [
-      {"from": "ui", "to": "north-ui"},
-      {"from": "../backend", "to": "north-collector/backend", "filter": ["requirements.txt", "run_collector.py", "cloud_sync.py", "neighbors.py", "sysmon.py", "north.py", "device_watch.py", "event_contract.py", "windows_sources.py", "detection_rules.py", "rules.yaml", "network.py", "router_usage.py", "internet_health.py", "adapter_traffic.py", "journal_monitor.py", "NORTH-Collector.exe"]},
-      {"from": "../tools", "to": "north-collector/tools", "filter": ["Start-NorthCollector.ps1", "Set-NorthCollectorStartup.ps1", "Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "SysmonFormat.ps1", "Read-NorthAdapterTraffic.ps1", "Read-NorthWindowsSource.ps1", "Read-NorthTcp.ps1"]},
-      {"from": "../tools", "to": "north-tools", "filter": ["Export-NorthNeighbors.ps1", "Read-NorthSysmon.ps1", "Read-NorthAdapterTraffic.ps1", "Read-NorthTcp.ps1", "SysmonFormat.ps1"]}
+    "files": [
+      "main.cjs",
+      "messages.js",
+      "workspace.cjs",
+      "cloud-proxy.cjs",
+      "local-workspace.cjs",
+      "local-findings.cjs",
+      "device-history.cjs",
+      "listener-history.cjs",
+      "packet-capture.cjs",
+      "collector-install.cjs",
+      "preload.cjs",
+      "setup.html",
+      "setup.js",
+      "setup.css",
+      "icons/north.ico"
     ],
-    "nsis": {"artifactName": "NORTH-Setup-Windows-x64.exe"},
+    "extraResources": [
+      {
+        "from": "ui",
+        "to": "north-ui"
+      },
+      {
+        "from": "../backend",
+        "to": "north-collector/backend",
+        "filter": [
+          "requirements.txt",
+          "run_collector.py",
+          "cloud_sync.py",
+          "neighbors.py",
+          "sysmon.py",
+          "north.py",
+          "device_watch.py",
+          "event_contract.py",
+          "windows_sources.py",
+          "detection_rules.py",
+          "rules.yaml",
+          "network.py",
+          "router_usage.py",
+          "internet_health.py",
+          "adapter_traffic.py",
+          "journal_monitor.py",
+          "NORTH-Collector.exe"
+        ]
+      },
+      {
+        "from": "../tools",
+        "to": "north-collector/tools",
+        "filter": [
+          "Start-NorthCollector.ps1",
+          "Set-NorthCollectorStartup.ps1",
+          "Export-NorthNeighbors.ps1",
+          "Read-NorthSysmon.ps1",
+          "SysmonFormat.ps1",
+          "Read-NorthAdapterTraffic.ps1",
+          "Read-NorthWindowsSource.ps1",
+          "Read-NorthTcp.ps1"
+        ]
+      },
+      {
+        "from": "../tools",
+        "to": "north-tools",
+        "filter": [
+          "Export-NorthNeighbors.ps1",
+          "Read-NorthSysmon.ps1",
+          "Read-NorthAdapterTraffic.ps1",
+          "Read-NorthTcp.ps1",
+          "SysmonFormat.ps1"
+        ]
+      }
+    ],
+    "nsis": {
+      "artifactName": "NORTH-Setup-Windows-x64.exe"
+    },
     "win": {
       "icon": "icons/north.ico",
       "target": "portable"

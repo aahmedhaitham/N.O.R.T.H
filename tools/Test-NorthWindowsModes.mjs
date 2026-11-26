@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -10,6 +11,7 @@ const executable = path.resolve(process.argv[2] ?? '');
 assert.match(executable, /[\\/]NORTH\.exe$/i, 'Pass the installed NORTH.exe path.');
 assert.ok(existsSync(executable), 'The Windows app is missing.');
 const profile = mkdtempSync(path.join(tmpdir(), 'north-modes-'));
+const startedAt = performance.now();
 const app = spawn(executable, [
   `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1',
   '--enable-logging=stderr',
@@ -72,12 +74,21 @@ try {
   }
   await call('Page.enable');
   async function evaluate(expression) {
-    const result = await call('Runtime.evaluate', { expression, returnByValue: true });
+    const result = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
     return result.result.value;
   }
   const bodyContains = (value) => evaluate(`document.body.innerText.includes(${JSON.stringify(value)})`);
   const see = (value) => waitFor(value, () => bodyContains(value));
+  const require = createRequire(new URL('../desktop/package.json', import.meta.url));
+  const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
+  async function audit(label) {
+    await call('Runtime.evaluate', { expression: axeSource });
+    const failures = await evaluate(`axe.run(document, { runOnly: {
+      type: 'rule', values: ['button-name', 'label', 'aria-valid-attr-value', 'landmark-one-main']
+    }}).then(result => result.violations.map(({ id, nodes }) => ({ id, count: nodes.length })))`);
+    assert.deepEqual(failures, [], label);
+  }
   async function click(query, name) {
     const expression = `Array.from(document.querySelectorAll(${JSON.stringify(query)})).some(element => {
       if (element.textContent.trim() !== ${JSON.stringify(name)} && element.getAttribute('aria-label') !== ${JSON.stringify(name)}) return false;
@@ -97,6 +108,16 @@ try {
   }
 
   await see('Set up NORTH');
+  const firstWindowMs = Math.round(performance.now() - startedAt);
+  console.log(`NORTH startup to setup heading: ${firstWindowMs} ms (includes debugger connection).`);
+  const powershell = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const rootWorkingSet = Number(execFileSync(powershell, ['-NoProfile', '-NonInteractive', '-Command',
+    `(Get-Process -Id ${app.pid}).WorkingSet64`], { encoding: 'utf8', windowsHide: true, timeout: 5000 }));
+  assert.ok(rootWorkingSet > 0);
+  console.log(`NORTH main-process working set at launch: ${(rootWorkingSet / 1024 ** 2).toFixed(1)} MiB.`);
+  await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  assert.equal(await evaluate('matchMedia("(prefers-reduced-motion: reduce)").matches'), true);
+  await audit('first-run setup accessibility');
   await see('What NORTH can see');
   await click('button', 'Continue');
   await see('Choose your display mode');
@@ -177,6 +198,7 @@ try {
   await see('Built in · works offline · answers from your NORTH data');
   await click('button', 'What needs attention?');
   await see('Unreviewed findings in the available snapshot.');
+  await audit('Assistant accessibility');
   await see('<img data-north-smoke-marker>');
   assert.equal(await evaluate('document.querySelector("img[data-north-smoke-marker]") === null'), true);
   await click('button', 'Open evidence in Overview');

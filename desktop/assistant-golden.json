@@ -1,0 +1,358 @@
+{
+  "now": "2026-01-15T12:00:00Z",
+  "snapshot": {
+    "cases": [
+      {
+        "id": "case-1",
+        "label": "Synthetic investigation",
+        "status": "open",
+        "timestamp": "2026-01-15T11:00:00Z"
+      }
+    ],
+    "findings": [
+      {
+        "id": "finding-1",
+        "label": "Synthetic finding",
+        "status": "new",
+        "detail": "A recorded event.",
+        "guidance": "Review the event.",
+        "alternative": "An update could explain it.",
+        "terms": [
+          "low"
+        ]
+      }
+    ],
+    "devices": [
+      {
+        "id": "device-1",
+        "label": "Synthetic phone",
+        "status": "new",
+        "terms": [
+          "192.0.2.10"
+        ],
+        "timestamp": "2026-01-15T11:00:00Z"
+      }
+    ],
+    "events": [
+      {
+        "id": "event-1",
+        "label": "Synthetic browser",
+        "detail": "192.0.2.10",
+        "timestamp": "2026-01-15T11:00:00Z",
+        "country": "Canada",
+        "terms": [
+          "example.test",
+          "Canada"
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "connection-1",
+        "label": "192.0.2.10",
+        "timestamp": "2026-01-15T11:00:00Z"
+      }
+    ],
+    "coverage": [
+      {
+        "id": "rule-1",
+        "label": "Synthetic rule",
+        "status": "partly",
+        "terms": [
+          "sysmon:1",
+          "attack.t1082"
+        ],
+        "detail": "Event type unconfirmed",
+        "guidance": "Check event collection."
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "status",
+      "question": "Is my PC okay?",
+      "text": "Open investigations in the available snapshot.",
+      "area": "cases",
+      "evidence": [
+        "case-1"
+      ]
+    },
+    {
+      "id": "attention",
+      "question": "What needs attention?",
+      "text": "Unreviewed findings in the available snapshot.",
+      "area": "findings",
+      "evidence": [
+        "finding-1"
+      ]
+    },
+    {
+      "id": "explain-finding",
+      "question": "Explain this finding",
+      "text": "Recorded findings explain what triggered the observation.",
+      "area": "findings",
+      "evidence": [
+        "finding-1"
+      ]
+    },
+    {
+      "id": "danger",
+      "question": "Is this finding dangerous?",
+      "text": "Use the finding severity and its evidence to assess concern.",
+      "area": "findings",
+      "evidence": [
+        "finding-1"
+      ]
+    },
+    {
+      "id": "false-positive",
+      "question": "Could this finding be a false positive?",
+      "text": "Possible benign explanations for the recorded findings.",
+      "area": "findings",
+      "evidence": [
+        "finding-1"
+      ]
+    },
+    {
+      "id": "next",
+      "question": "What should I do?",
+      "text": "Suggested review steps from the recorded findings.",
+      "area": "findings",
+      "evidence": [
+        "finding-1"
+      ]
+    },
+    {
+      "id": "why-alert",
+      "question": "Why am I seeing this alert?",
+      "text": "These observations are the basis for the available findings.",
+      "area": "findings",
+      "evidence": [
+        "finding-1"
+      ]
+    },
+    {
+      "id": "devices",
+      "question": "List devices",
+      "text": "Devices reported in the available inventory.",
+      "area": "devices",
+      "evidence": [
+        "device-1"
+      ]
+    },
+    {
+      "id": "new-device",
+      "question": "Who is new on my network?",
+      "text": "Devices flagged as new in the available inventory.",
+      "area": "devices",
+      "evidence": [
+        "device-1"
+      ]
+    },
+    {
+      "id": "known-device",
+      "question": "Is this device known?",
+      "text": "Matching device records and their review state.",
+      "area": "devices",
+      "evidence": [
+        "device-1"
+      ]
+    },
+    {
+      "id": "trust",
+      "question": "Mark a device trusted",
+      "text": "Open the device record and review it there. NORTH Assistant cannot change trust.",
+      "area": "devices",
+      "evidence": [
+        "device-1"
+      ]
+    },
+    {
+      "id": "outbound",
+      "question": "What connected to the internet?",
+      "text": "Recorded outbound connections in the available snapshot.",
+      "area": "connections",
+      "evidence": [
+        "connection-1"
+      ]
+    },
+    {
+      "id": "domain",
+      "question": "Which app talked to a domain?",
+      "text": "Recorded events matching the requested domain or application.",
+      "area": "events",
+      "evidence": [
+        "event-1"
+      ]
+    },
+    {
+      "id": "country",
+      "question": "Which app talked to a country?",
+      "text": "Recorded application events joined to an approximate destination country by exact IP address.",
+      "area": "events",
+      "evidence": [
+        "event-1"
+      ]
+    },
+    {
+      "id": "changed",
+      "question": "What changed since yesterday?",
+      "text": "Recent recorded events within the requested period.",
+      "area": "events",
+      "evidence": [
+        "event-1"
+      ]
+    },
+    {
+      "id": "visibility",
+      "question": "What can NORTH see?",
+      "text": "Visibility reported by the local collector and rule catalog.",
+      "area": "coverage",
+      "evidence": [
+        "rule-1"
+      ]
+    },
+    {
+      "id": "blind",
+      "question": "What is NORTH blind to?",
+      "text": "Coverage gaps reported by the local rule catalog.",
+      "area": "coverage",
+      "evidence": [
+        "rule-1"
+      ]
+    },
+    {
+      "id": "fix",
+      "question": "How do I fix a coverage gap?",
+      "text": "Review the saved remediation guidance. No settings have been changed.",
+      "area": "coverage",
+      "evidence": [
+        "rule-1"
+      ]
+    },
+    {
+      "id": "sysmon",
+      "question": "Is Sysmon installed?",
+      "text": "Sysmon requirements and their recorded state.",
+      "area": "coverage",
+      "evidence": [
+        "rule-1"
+      ]
+    },
+    {
+      "id": "empty",
+      "question": "Why is this screen empty?",
+      "text": "An empty view can mean collection has not started, a source cannot be read, or no matching events were recorded. Check source status and clear filters to distinguish them.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "process-events",
+      "question": "Show events for a process",
+      "text": "Recorded events matching the specified process.",
+      "area": "events",
+      "evidence": [
+        "event-1"
+      ]
+    },
+    {
+      "id": "host-events",
+      "question": "Show events for a host",
+      "text": "Recorded events matching the specified host.",
+      "area": "events",
+      "evidence": [
+        "event-1"
+      ]
+    },
+    {
+      "id": "technique",
+      "question": "What is this ATT&CK technique?",
+      "text": "Matching techniques from bundled rule metadata.",
+      "area": "coverage",
+      "evidence": [
+        "rule-1"
+      ]
+    },
+    {
+      "id": "report",
+      "question": "How do I export a report?",
+      "text": "Open an investigation in ECHO and choose Export report.",
+      "area": "cases",
+      "evidence": [
+        "case-1"
+      ]
+    },
+    {
+      "id": "capture",
+      "question": "How do I capture traffic?",
+      "text": "Open ATLAS, choose Packet traces, and select an authorized adapter or open a saved capture. Begin capture from that screen.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "privacy",
+      "question": "What leaves my PC?",
+      "text": "This assistant reads snapshots already available in NORTH. It sends no requests. Other NORTH features can sync observations when a cloud collector is configured.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "help",
+      "question": "What can NORTH Assistant do?",
+      "text": "Choose a question below or include a recorded device, app, host, address, or time range.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "glossary-process",
+      "question": "What is a process?",
+      "text": "A process is a running instance of a program. A parent process can start another process.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "glossary-dns",
+      "question": "What is DNS?",
+      "text": "DNS maps names to network records such as IP addresses. A DNS query alone does not show that a connection succeeded.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "glossary-mac",
+      "question": "What is a MAC address?",
+      "text": "A MAC address identifies a network interface on a local link. Devices can use randomized addresses.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "glossary-sysmon",
+      "question": "What is Sysmon?",
+      "text": "Sysmon is a Windows monitoring service that writes selected system activity to a Windows event log.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "glossary-attack",
+      "question": "What is ATT&CK?",
+      "text": "MITRE ATT&CK describes observed adversary tactics and techniques. A rule mapping indicates what a signal can help investigate.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "glossary-ip",
+      "question": "What is an IP address?",
+      "text": "An IP address identifies a network endpoint. It does not by itself establish the owner or physical location.",
+      "area": null,
+      "evidence": []
+    },
+    {
+      "id": "investigations",
+      "question": "List investigations",
+      "text": "Investigations loaded in ECHO.",
+      "area": "cases",
+      "evidence": [
+        "case-1"
+      ]
+    }
+  ]
+}

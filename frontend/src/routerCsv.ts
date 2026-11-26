@@ -1,4 +1,4 @@
-import { clientMessages } from './messages';
+import { clientMessages } from './messages.ts';
 const aliases = {
   address: ['ip', 'ipaddress', 'ipv4', 'ipv4address', 'address'],
   mac: ['mac', 'macaddress', 'lladdr', 'hardwareaddress'],

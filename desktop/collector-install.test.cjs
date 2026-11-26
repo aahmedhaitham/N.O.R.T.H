@@ -40,6 +40,9 @@ test('guided collector setup keeps the key off command lines and scopes local st
     }), origin);
   }
   assert.equal((await invoke('setup', trusted, { source, token: 'invalid' })).status, 422);
+  for (const invalidSource of [source + ' extra', source + ';', source + '\n', '../' + source]) {
+    assert.equal((await invoke('setup', trusted, { source: invalidSource, token })).status, 422);
+  }
   assert.equal((await invoke('setup', trusted, { source, token })).status, 204);
   assert.deepEqual(actions, []);
   allowed = true;

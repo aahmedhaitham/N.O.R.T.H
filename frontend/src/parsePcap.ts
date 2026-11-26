@@ -1,5 +1,4 @@
-import { feedbackMessages } from './messages';
-import { clientMessages } from './messages';
+import { feedbackMessages, clientMessages } from './messages.ts';
 export const maxTraceBytes = 8 * 1024 * 1024;
 const maxPackets = 5000;
 

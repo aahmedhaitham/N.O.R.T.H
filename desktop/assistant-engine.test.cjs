@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { answer, intents, matchIntent } = require('../frontend/src/assistantEngine.ts');
+const golden = require('./assistant-golden.json');
 
 const now = Date.parse('2026-01-15T12:00:00Z');
 const rows = {
@@ -66,6 +67,16 @@ test('answers preserve bounded evidence as text and never call fetch', (t) => {
   assert.equal(result.rows[0].label, label);
   assert.equal(snapshot.devices.length, 240);
   assert.equal(network.mock.callCount(), 0);
+});
+
+test('every intent preserves its approved answer text and evidence IDs on the fixed snapshot', () => {
+  assert.deepEqual(golden.cases.map(({ id }) => id).sort(), intents.map(({ id }) => id).sort());
+  for (const { id, question, text, area, evidence } of golden.cases) {
+    const result = answer(question, golden.snapshot, undefined, Date.parse(golden.now));
+    assert.equal(result.text, text, id);
+    assert.equal(result.area ?? null, area, id);
+    assert.deepEqual(result.rows.map((row) => row.id), evidence, id);
+  }
 });
 
 test('deterministic malformed question corpus always returns bounded results', () => {

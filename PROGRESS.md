@@ -21,7 +21,12 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
-### Local-first product brief · Phase 7 quality checks in progress
+### Local-first product brief · Phase 7 quality checks
+
+- Added fixed-snapshot answer and citation checks for all 34 Assistant intents, Hypothesis tests for rule parsing, fast-check tests for the Assistant and import parsers, and collector argument validation cases. Verified 112 backend tests plus 2 subtests, 27 desktop tests, 3 cloud tests, and the desktop UI build.
+- Added Windows syntax and type checks, a redacted history scan, CodeQL configuration for enabled repositories, and Dependabot. The installed walkthrough now runs selected axe checks, checks reduced-motion signaling, and measures startup and main-process working set. GitHub runner results for these additions remain pending.
+- The reproducible synthetic benchmark measured 9,651.7 SQLite ingests/sec and a 793.08 ms median rare-match search on 500,000 events. See `docs/PERFORMANCE.md` for hardware, sample sizes, and the other measured results.
+- Read-only tools export and render findings from an existing isolated recording. Their synthetic walkthrough passed. `docs/COVERAGE.md` keeps live coverage marked **not yet run**.
 
 - Assistant tests route more than 150 distinct phrasings, including typos and unknown requests. Tests cover bounded non-mutating responses, exact evidence IDs, malformed input, and zero requests through fetch during answer generation.
 - Rules now have an exact threshold-window boundary test and seeded malformed YAML tests. The installed Windows walkthrough now checks the Assistant keyboard shortcut and confirms synthetic markup renders as text.
