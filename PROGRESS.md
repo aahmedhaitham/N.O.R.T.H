@@ -24,7 +24,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 ### Windows v1 release verification
 
 - Staging deployment bundle passed Wrangler's dry run with both collector downloads. Live deployment could not authenticate from this session.
-- The standalone Windows collector executable built and passed its self-test. Guided setup and collector upgrade checks passed with simulated Windows task operations. The installed app and live first sync are pending.
+- The standalone Windows collector passed its self-test in the packaged Electron app. Guided setup and upgrades passed simulated Windows task checks. The local NSIS compiler failed to launch, and the unpacked Electron app exited before opening its dashboard. Installer and live first-sync checks remain pending on a release runner.
 - Npcap listed a loopback adapter but denied live capture under its administrator-only configuration. Synthetic loopback and Ethernet VLAN traces passed parsing.
 - The Linux collector ZIP and simulated journal checks passed. A live Linux collector run remains pending.
 - Trusted Windows signing and public publishing remain pending. The public releases repository currently exposes a prerelease, and the credentials needed for a new upload were unavailable to this session.
