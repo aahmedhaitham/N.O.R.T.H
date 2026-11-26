@@ -27,6 +27,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 - The standalone Windows collector passed its self-test in the packaged Electron app. Guided setup and upgrades passed simulated Windows task checks. The local NSIS compiler failed to launch, and the unpacked Electron app exited before opening its dashboard. Installer and live first-sync checks remain pending on a release runner.
 - Npcap listed a loopback adapter but denied live capture under its administrator-only configuration. Synthetic loopback and Ethernet VLAN traces passed parsing.
 - The Linux collector ZIP and simulated journal checks passed. A live Linux collector run remains pending.
+- GitHub verification now builds and starts the Linux download on Ubuntu and checks its first authenticated snapshot against a temporary HTTPS receiver. Windows packaging and installer checks are queued automatically when relevant changes reach main. The first runs of these updated workflows are pending.
 - Trusted Windows signing and public publishing remain pending. The public releases repository currently exposes a prerelease, and the credentials needed for a new upload were unavailable to this session.
 
 ### ATLAS network monitoring roadmap

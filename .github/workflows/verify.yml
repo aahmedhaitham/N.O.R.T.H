@@ -65,6 +65,23 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
+  linux-collector:
+    name: Linux collector first sync
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build and run the downloadable collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          pwsh -NoProfile -File tools/Build-NorthCollectorZip.ps1 -Platform Linux -OutputPath "$RUNNER_TEMP/north-linux.zip"
+          unzip -q "$RUNNER_TEMP/north-linux.zip" -d "$RUNNER_TEMP/north-linux"
+          python tools/smoke_linux_collector.py "$RUNNER_TEMP/north-linux"
+
   hosted-demo:
     name: Public demo image
     runs-on: ubuntu-24.04
