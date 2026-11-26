@@ -49,6 +49,8 @@ test('desktop findings use only the private local database and launch one window
   const feed = await json('findings');
   assert.equal(feed.monitor, 'running');
   assert.deepEqual(feed.findings, [{ id, evidence_ids: [id], status: 'new' }]);
+  assert.deepEqual((await json('findings?offset=1')).findings, []);
+  assert.equal(feed.has_more, false);
   assert.deepEqual(await json('evidence/' + id), { id, host: 'TEST', source: 'neighbor', addresses: ['192.0.2.1'] });
   assert.equal((await call('evidence/invalid')).status, 404);
   const review = (status, origin = 'north://app') => ({

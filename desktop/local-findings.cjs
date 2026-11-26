@@ -1,4 +1,4 @@
-const { spawn } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const { existsSync } = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
@@ -10,6 +10,32 @@ function makeLocalFindings({ root, data, launch = spawn, supported = process.pla
   const python = path.join(backend, '.venv', 'Scripts', 'python.exe');
   let child;
   let failed = false;
+  let listing;
+
+  function runtime(argument) {
+    if (!supported) return null;
+    if (existsSync(packaged)) return [packaged, [argument]];
+    if (existsSync(python)) return [python, [path.join(backend, 'run_collector.py'), argument]];
+    return null;
+  }
+
+  const env = { ...process.env, NORTH_DB_PATH: dbPath, PYTHONNOUSERSITE: '1', PYTHONPATH: '' };
+
+  function ruleRequest(command) {
+    const target = runtime('--rule-workspace');
+    if (!target) return Promise.reject(new Error('Collector unavailable'));
+    return new Promise((resolve, reject) => {
+      const [file, args] = target;
+      const worker = execFile(file, args, {
+        env, cwd: backend, windowsHide: true, timeout: 20_000, maxBuffer: 512_000,
+      }, (error, stdout) => {
+        if (error) return reject(error);
+        try { resolve(JSON.parse(stdout)); } catch (invalid) { reject(invalid); }
+      });
+      worker.stdin.on('error', reject);
+      worker.stdin.end(command);
+    });
+  }
 
   function stop() {
     const worker = child;
@@ -19,12 +45,12 @@ function makeLocalFindings({ root, data, launch = spawn, supported = process.pla
 
   function start() {
     if (child) return true;
-    const built = existsSync(packaged);
-    if (!supported || (!built && !existsSync(python))) return false;
-    const args = built ? ['--local-monitor'] : [path.join(backend, 'run_collector.py'), '--local-monitor'];
+    const target = runtime('--local-monitor');
+    if (!target) return false;
+    const [file, args] = target;
     try {
-      const worker = launch(built ? packaged : python, args, {
-        env: { ...process.env, NORTH_DB_PATH: dbPath, PYTHONNOUSERSITE: '1', PYTHONPATH: '' },
+      const worker = launch(file, args, {
+        env,
         cwd: backend, windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'],
       });
       failed = false;
@@ -51,7 +77,31 @@ function makeLocalFindings({ root, data, launch = spawn, supported = process.pla
   }
 
   async function handle(request) {
-    const { pathname } = new URL(request.url);
+    const { pathname, searchParams } = new URL(request.url);
+    if (pathname === '/api/local/rules') {
+      try {
+        let result;
+        if (request.method === 'GET') {
+          if (!listing) {
+            const pending = ruleRequest('{}').finally(() => { if (listing === pending) listing = undefined; });
+            listing = pending;
+          }
+          result = await listing;
+        } else if (request.method === 'POST') {
+          if (request.headers.get('origin') !== 'north://app') return new Response(null, { status: 403 });
+          if (request.headers.get('content-type') !== 'application/json') return new Response(null, { status: 415 });
+          const body = await request.text();
+          if (Buffer.byteLength(body) > 200_000) return new Response(null, { status: 413 });
+          result = await ruleRequest(body);
+          listing = undefined;
+        } else {
+          return new Response(null, { status: 405 });
+        }
+        return Response.json(result, { status: result.detail ? 422 : 200 });
+      } catch {
+        return Response.json({ detail: 'The local rule engine is unavailable.' }, { status: 503 });
+      }
+    }
     if (pathname === '/api/local/findings/monitor' && request.method === 'POST') {
       if (request.headers.get('origin') !== 'north://app') return new Response(null, { status: 403 });
       return Response.json({ running: start() });
@@ -82,11 +132,14 @@ function makeLocalFindings({ root, data, launch = spawn, supported = process.pla
     if (request.method !== 'GET') return new Response(null, { status: 405 });
     try {
       if (pathname === '/api/local/findings') {
+        const offset = Number(searchParams.get('offset') ?? 0);
+        if (!Number.isSafeInteger(offset) || offset < 0) return new Response(null, { status: 422 });
         const findings = accessStore((db) => db.prepare(`
           SELECT status, payload FROM local_detection_findings
-          ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, last_seen DESC, id DESC LIMIT 100
-        `).all().map(({ status, payload }) => ({ ...JSON.parse(payload), status })));
-        return Response.json({ findings: findings ?? [], monitor: child ? 'running' : failed ? 'failed' : 'stopped' });
+          ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, last_seen DESC, id DESC LIMIT 101 OFFSET ?
+        `).all(offset).map(({ status, payload }) => ({ ...JSON.parse(payload), status }))) ?? [];
+        return Response.json({ findings: findings.slice(0, 100), has_more: findings.length > 100,
+          monitor: child ? 'running' : failed ? 'failed' : 'stopped' });
       }
       const id = /^\/api\/local\/evidence\/([a-f0-9]{24})$/.exec(pathname)?.[1];
       if (id) {

@@ -6,6 +6,7 @@ import { TimeDisplay } from './TimeDisplay';
 import { investigationSeverity } from './investigationSeverity';
 import { OverviewCharts, type ChartSelection } from './OverviewCharts';
 import { LocalFindings } from './LocalFindings';
+import { LocalCoverage } from './Detections';
 
 type CaseSummary = {
   id: string; title: string; host: string; evidence: { id: string; timestamp: string; kind: number }[];
@@ -15,7 +16,7 @@ type Section = 'cases' | 'network' | 'events';
 
 const collectorStatus = { starting: 'Connecting', ready: 'Collecting', unavailable: 'Needs attention', disabled: 'Disabled' };
 
-export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings, open, openCase, openAtlas, connect, fleet, source, manageCollectors, openChart }: {
+export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings, open, openCase, openAtlas, connect, fleet, source, manageCollectors, openChart, openDetections }: {
   endpoint: string;
   cases: CaseSummary[];
   loaded: boolean;
@@ -30,6 +31,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings,
   source?: string | null;
   manageCollectors?: () => void;
   openChart: (selection: ChartSelection) => void;
+  openDetections: () => void;
 }) {
   const { inventory, fetchError } = useNetworkInventory(endpoint);
   const newDevices = inventory?.device_findings?.unreviewed ?? 0;
@@ -97,6 +99,7 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings,
     </MotionCard>
     <MotionCard index={2} label="What NORTH can see">
       <header className="overview-heading"><Server size={18} /><h2>What NORTH can see</h2></header>
+      {localFindings && <LocalCoverage open={openDetections} />}
       {connect && <button className="primary-action" onClick={connect}>Set up first collector</button>}
       {!observedSources.length && !connect && <p className="reference">{inventory ? 'This feed has no collector health details.' : 'Waiting for source health.'}</p>}
       {observedSources.map(({ label, status, Icon, target }) => status && <div className="overview-source-row" key={label}>

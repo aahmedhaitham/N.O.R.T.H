@@ -24,7 +24,8 @@ from device_watch import demo_findings, findings, mark_reviewed
 from cloud_sync import sync_loop
 from local_access import LocalAccess
 from event_contract import event_contract
-from detection_rules import bundled_rules, evaluate_rules, recent_detection_events, run_detection_monitor, scan_local_findings
+from detection_rules import (RuleError, active_rules, bundled_rules, evaluate_rules, recent_detection_events,
+                             rule_workspace, run_detection_monitor, scan_local_findings)
 from windows_sources import WindowsSources
 
 
@@ -144,9 +145,20 @@ def make_app(store=None):
 
         @app.get("/api/local/detections")
         def local_detections(limit: int = Query(100, ge=1, le=100)):
-            return evaluate_rules(bundled_rules(), recent_detection_events(store, limit))
+            return evaluate_rules(active_rules(store) if not store.url else bundled_rules(), recent_detection_events(store, limit))
 
         if not store.url:
+            @app.get("/api/local/rules")
+            def get_local_rules():
+                return rule_workspace(store)
+
+            @app.post("/api/local/rules")
+            def manage_local_rules(command: dict):
+                try:
+                    return rule_workspace(store, command)
+                except RuleError as error:
+                    raise HTTPException(422, str(error)) from error
+
             @app.get("/api/local/tcp-history")
             def local_tcp_history():
                 return {"snapshots": store.tcp_snapshots()}
@@ -156,8 +168,9 @@ def make_app(store=None):
                 return scan_local_findings(store, limit)
 
             @app.get("/api/local/findings")
-            def local_findings(limit: int = Query(100, ge=1, le=100)):
-                return {"findings": store.detection_findings(limit)}
+            def local_findings(limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0, le=2**53-1)):
+                rows = store.detection_findings(limit, offset=offset, lookahead=True)
+                return {"findings": rows[:limit], "has_more": len(rows) > limit}
 
             @app.get("/api/local/baselines")
             def local_baselines():

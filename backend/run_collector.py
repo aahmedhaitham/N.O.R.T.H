@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 from starlette.concurrency import run_in_threadpool
 
 from cloud_sync import collector_source, snapshot_target, sync_loop
-from detection_rules import bundled_rules, run_detection_monitor, scan_local_findings
+from detection_rules import RuleError, bundled_rules, rule_workspace, run_detection_monitor, scan_local_findings
 from adapter_traffic import AdapterTraffic
 from internet_health import InternetHealth
 from journal_monitor import JournalMonitor
@@ -107,6 +107,17 @@ async def main():
         await self_test()
     elif sys.argv[1:] == ["--local-monitor"] and sys.platform == "win32":
         await collect_local()
+    elif sys.argv[1:] == ["--rule-workspace"]:
+        try:
+            body = sys.stdin.buffer.read(200_001)
+            if len(body) > 200_000:
+                raise RuleError("Rule request is too large")
+            command = json.loads(body)
+            store = Store(path=os.environ["NORTH_DB_PATH"])
+            await run_in_threadpool(store.initialize)
+            print(json.dumps(await run_in_threadpool(rule_workspace, store, command)))
+        except (RuleError, json.JSONDecodeError, UnicodeDecodeError) as error:
+            print(json.dumps({"detail": str(error)}))
     elif sys.argv[1:] == ["--evaluate-findings"]:
         store = configured_store()
         if store.url:
@@ -116,7 +127,7 @@ async def main():
     elif not sys.argv[1:]:
         await collect()
     else:
-        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings | --local-monitor (Windows)]")
+        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings | --local-monitor (Windows) | --rule-workspace]")
 
 
 if __name__ == "__main__":

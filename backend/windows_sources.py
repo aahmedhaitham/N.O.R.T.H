@@ -165,6 +165,10 @@ class WindowsSources:
             self.current[source] = {**previous, "state": state,
                                     "last_collected_at": datetime.now(timezone.utc).isoformat() if count
                                     else previous["last_collected_at"]}
+            try:
+                await run_in_threadpool(self.store.save_source_health, source, state, datetime.now(timezone.utc).isoformat())
+            except sqlite3.Error:
+                pass
             await asyncio.sleep(60 if source == "tcp" else 2 if count == 100 else 30)
 
     async def run(self):

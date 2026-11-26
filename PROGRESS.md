@@ -21,10 +21,12 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ## Implementation order
 
-### Local-first product brief · Phase 3 finding review
+### Local-first product brief · Phase 3 visibility, findings and detections
 
-- Overview's **Needs attention** now lists local unreviewed findings with severity, status, ATT&CK techniques, and links to their evidence. Mark a finding reviewed or benign to move it into recent history, or reopen it. The desktop writes review status to its private database. The view shows up to 100 findings with unreviewed items first.
-- All 16 desktop tests and the desktop UI build passed. The review test covers persistence across reopening the store, reopening a finding, and rejecting invalid or cross-origin requests. Installed app verification remains open.
+- Overview's **Needs attention** lists local unreviewed findings with severity, status, ATT&CK techniques, and their evidence. Mark a finding reviewed or benign to move it into recent history, or reopen it. History and review state stay in the private database. The list shows unreviewed findings first and supports paging.
+- **What NORTH can see** summarizes ATT&CK coverage. The local **Detections** page adds a filterable coverage matrix, source checks with remediation guidance, persistent rule toggles, previews against the latest 100 stored events, and bounded custom YAML imports. Imported rules start disabled. Previewing a rule does not create findings.
+- **ECHO** shows observed process GUID relationships beside the evidence timeline. Selecting a process opens its source event. Missing or inconsistent parents are labeled, and large trees render in batches of 50 with a 500-process cap per case.
+- Verified with 109 backend tests and 2 subtests, 17 desktop tests, 3 cloud tests, the desktop UI build, and a Windows source collector smoke check for listing rules and persisting a toggle. Coverage depends on collector access and observations. The installed Windows build and live privileged sources remain unverified.
 
 ### Local-first product brief · Phase 2 engine and rules
 

@@ -6,14 +6,14 @@ type Finding = {
   id: string; title: string; severity: string; last_seen: string; status: FindingStatus; attack?: string[];
   plain_summary: string; what_to_do: string; evidence_ids: string[];
 };
-type Feed = { findings: Finding[]; monitor?: 'running' | 'stopped' | 'failed' };
+type Feed = { findings: Finding[]; has_more?: boolean; monitor?: 'running' | 'stopped' | 'failed' };
 type Evidence = {
   host: string; timestamp?: string; ts?: string; source?: string;
   process?: string | { path?: string }; destination?: string; target?: string;
   addresses?: string[]; listener?: { address?: string; port?: string };
 };
 
-function FindingEvidence({ id }: { id: string }) {
+export function FindingEvidence({ id }: { id: string }) {
   const [evidence, setEvidence] = useState<Evidence>();
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -92,6 +92,7 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
   const [unavailable, setUnavailable] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(false);
+  const [page, setPage] = useState(0);
   const revision = useRef(0);
 
   useEffect(() => {
@@ -100,7 +101,8 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
     async function refresh() {
       const requested = revision.current;
       try {
-        const response = await fetch('/api/local/findings', { signal: controller.signal, cache: 'no-store' });
+        const response = await fetch('/api/local/findings?offset=' + page * 100,
+          { signal: controller.signal, cache: 'no-store' });
         if (!response.ok) throw new Error();
         const result = await response.json() as Feed;
         if (!Array.isArray(result.findings)) throw new Error();
@@ -116,7 +118,7 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
     }
     void refresh();
     return () => { controller.abort(); clearTimeout(next); };
-  }, []);
+  }, [page]);
 
   async function start() {
     setStarting(true);
@@ -125,7 +127,7 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
       const response = await fetch('/api/local/findings/monitor', { method: 'POST' });
       if (!response.ok || !(await response.json()).running) throw new Error();
       revision.current++;
-      setFeed((previous) => ({ findings: previous?.findings ?? [], monitor: 'running' }));
+      setFeed((previous) => ({ ...previous, findings: previous?.findings ?? [], monitor: 'running' }));
     } catch {
       setStartError(true);
     } finally {
@@ -143,6 +145,11 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
   const findings = feed?.findings ?? [];
   const unreviewed = findings.filter((finding) => finding.status === 'new');
   const reviewed = findings.filter((finding) => finding.status !== 'new');
+  function goToPage(next: number) {
+    revision.current++;
+    setFeed(undefined);
+    setPage(next);
+  }
   return <section aria-labelledby="local-findings-title">
     <h3 id="local-findings-title">Local findings</h3>
     {desktop && feed?.monitor === 'running' && <p className="reference">Monitoring this computer</p>}
@@ -161,5 +168,9 @@ export function LocalFindings({ desktop }: { desktop: boolean }) {
       <summary>Recent reviewed findings ({reviewed.length})</summary>
       {reviewed.map((finding) => <FindingRow key={finding.id} finding={finding} onReviewed={onReviewed} />)}
     </details>}
+    {(page > 0 || feed?.has_more) && <div className="finding-actions">
+      <button type="button" disabled={page === 0} onClick={() => goToPage(page - 1)}>Previous findings</button>
+      <button type="button" disabled={!feed?.has_more} onClick={() => goToPage(page + 1)}>More findings</button>
+    </div>}
   </section>;
 }

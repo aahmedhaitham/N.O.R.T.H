@@ -12,6 +12,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from ipaddress import ip_address
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from yaml.events import AliasEvent, MappingStartEvent, SequenceStartEvent, CollectionEndEvent
 from north import events_in_window, threshold_groups
 from event_contract import event_contract
+from windows_sources import FIXES
 
 
 FIELDS = {
@@ -344,9 +346,112 @@ def parse_catalog(text):
     return rules
 
 
+@lru_cache(maxsize=1)
 def bundled_rules():
     executable = sys.executable if getattr(sys, "frozen", False) else __file__
     return parse_catalog(Path(executable).with_name("rules.yaml").read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=16)
+def custom_rules(text):
+    return parse_catalog(text)
+
+
+def configured_rules(db):
+    custom = tuple(rule for (text,) in db.execute("SELECT yaml FROM local_custom_rules ORDER BY digest")
+                   for rule in custom_rules(text))
+    disabled = {identity for (identity,) in db.execute("SELECT id FROM local_rule_disabled")}
+    return bundled_rules() + custom, disabled
+
+
+def active_rules(store):
+    with store.connect() as db:
+        rules, disabled = configured_rules(db)
+    return tuple(rule for rule in rules if rule.id not in disabled)
+
+
+def rule_workspace(store, command=None, *, now=None):
+    """Manage local rules and report coverage supported by observed event types."""
+    now = now or datetime.now(timezone.utc)
+    command = {} if command is None else command
+    action = command.get("action") if isinstance(command, dict) else None
+    if action not in (None, "import", "toggle", "test") or (action is None and command != {}):
+        raise RuleError("Unknown rule action")
+    with store.connect() as db:
+        if action in ("import", "toggle"):
+            db.execute("BEGIN IMMEDIATE")
+        rules, disabled = configured_rules(db)
+        known = {rule.id: rule for rule in rules}
+        if action == "import":
+            source = command.get("yaml")
+            if not isinstance(source, str) or len(source) > 32_000:
+                raise RuleError("Use a YAML catalog of up to 32,000 characters")
+            imported = custom_rules(source)
+            if len(rules) - len(bundled_rules()) + len(imported) > 16:
+                raise RuleError("The local catalog supports up to 16 custom rules")
+            if any(rule.id in known for rule in imported):
+                raise RuleError("A rule ID already exists")
+            for rule in imported:
+                if not rule.requires or any(not re.fullmatch(r"(sysmon|security|system|powershell|defender|journalctl):[0-9]{1,6}", need)
+                                            for need in rule.requires):
+                    raise RuleError("Use supported source:event-id requirements")
+            db.execute("INSERT INTO local_custom_rules VALUES (?, ?)", (hashlib.sha256(source.encode()).hexdigest(), source))
+            db.executemany("INSERT INTO local_rule_disabled VALUES (?)", [(rule.id,) for rule in imported])
+            return {"imported": len(imported)}
+        if action in ("toggle", "test"):
+            identity = command.get("id")
+            if not isinstance(identity, str) or identity not in known:
+                raise RuleError("Rule not found")
+            if action == "toggle":
+                enabled = command.get("enabled")
+                if type(enabled) is not bool:
+                    raise RuleError("Choose whether to enable the rule")
+                if enabled:
+                    db.execute("DELETE FROM local_rule_disabled WHERE id = ?", (identity,))
+                else:
+                    db.execute("INSERT OR IGNORE INTO local_rule_disabled VALUES (?)", (identity,))
+                return {"enabled": enabled}
+        health = {name: state for name, state, checked_at in db.execute("SELECT * FROM local_source_health")
+                  if now - datetime.fromisoformat(checked_at) <= timedelta(minutes=2)}
+        observed = {f"{source}:{kind}" for source, kind in
+                    db.execute("SELECT source, kind FROM local_observed_event_types")}
+    if action == "test":
+        events = recent_detection_events(store, 100)
+        result = evaluate_rules([known[identity]], events)
+        return {**result, "evaluated_events": len(events)}
+
+    def requirement(value):
+        source, _, _ = value.partition(":")
+        state = health.get(source, "unknown")
+        if state == "access_denied":
+            detail = "Can’t determine (needs admin)"
+        elif state in ("collecting", "no_data"):
+            detail = "Observed" if value in observed else "Event type unconfirmed"
+        else:
+            detail = {"not_installed": "Source not installed", "misconfigured": "Source misconfigured",
+                      "read_failed": "Source read failed", "unknown": "No recent source check"}.get(state, "Source unavailable")
+        return {"id": value, "state": detail, "fix": FIXES.get(source, "Check whether the collector can read OpenSSH journal events.")}
+
+    techniques = defaultdict(int)
+    entries = []
+    for rule in rules:
+        requirements = [requirement(value) for value in rule.requires]
+        enabled = rule.id not in disabled
+        confirmed = sum(need["state"] == "Observed" for need in requirements)
+        coverage = 0
+        if enabled:
+            if requirements and confirmed == len(requirements):
+                coverage = 2
+            elif confirmed or any(need["state"] in ("Can’t determine (needs admin)", "Event type unconfirmed")
+                                  for need in requirements):
+                coverage = 1
+        for tag in filter(TECHNIQUE.fullmatch, rule.tags):
+            techniques[tag] = max(techniques[tag], coverage)
+        entries.append({"id": rule.id, "title": rule.title, "severity": rule.severity, "enabled": enabled,
+                        "attack": rule.tags, "coverage": ("blind", "partly", "covered")[coverage],
+                        "requires": requirements})
+    return {"rules": entries,
+            "techniques": {tag: ("blind", "partly", "covered")[level] for tag, level in sorted(techniques.items())}}
 
 
 def evaluate_rules(rules, events):
@@ -396,7 +501,7 @@ def scan_local_findings(store, limit=100):
     if store.url:
         raise ValueError("Detection findings require the local SQLite store")
     events = recent_detection_events(store, limit)
-    result = evaluate_rules(bundled_rules(), events)
+    result = evaluate_rules(active_rules(store), events)
     matches = list(findings_from_matches(result["matches"], events))
     store.record_findings(matches)
     return {"matched_findings": len(matches), "evaluated_events": len(events),
@@ -491,13 +596,13 @@ def consume_detection_queue(store, rules, *, now=None, learning_hours=24):
 
 
 async def run_detection_monitor(store):
-    rules = bundled_rules()
     configured = os.getenv("NORTH_BASELINE_LEARNING_HOURS", "24")
     learning_hours = int(configured) if re.fullmatch(r"[0-9]{1,3}", configured) else 24
     if not 1 <= learning_hours <= 720:
         learning_hours = 24
     while True:
         try:
+            rules = await run_in_threadpool(active_rules, store)
             consumed = await run_in_threadpool(consume_detection_queue, store, rules, learning_hours=learning_hours)
         except sqlite3.Error as error:
             logging.getLogger(__name__).warning("Local detection scan deferred: %s", type(error).__name__)

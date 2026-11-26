@@ -83,7 +83,7 @@ async function handleLocalRequest(request, api, origin) {
   if (url.pathname === '/api/desktop/remote-locations') return desktopLocations(request);
   if (url.pathname.startsWith('/api/desktop/capture/')) return packetCapture(request);
   if (url.pathname.startsWith('/api/desktop/collector/')) return collectorInstall(request, origin, api);
-  if (api === localWorkspace && (/^\/api\/local\/(findings|evidence)(\/|$)/).test(url.pathname)) {
+  if (api === localWorkspace && (/^\/api\/local\/(findings|evidence|rules)(\/|$)/).test(url.pathname)) {
     return localFindings.handle(request);
   }
   if (url.pathname.startsWith('/api/')) {

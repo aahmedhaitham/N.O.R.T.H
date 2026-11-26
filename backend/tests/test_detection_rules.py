@@ -9,7 +9,8 @@ from fastapi.testclient import TestClient
 from cloud_sync import build_snapshot
 
 from detection_rules import (
-    RuleError, bundled_rules, condition_predicate, consume_detection_queue, evaluate_rules, field_predicate, parse_catalog,
+    RuleError, active_rules, bundled_rules, condition_predicate, consume_detection_queue, evaluate_rules, field_predicate,
+    parse_catalog, rule_workspace,
 )
 from event_contract import event_contract
 from main import demo_alerts, make_app
@@ -37,6 +38,44 @@ def test_bundled_rule_matches_positive_but_not_negative(rule):
 
 def test_catalog_minimum():
     assert len(bundled_rules()) >= 40
+
+
+def test_configured_rules_cover_observed_sources_and_preview_without_creating_findings(tmp_path):
+    path = tmp_path / "rules.sqlite3"
+    store = Store(path=path)
+    store.initialize()
+    now = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+    rule_id = "windows-service-installed"
+
+    def entry(identity=rule_id):
+        return next(item for item in rule_workspace(store, now=now)["rules"] if item["id"] == identity)
+
+    assert entry()["coverage"] == "blind"
+    store.save_source_health("system", "access_denied", now.isoformat())
+    assert entry()["coverage"] == "partly"
+    assert "needs admin" in entry()["requires"][0]["state"]
+    store.save_source_health("system", "collecting", now.isoformat())
+    assert entry()["coverage"] == "partly"
+    event, = records("detections_positive.json", rule_id)[:1]
+    assert event["kind"] == 7045
+    store.ingest_local_windows([event])
+    assert entry()["coverage"] == "covered"
+    assert rule_workspace(store, now=now + timedelta(minutes=3))["techniques"]["attack.t1543.003"] == "blind"
+
+    example = (Path(__file__).parents[1] / "rules.yaml").read_text(encoding="utf-8").split("\n- id:", 1)[0]
+    with pytest.raises(RuleError, match="already exists"):
+        rule_workspace(store, {"action": "import", "yaml": example})
+    custom_id = "custom-service-observation"
+    assert rule_workspace(store, {"action": "import", "yaml": example.replace(rule_id, custom_id)}) == {"imported": 1}
+    assert not entry(custom_id)["enabled"]
+    assert rule_workspace(store, {"action": "toggle", "id": rule_id, "enabled": False}) == {"enabled": False}
+    store = Store(path=path)
+    assert not entry()["enabled"]
+    test = rule_workspace(store, {"action": "test", "id": rule_id})
+    assert test["matches"][0]["evidence_ids"] == (event["id"],)
+    assert store.detection_findings() == []
+    assert consume_detection_queue(store, active_rules(store)) == 1
+    assert store.detection_findings() == []
 
 
 def test_yaml_correlations_preserve_legacy_evidence_groups():
@@ -140,7 +179,7 @@ def test_persisted_findings_keep_reviews_and_link_stored_evidence(tmp_path, monk
     with TestClient(make_app(store), base_url="http://localhost") as client:
         assert client.post("/api/local/findings/evaluate").status_code == 401
         client.post("/api/local-session", headers={"X-North-Local-Session": "start"})
-        assert client.get("/api/local/findings").json() == {"findings": []}
+        assert client.get("/api/local/findings").json() == {"findings": [], "has_more": False}
         assert client.post("/api/local/findings/evaluate").json()["matched_findings"] >= 1
         finding = next(item for item in client.get("/api/local/findings").json()["findings"]
                        if item["rule_id"] == "windows-service-installed")

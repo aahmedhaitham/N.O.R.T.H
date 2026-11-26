@@ -9,6 +9,8 @@ import { Network, type AtlasTarget } from './Network';
 import { Events } from './Events';
 import { eventNames } from './eventNames';
 import { Dashboard } from './Dashboard';
+import { Detections } from './Detections';
+import { ProcessTree } from './ProcessTree';
 import { InstallApp } from './InstallApp';
 import { CloudGate, type CloudToolbar, type CollectorFleet, type WorkspacePanel } from './CloudGate';
 import { CaseReview } from './CaseReview';
@@ -17,13 +19,14 @@ import { PageMotion } from './InterfaceMotion';
 import type { ChartSelection } from './OverviewCharts';
 import { SelectControl } from './SelectControl';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { Activity, FolderSearch, LayoutDashboard, Network as NetworkIcon, Search } from 'lucide-react';
+import { Activity, FolderSearch, LayoutDashboard, Network as NetworkIcon, Search, ShieldCheck } from 'lucide-react';
 import { pollVisible } from './pollVisible';
 import { readWorkspacePreference, writeWorkspacePreference } from './workspaceSession';
 
 type Evidence = {
   id: string; timestamp: string; kind: number; process: string;
   target: string; destination: string; source_ip?: string; raw: unknown;
+  process_guid?: string; parent_guid?: string;
 };
 type Case = {
   id: string; title: string; host: string; asset_id: string; summary: string;
@@ -41,16 +44,19 @@ const desktopLocal = desktop && location.pathname === '/';
 const cloud = import.meta.env.MODE === 'cloud' && !desktopLocal;
 if (desktopLocal) document.title = 'NORTH | This computer';
 
-const navigation = [
+const allNavigation = [
   { id: 'dashboard', label: 'Overview', detail: 'Security dashboard' },
   { id: 'network', label: 'ATLAS', detail: 'Network inventory' },
   { id: 'events', label: 'IRIS', detail: 'Event explorer' },
   { id: 'cases', label: 'ECHO', detail: 'Investigations' },
+  { id: 'detections', label: 'Detections', detail: 'Rules and ATT&CK coverage' },
 ] as const;
 
-type View = (typeof navigation)[number]['id'];
+type View = (typeof allNavigation)[number]['id'];
+const navigation = allNavigation.filter(({ id }) => id !== 'detections' || (!cloud && !publicDemo));
 
-const navigationIcons = { dashboard: LayoutDashboard, network: NetworkIcon, events: Activity, cases: FolderSearch };
+const navigationIcons = { dashboard: LayoutDashboard, network: NetworkIcon, events: Activity, cases: FolderSearch,
+  detections: ShieldCheck };
 
 function NavigationIcon({ view }: { view: View }) {
   const Icon = navigationIcons[view];
@@ -301,10 +307,12 @@ function App({ source = null, openCollectors, controls, fleet, panel }: {
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} localFindings={!cloud && !publicDemo}
         open={setView} openCase={openCase}
+        openDetections={() => setView('detections')}
         fleet={fleet} source={source} manageCollectors={openCollectors}
         openAtlas={(target) => { setView('network'); setNetworkTarget(target); }}
         connect={cloud && !source ? openCollectors : undefined}
         openChart={(selection) => { setEventSearch(''); setChartSelection(selection); setView('events'); }} />}
+      {view === 'detections' && <Detections />}
       <div hidden={view !== 'network'}>
         <Network endpoint={view === 'network' ? networkEndpoint : ''} openCase={openCase} openEvents={openEvents}
           target={networkTarget} onTarget={setNetworkTarget} demo={publicDemo} readOnly={publicDemo || cloud}
@@ -513,6 +521,7 @@ function Investigation({ incident, sourceQuery, openEvents, visible }: {
         </ol>
       </section>
       <section className="panel echo-connections">
+        <ProcessTree evidence={incident.evidence} reveal={revealEvidence} />
         <h2>Observed connections</h2>
         {incident.links.length > 0 && <div className="graph">
           <ReactFlow key={destinations.join(',')} nodes={nodes} edges={edges}

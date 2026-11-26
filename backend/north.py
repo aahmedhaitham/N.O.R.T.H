@@ -163,6 +163,18 @@ class Store:
                         local_windows INTEGER NOT NULL
                     )
                     """)
+                db.execute("CREATE TABLE IF NOT EXISTS local_rule_disabled (id TEXT PRIMARY KEY)")
+                db.execute("CREATE TABLE IF NOT EXISTS local_custom_rules (digest TEXT PRIMARY KEY, yaml TEXT NOT NULL)")
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_source_health (
+                        source TEXT PRIMARY KEY, state TEXT NOT NULL, checked_at TEXT NOT NULL
+                    )
+                    """)
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_observed_event_types (
+                        source TEXT NOT NULL, kind INTEGER NOT NULL, PRIMARY KEY (source, kind)
+                    )
+                    """)
                 db.execute("""
                     CREATE TABLE IF NOT EXISTS local_baseline_scopes (
                         scope TEXT PRIMARY KEY, learning_until TEXT NOT NULL
@@ -318,7 +330,17 @@ class Store:
             if added and enqueue and not self.url:
                 db.execute("INSERT OR IGNORE INTO local_detection_queue (event_id, local_windows) VALUES (?, ?)",
                            (event["id"], int(local)))
+                if local and event.get("source"):
+                    db.execute("INSERT OR IGNORE INTO local_observed_event_types VALUES (?, ?)",
+                               (event["source"], event["kind"]))
         return inserted
+
+    def save_source_health(self, source, state, checked_at):
+        with self.connect() as db:
+            db.execute("""
+                INSERT INTO local_source_health VALUES (?, ?, ?)
+                ON CONFLICT (source) DO UPDATE SET state = excluded.state, checked_at = excluded.checked_at
+                """, (source, state, checked_at))
 
     def local_windows_events(self, *, limit=100):
         marker = "%s" if self.url else "?"
@@ -402,14 +424,14 @@ class Store:
             if changed.rowcount:
                 self._write_findings(db, [finding])
 
-    def detection_findings(self, limit=100):
+    def detection_findings(self, limit=100, *, offset=0, lookahead=False):
         if self.url:
             raise ValueError("Detection findings require the local SQLite store")
         with self.connect() as db:
             rows = db.execute(
                 """SELECT status, payload FROM local_detection_findings
-                   ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, last_seen DESC, id DESC LIMIT ?""",
-                (min(max(1, limit), 100),),
+                   ORDER BY CASE WHEN status = 'new' THEN 0 ELSE 1 END, last_seen DESC, id DESC LIMIT ? OFFSET ?""",
+                (min(max(1, limit), 100) + int(lookahead), offset),
             ).fetchall()
         return [{**json.loads(payload), "status": status} for status, payload in rows]
 
