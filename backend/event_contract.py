@@ -118,7 +118,7 @@ def event_contract(event):
             **({"local": {"ip": _text(fields.get("localAddress"), 64),
                            "port": _integer(fields.get("localPort"), 65535)}} if kind == 2001 else {}),
         },
-        "file": {"path": _text(event.get("target")) if kind == 11 else ""},
+        "file": {"path": _text(event.get("target") or fields.get("targetFilename")) if kind == 11 else ""},
         "registry": {"target": _text(fields.get("targetObject"))},
         "dns": {"query": _text(fields.get("queryName"), 253)},
         **({"neighbor": {"interface": _text(fields.get("interface"), 256),

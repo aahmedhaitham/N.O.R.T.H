@@ -510,3 +510,18 @@
   what_to_do: Compare the process and domain with expected software and corroborate suspicious patterns with other events.
   requires: ['sysmon:22']
   tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}
+
+- id: powershell-encoded-command
+  title: PowerShell started with an encoded command
+  tags: [attack.t1059.001]
+  severity: medium
+  logsource: {source: security}
+  detection:
+    shell: {EventID: 4688, ProcessName: [powershell.exe, pwsh.exe]}
+    argument: {'CommandLine|re': '(?:^|\s)-enc(?:odedcommand)?\s+"?[a-z0-9+/]{4,}={0,2}"?(?:\s|$)'}
+    condition: shell and argument
+  falsepositives: [Authorized automation may encode arguments to preserve quoting.]
+  plain_summary: Windows recorded PowerShell starting with an encoded-command argument.
+  what_to_do: Review the parent process and compare the command line with approved automation.
+  requires: ['security:4688']
+  tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}

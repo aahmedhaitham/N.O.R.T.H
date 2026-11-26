@@ -5,14 +5,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $definition = switch ($Source) {
-    'sysmon' { @{ Log = 'Microsoft-Windows-Sysmon/Operational'; Ids = @(1,3,7,8,10,13,22) } }
+    'sysmon' { @{ Log = 'Microsoft-Windows-Sysmon/Operational'; Ids = @(1,3,7,8,10,11,13,22) } }
     'security' { @{ Log = 'Security'; Ids = @(4624,4625,4688,4698) } }
     'system' { @{ Log = 'System'; Ids = @(7045) } }
     'powershell' { @{ Log = 'Microsoft-Windows-PowerShell/Operational'; Ids = @(4104) } }
     'defender' { @{ Log = 'Microsoft-Windows-Windows Defender/Operational'; Ids = @(1116,1117,1118,1119,5001,5007) } }
 }
 $allowedFields = @('Image','ImageLoaded','ProcessGuid','ProcessId','CommandLine','ParentProcessGuid',
-    'ParentImage','ParentCommandLine','User','TargetImage','TargetObject','QueryName','SourceImage',
+    'ParentImage','ParentCommandLine','User','TargetImage','TargetFilename','TargetObject','QueryName','SourceImage',
     'NewProcessName','NewProcessId','TargetUserName','TargetDomainName','TargetUserSid','IpAddress','IpPort',
     'TaskName','ServiceName','ImagePath','ScriptBlockId','Path','Threat Name','Detection ID',
     'Initiated','DestinationIp','DestinationPort','Protocol','LogonType')

@@ -122,3 +122,28 @@ def test_standalone_local_monitor_stops_at_parent_eof(tmp_path, monkeypatch):
     asyncio.run(asyncio.wait_for(run_collector.collect_local(), timeout=5))
     assert database.is_file()
     assert len(started) == 3
+
+def test_sysmon_file_creation_is_collected_and_counts_toward_rule_coverage(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+
+    from detection_rules import rule_workspace
+    from event_contract import event_contract
+
+    store = Store(path=tmp_path / "file-create.sqlite3")
+    store.initialize()
+    start = sample()
+    start.update(event_id=1, fields={"Image": r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"})
+    create = dict(start, event_id=11, record_id=42, fields={"TargetFilename": r"C:\Example\sample.ps1"})
+    batch = {"state": "collecting", "position": 42, "events": [start, create]}
+    monkeypatch.setattr("windows_sources.subprocess.run",
+                        lambda *_args, **_kwargs: SimpleNamespace(stdout=json.dumps(batch)))
+
+    assert collect_source(store, "sysmon") == ("collecting", 2)
+    event = next(event for event in store.local_windows_events() if event["kind"] == 11)
+    assert event_contract(event)["file"]["path"] == create["fields"]["TargetFilename"]
+
+    now = datetime(2026, 1, 15, 10, tzinfo=timezone.utc)
+    store.save_source_health("sysmon", "collecting", now.isoformat())
+    catalog = rule_workspace(store, now=now)
+    rule = next(row for row in catalog["rules"] if row["id"] == "powershell-script-write")
+    assert rule["coverage"] == "covered"

@@ -349,3 +349,11 @@ def test_first_seen_baselines_learn_then_alert_once_and_stay_local(tmp_path):
                    host="WIN-OTHER-SYNTHETIC")], 4)
     frequency_findings = [item for item in store.detection_findings() if item["rule_id"] == "rare-process-destination"]
     assert [item["evidence_ids"] for item in frequency_findings] == [[rare["id"]]]
+
+def test_encoded_powershell_fixture_cases_match_individually():
+    rule = next(rule for rule in bundled_rules() if rule.id == "powershell-encoded-command")
+    positive = records(rule.fixtures["positive"], rule.id)
+    negative = records(rule.fixtures["negative"], rule.id)
+    assert len(positive) == len(negative) == 3
+    assert all(rule.evidence([event_contract(event)]) for event in positive)
+    assert not any(rule.evidence([event_contract(event)]) for event in negative)

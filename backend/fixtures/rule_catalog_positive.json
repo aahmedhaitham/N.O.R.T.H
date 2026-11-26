@@ -441,5 +441,10 @@
         "QueryName": "example.invalid"
       }
     }
+  ],
+  "powershell-encoded-command": [
+    {"source": "security", "host": "WIN-SYNTHETIC", "event_id": 4688, "record_id": 901, "timestamp": "2026-01-15T10:00:00Z", "fields": {"NewProcessName": "C:/Example/powershell.exe", "CommandLine": "powershell.exe -EncodedCommand AAAA"}},
+    {"source": "security", "host": "WIN-SYNTHETIC", "event_id": 4688, "record_id": 902, "timestamp": "2026-01-15T10:00:00Z", "fields": {"NewProcessName": "C:/Example/pwsh.exe", "CommandLine": "pwsh.exe -enc \"BBBB==\""}},
+    {"source": "security", "host": "WIN-SYNTHETIC", "event_id": 4688, "record_id": 903, "timestamp": "2026-01-15T10:00:00Z", "fields": {"NewProcessName": "C:/Example/powershell.exe", "CommandLine": "powershell.exe -NoProfile -ENC CCCC"}}
   ]
 }

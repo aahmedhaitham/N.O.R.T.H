@@ -305,3 +305,16 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - The GitHub artifact archive SHA-256 matched. Test-NorthPreviewArtifacts.ps1 verified both executable hashes and the candidate commit. Authenticode reported NotSigned. Extracted resource scans were clear after tracing three raw archive matches to unchanged Zod dependency test fixtures.
 - Published the unsigned preview at https://github.com/aahmedhaitham/NORTH-Releases/releases/tag/v0.3.0-preview. GitHub asset digests matched the four uploaded files, and the release API returned all four without authentication.
 - Clean-VM disconnected first launch, upgrade and uninstall remain unverified. Live detection coverage remains not yet run.
+
+### Feature completion M1 — in progress
+
+- Audited all 41 existing bundled rules and recorded qualitative benign-firing estimates in docs/RULE-QUALITY-AUDIT.md. The audit identifies 19 standalone process-start rules and four broad rules. No rules or ATT&CK coverage were removed in this slice.
+- Enabled Sysmon file-create event 11 in the local Windows source and retained the target path. A synthetic collection test covers ingestion, normalization and PowerShell script-write source coverage.
+- Added a Security 4688 rule for encoded PowerShell with three positive and three negative synthetic cases, each evaluated independently. The PowerShell ATT&CK mapping was verified at https://attack.mitre.org/techniques/T1059/001/.
+- Verification: backend .venv/Scripts/python.exe -m pytest -q -o faulthandler_timeout=15 tests (122 passed, 2 subtests); npm.cmd --prefix desktop test (28 passed); node --test cloud/worker.test.mjs cloud/geoip.test.mjs (3 passed); npm.cmd --prefix desktop run build:ui (passed with a chunk-size warning).
+- Remaining M1 work: contextual replacements for standalone process starts, narrowing broad rules, additional detections and fixtures, severity/confidence/rarity display, rule trace, and replay-based noise estimates. M2 through M9 remain open.
+
+#### Needs manual verification
+
+- With Sysmon file creation enabled, confirm a previously recorded event 11 appears in the Windows local collector and that the PowerShell script-write coverage reflects the observed event types.
+- With previously recorded Security 4688 events containing command-line data, verify that the new rule and appropriate evidence appear in the desktop.
