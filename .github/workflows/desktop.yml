@@ -35,15 +35,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Standalone collector build failed.' }
           & ./backend/NORTH-Collector.exe --self-test
           if ($LASTEXITCODE -ne 0) { throw 'Standalone collector runtime check failed.' }
-      - name: Test the desktop client
-        working-directory: desktop
-        run: npm test
-      - name: Package Windows downloads
+      - name: Install frontend and desktop dependencies
         run: |
           npm --prefix frontend ci
           if ($LASTEXITCODE -ne 0) { throw 'Frontend dependencies could not install.' }
           npm --prefix desktop ci
           if ($LASTEXITCODE -ne 0) { throw 'Desktop dependencies could not install.' }
+      - name: Test the desktop client
+        working-directory: desktop
+        run: npm test
+      - name: Package Windows downloads
+        run: |
           npm --prefix desktop run package:windows
           if ($LASTEXITCODE -ne 0) { throw 'Portable package build failed.' }
           npm --prefix desktop run package:installer
