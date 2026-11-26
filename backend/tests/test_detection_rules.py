@@ -1,11 +1,15 @@
 import json
+import sqlite3
+import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from cloud_sync import build_snapshot
 
-from detection_rules import RuleError, bundled_rules, condition_predicate, evaluate_rules, field_predicate, parse_catalog
+from detection_rules import (
+    RuleError, bundled_rules, condition_predicate, consume_detection_queue, evaluate_rules, field_predicate, parse_catalog,
+)
 from event_contract import event_contract
 from main import demo_alerts, make_app
 from north import Store, build_cases, normalize
@@ -119,7 +123,8 @@ def test_loopback_detections_return_only_stored_evidence_ids(tmp_path):
         assert not result["timed_out_rule_ids"]
 
 
-def test_persisted_findings_keep_reviews_and_link_stored_evidence(tmp_path):
+def test_persisted_findings_keep_reviews_and_link_stored_evidence(tmp_path, monkeypatch):
+    monkeypatch.setenv("NORTH_AUTO_DETECTIONS", "0")
     path = tmp_path / "findings.sqlite3"
     store = Store(path=path)
     store.initialize()
@@ -146,3 +151,58 @@ def test_persisted_findings_keep_reviews_and_link_stored_evidence(tmp_path):
     snapshot, _, _ = build_snapshot(reopened, {}, {}, "https://north.example")
     assert finding["id"].encode() not in snapshot
     assert event["id"].encode() not in snapshot
+
+
+def test_detection_queue_survives_restart_and_uses_prior_context(tmp_path):
+    path = tmp_path / "queue.sqlite3"
+    store = Store(path=path)
+    store.initialize()
+    first, connection, write = demo_alerts()
+    store.ingest([first, connection], enqueue=False)
+    store.ingest([write, write])
+    store = Store(path=path)
+    rules = bundled_rules()
+    assert consume_detection_queue(store, rules) == 1
+    finding, = store.detection_findings()
+    assert finding["evidence_ids"] == [normalize(raw)["id"] for raw in (first, connection, write)]
+    store.set_finding_status(finding["id"], "reviewed")
+    assert store.ingest([write]) == 0
+    assert consume_detection_queue(store, rules) == 0
+    assert store.detection_findings()[0]["status"] == "reviewed"
+
+
+def test_detection_queue_ack_and_findings_share_a_transaction(tmp_path):
+    store = Store(path=tmp_path / "rollback.sqlite3")
+    store.initialize()
+    store.ingest_local_windows(records("detections_positive.json")[:1], checkpoint=("fixture", 1))
+    with store.connect() as db:
+        db.execute("""CREATE TRIGGER synthetic_failure BEFORE DELETE ON local_detection_queue
+                      BEGIN SELECT RAISE(ABORT, 'fixture'); END""")
+    with pytest.raises(sqlite3.IntegrityError):
+        consume_detection_queue(store, bundled_rules())
+    assert store.detection_findings() == []
+    assert len(store.pending_detections()) == 1
+    with store.connect() as db:
+        db.execute("DROP TRIGGER synthetic_failure")
+    assert consume_detection_queue(store, bundled_rules()) == 1
+    assert not store.pending_detections()
+    assert len(store.detection_findings()) == 1
+
+
+def test_local_service_consumes_queue_on_startup(tmp_path, monkeypatch):
+    monkeypatch.setenv("NORTH_AUTO_DETECTIONS", "1")
+    store = Store(path=tmp_path / "startup.sqlite3")
+    store.initialize()
+    event = records("detections_positive.json")[0]
+    store.ingest_local_windows([event], checkpoint=("fixture", 1))
+    with TestClient(make_app(store), base_url="http://localhost") as client:
+        client.post("/api/local-session", headers={"X-North-Local-Session": "start"})
+        deadline = time.monotonic() + 4
+        while time.monotonic() < deadline:
+            items = client.get("/api/local/findings").json()["findings"]
+            if items:
+                assert items[0]["evidence_ids"] == [event["id"]]
+                break
+            time.sleep(.05)
+        else:
+            pytest.fail("Background detection did not consume the startup queue")

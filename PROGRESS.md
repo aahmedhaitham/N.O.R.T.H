@@ -23,6 +23,10 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### Local-first product brief · Phase 2 started
 
+- SQLite ingestion queues new records in the same transaction as the evidence write. The local FastAPI service and standalone collector consume the queue automatically. Findings and queue completion commit together, so a failed write leaves the records queued for retry. The worker preserves existing review status and does not queue startup demo fixtures.
+- Automatic batches process up to 100 queued records and use up to 500 additional records as correlation context. Older stored records are available to manual scans and as context but are not automatically backfilled. The worker logs context caps and rule timeouts. Rich events, queue state and findings remain local.
+- From backend, `python -m pytest -q -o faulthandler_timeout=15 tests` passed 70 tests and 2 subtests. Tests cover startup consumption, restart, prior context, duplicate ingestion, review preservation and transactional rollback. `python backend/run_collector.py --self-test` and `npm --prefix desktop run build:ui` passed from source.
+
 - Local SQLite now stores evidence-linked findings. Re-evaluating the same evidence keeps the finding ID and review status. The authenticated loopback API evaluates, lists and reviews findings and can retrieve their exact evidence. The standalone collector can evaluate the local database with `--evaluate-findings`. Both paths are explicit scans of up to 100 recent events. The desktop UI does not surface them yet.
 - `python -m pytest -q -o faulthandler_timeout=15 tests` passed 67 tests and 2 subtests, including review persistence and exclusion from cloud snapshots. From source, `python run_collector.py --evaluate-findings` returned two findings from six synthetic events. The collector self-test and desktop UI build passed. The packaged executable remains unverified.
 
@@ -32,7 +36,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 - Extracted reusable sequence-window and threshold grouping from the existing PowerShell and SSH cases. The original cases and evidence references remain compatible. Exact-boundary, just-outside-window and group-isolation tests passed. The full backend rerun passed 62 tests and 2 subtests.
 - Added YAML-driven threshold and sequence rules for repeated SSH failures and PowerShell script creation. PowerShell includes related network events as context. The seven bundled rules all have positive and negative fixtures. The compatibility check matches both legacy cases' ordered evidence IDs.
 - `python -m pytest -q -o faulthandler_timeout=15 tests` passed 66 tests and 2 subtests. `npm --prefix desktop run build:ui` passed with the existing bundle-size warning and the source collector self-test passed.
-- Still open for Phase 2 are first-seen evaluation, continuous finding evaluation, live TCP sampling and the rest of the 40-rule catalog. The rules are locally evaluable from FastAPI and the collector CLI. They are not exposed as desktop findings.
+- Still open for Phase 2 are first-seen evaluation, live TCP sampling and the rest of the 40-rule catalog. The rules are locally evaluable from FastAPI and the collector CLI. They are not exposed as desktop findings.
 
 - Added opt-in Windows event collection for extended Sysmon, Security, System, PowerShell and Defender channels. Readers use fixed channel/event allowlists, bounded fields, per-channel cursors, and source-specific health messages. PowerShell script block metadata is collected without the script body.
 - Rich records go into a separate SQLite table and are readable only through the authenticated local API. The regression test confirms that the new record ID and a synthetic command line never appear in a cloud snapshot. Collection is off by default, enabled by `NORTH_WINDOWS_LOCAL_EVENTS=1` in the Windows backend or standalone collector.

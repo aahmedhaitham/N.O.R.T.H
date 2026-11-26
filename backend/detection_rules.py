@@ -1,16 +1,20 @@
 """Bounded, read-only evaluation of NORTH's named-selection Sigma subset."""
 
-import re
-import sys
+import asyncio
 import hashlib
 import json
+import logging
+import re
+import sqlite3
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import regex
 import yaml
+from starlette.concurrency import run_in_threadpool
 from yaml.events import AliasEvent, MappingStartEvent, SequenceStartEvent, CollectionEndEvent
 from north import events_in_window, threshold_groups
 from event_contract import event_contract
@@ -371,3 +375,43 @@ def scan_local_findings(store, limit=100):
     store.record_findings(matches)
     return {"matched_findings": len(matches), "evaluated_events": len(events),
             "timed_out_rule_ids": result["timed_out_rule_ids"]}
+
+
+def consume_detection_queue(store, rules):
+    queued = store.pending_detections()
+    if not queued:
+        return 0
+    identities = {identity for identity, _ in queued}
+    events = [event for _, event in queued if event is not None]
+    if events:
+        window = max((rule.correlation.window for rule in rules if rule.correlation), default=timedelta())
+        times = [datetime.fromisoformat(event["timestamp"]) for event in events]
+        earliest = datetime.min.replace(tzinfo=timezone.utc)
+        latest = datetime.max.replace(tzinfo=timezone.utc)
+        lower, upper = min(times), max(times)
+        context, limited = store.detection_context(
+            (earliest if lower - earliest < window else lower - window).isoformat(timespec="microseconds"),
+            (latest if latest - upper < window else upper + window).isoformat(timespec="microseconds"),
+        )
+        projected = [event_contract(event) for event in {event["id"]: event for event in context + events}.values()]
+        result = evaluate_rules(rules, projected)
+        matches = [item for item in findings_from_matches(result["matches"], projected)
+                   if identities.intersection(item["evidence_ids"])]
+        if limited or result["timed_out_rule_ids"]:
+            logging.getLogger(__name__).warning("Detection batch limits reached: context_limited=%s timed_out_rules=%d",
+                                                limited, len(result["timed_out_rule_ids"]))
+    else:
+        matches = []
+    store.complete_detections(identities, matches)
+    return len(queued)
+
+
+async def run_detection_monitor(store):
+    rules = bundled_rules()
+    while True:
+        try:
+            consumed = await run_in_threadpool(consume_detection_queue, store, rules)
+        except sqlite3.Error as error:
+            logging.getLogger(__name__).warning("Local detection scan deferred: %s", type(error).__name__)
+            consumed = 0
+        await asyncio.sleep(1 if consumed == 100 else 5)

@@ -157,6 +157,12 @@ class Store:
                         id TEXT PRIMARY KEY, status TEXT NOT NULL, last_seen TEXT NOT NULL, payload TEXT NOT NULL
                     )
                     """)
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_detection_queue (
+                        sequence INTEGER PRIMARY KEY, event_id TEXT NOT NULL UNIQUE,
+                        local_windows INTEGER NOT NULL
+                    )
+                    """)
             db.execute("""
                 CREATE TABLE IF NOT EXISTS collection_offsets (
                     source TEXT PRIMARY KEY, position BIGINT NOT NULL
@@ -240,29 +246,32 @@ class Store:
             ).fetchone()
         return row[0] if row else 0
 
-    def ingest(self, alerts: list[dict], *, checkpoint: tuple[str, int] | None = None) -> int:
+    def ingest(self, alerts: list[dict], *, checkpoint: tuple[str, int] | None = None, enqueue=True) -> int:
         # Normalize the whole batch before opening the transaction.
         events = [normalize(alert) for alert in alerts]
-        return self._store_events(events, checkpoint, local=False)
+        return self._store_events(events, checkpoint, local=False, enqueue=enqueue)
 
     def ingest_local_windows(self, events, *, checkpoint):
         if self.url:
             raise ValueError("Expanded Windows events require the local SQLite store")
-        return self._store_events(events, checkpoint, local=True)
+        return self._store_events(events, checkpoint, local=True, enqueue=True)
 
-    def _store_events(self, events, checkpoint, *, local):
+    def _store_events(self, events, checkpoint, *, local, enqueue):
         table = "local_windows_events" if local else "events"
         marker = "%s" if self.url else "?"
         values = ", ".join([marker] * 3)
         with self.connect() as db:
-            inserted = sum(
-                db.execute(
+            inserted = 0
+            for event in events:
+                added = db.execute(
                     f"INSERT INTO {table} (id, timestamp, payload) VALUES ({values}) "
                     "ON CONFLICT (id) DO NOTHING",
                     (event["id"], event["timestamp"], json.dumps(event)),
                 ).rowcount
-                for event in events
-            )
+                inserted += added
+                if added and enqueue and not self.url:
+                    db.execute("INSERT OR IGNORE INTO local_detection_queue (event_id, local_windows) VALUES (?, ?)",
+                               (event["id"], int(local)))
             if checkpoint is not None:
                 db.execute(
                     f"INSERT INTO collection_offsets (source, position) VALUES ({marker}, {marker}) "
@@ -284,12 +293,42 @@ class Store:
         if self.url:
             raise ValueError("Detection findings require the local SQLite store")
         with self.connect() as db:
-            db.executemany(
-                """INSERT INTO local_detection_findings (id, status, last_seen, payload) VALUES (?, 'new', ?, ?)
-                   ON CONFLICT (id) DO UPDATE SET payload = excluded.payload, last_seen = excluded.last_seen
-                   WHERE excluded.last_seen >= local_detection_findings.last_seen""",
-                [(item["id"], item["last_seen"], json.dumps(item)) for item in findings],
-            )
+            self._write_findings(db, findings)
+
+    @staticmethod
+    def _write_findings(db, findings):
+        db.executemany(
+            """INSERT INTO local_detection_findings (id, status, last_seen, payload) VALUES (?, 'new', ?, ?)
+               ON CONFLICT (id) DO UPDATE SET payload = excluded.payload, last_seen = excluded.last_seen
+               WHERE excluded.last_seen >= local_detection_findings.last_seen""",
+            [(item["id"], item["last_seen"], json.dumps(item)) for item in findings],
+        )
+
+    def pending_detections(self):
+        with self.connect() as db:
+            rows = db.execute("""
+                SELECT q.event_id, coalesce(w.payload, e.payload) FROM local_detection_queue q
+                LEFT JOIN local_windows_events w ON q.local_windows = 1 AND w.id = q.event_id
+                LEFT JOIN events e ON q.local_windows = 0 AND e.id = q.event_id
+                ORDER BY q.sequence LIMIT 100
+                """).fetchall()
+        return [(identity, json.loads(payload) if payload else None) for identity, payload in rows]
+
+    def detection_context(self, since, until):
+        with self.connect() as db:
+            rows = db.execute("""
+                SELECT payload FROM (
+                    SELECT id, timestamp, payload FROM events WHERE timestamp BETWEEN ? AND ?
+                    UNION ALL
+                    SELECT id, timestamp, payload FROM local_windows_events WHERE timestamp BETWEEN ? AND ?
+                ) ORDER BY timestamp DESC, id DESC LIMIT 501
+                """, (since, until, since, until)).fetchall()
+        return [json.loads(row[0]) for row in rows[:500]], len(rows) > 500
+
+    def complete_detections(self, identities, findings):
+        with self.connect() as db:
+            self._write_findings(db, findings)
+            db.executemany("DELETE FROM local_detection_queue WHERE event_id = ?", [(identity,) for identity in identities])
 
     def detection_findings(self, limit=100):
         if self.url:

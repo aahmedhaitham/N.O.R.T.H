@@ -24,7 +24,7 @@ from device_watch import demo_findings, findings, mark_reviewed
 from cloud_sync import sync_loop
 from local_access import LocalAccess
 from event_contract import event_contract
-from detection_rules import bundled_rules, evaluate_rules, recent_detection_events, scan_local_findings
+from detection_rules import bundled_rules, evaluate_rules, recent_detection_events, run_detection_monitor, scan_local_findings
 from windows_sources import WindowsSources
 
 
@@ -64,13 +64,15 @@ def make_app(store=None):
     async def lifespan(_app):
         store.initialize()
         if os.getenv("NORTH_SEED_DEMO", "1") == "1":
-            store.ingest(demo_alerts(include_linux=public_demo))
+            store.ingest(demo_alerts(include_linux=public_demo), enqueue=False)
         tasks = [
             asyncio.create_task(monitor.run())
             for enabled, monitor in ((watch_neighbors, neighbors), (watch_sysmon, sysmon),
                                      (watch_local_windows, windows_sources)) if enabled
         ]
         cloud_url, cloud_key = os.getenv("NORTH_CLOUD_URL"), os.getenv("NORTH_CLOUD_INGEST_KEY")
+        if not public_demo and not store.url and os.getenv("NORTH_AUTO_DETECTIONS", "1") == "1":
+            tasks.append(asyncio.create_task(run_detection_monitor(store)))
         if not public_demo and cloud_url and cloud_key:
             tasks.append(asyncio.create_task(sync_loop(store, neighbors, sysmon, cloud_url, cloud_key)))
         try:

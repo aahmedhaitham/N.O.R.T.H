@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from starlette.concurrency import run_in_threadpool
 
 from cloud_sync import collector_source, snapshot_target, sync_loop
-from detection_rules import bundled_rules, scan_local_findings
+from detection_rules import bundled_rules, run_detection_monitor, scan_local_findings
 from adapter_traffic import AdapterTraffic
 from internet_health import InternetHealth
 from journal_monitor import JournalMonitor
@@ -40,6 +40,8 @@ async def collect():
     journal = JournalMonitor(store) if sys.platform.startswith("linux") else None
     async with asyncio.TaskGroup() as tasks:
         tasks.create_task(neighbors.run())
+        if not store.url and os.getenv("NORTH_AUTO_DETECTIONS", "1") == "1":
+            tasks.create_task(run_detection_monitor(store))
         tasks.create_task(health.run())
         if sys.platform == "win32":
             tasks.create_task(sysmon.run())
