@@ -261,3 +261,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 3. Move analysis, searchable event history, detection and AI to the hosted workspace. Validate citations and keep evidence-derived fallback summaries.
 4. Implement the hosted ATLAS, IRIS and ECHO improvements, source setup and account settings. Keep real telemetry opt-in for each collector.
 5. Run acceptance, accessibility, security and performance checks and publish the web service and installer.
+
+### Stabilization Phase A
+
+- Recorded the six user-reported items in BUGS.md. Four major, one minor, and one cosmetic. The local Electron launch exited with 2147483651 before an interactive window, so the visual matrix and screenshots remain unverified.
+- Baseline commands: npm.cmd --prefix desktop test (27 passed), npm.cmd --prefix desktop run build:ui (passed), backend pytest with faulthandler_timeout=15 (112 passed, 2 subtests), and the cloud Worker and GeoIP tests (3 passed).
+- Continue with response handling, shared source evidence, permission guidance, and the Assistant. Validate visually in a fresh interactive Windows session.
