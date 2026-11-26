@@ -274,3 +274,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Desktop Detections uses the same passive Sysmon read as Overview. Unchecked sources have an explicit coverage category. Added fixtures for current, empty, denied, missing, failed, and unchecked states. Local TCP now has a retry and plain-language guidance. Simple mode points to denied Windows event access.
 - Replaced the Assistant native dropdown with keyboard suggestions and moved the panel beside the workspace. Added compact answers, grouped evidence and one copy action per answer. The visual check remains pending.
 - Commands: desktop test (28 passed), desktop UI build (passed), backend pytest (118 passed, 2 subtests), cloud Worker and GeoIP tests (3 passed). The Detections transport is covered independently. Other client API paths and release installation still need checks.
+
+### Stabilization Phase C
+
+- Added a docked width control that remembers its setting, styled file picker buttons, reset rule search when leaving the view, and grouped technique status by the published Enterprise ATT&CK tactic mapping. Coverage groups include text states and link to source guidance in affected rules.
+- Added an SQLite trigram search index with exact literal filtering and an indexed-data regression test. The pre-change 500,000-event rerun measured 1327.37 ms median for the rare-match query. The indexed run is recorded separately when it finishes.
+- Commands: desktop test (28 passed), desktop UI build (passed), backend pytest (119 passed, 2 subtests), cloud tests (3 passed). Synthetic screenshots, every-screen axe and keyboard verification, and the size/theme matrix remain blocked by the local Electron launch.

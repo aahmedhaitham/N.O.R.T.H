@@ -1,0 +1,120 @@
+{
+  "attack.t1003.001": [
+    "Credential Access"
+  ],
+  "attack.t1016": [
+    "Discovery"
+  ],
+  "attack.t1018": [
+    "Discovery"
+  ],
+  "attack.t1021.001": [
+    "Lateral Movement"
+  ],
+  "attack.t1021.004": [
+    "Lateral Movement"
+  ],
+  "attack.t1049": [
+    "Discovery"
+  ],
+  "attack.t1053.005": [
+    "Execution",
+    "Persistence",
+    "Privilege Escalation"
+  ],
+  "attack.t1055": [
+    "Stealth",
+    "Privilege Escalation"
+  ],
+  "attack.t1057": [
+    "Discovery"
+  ],
+  "attack.t1059.001": [
+    "Execution"
+  ],
+  "attack.t1059.003": [
+    "Execution"
+  ],
+  "attack.t1059.005": [
+    "Execution"
+  ],
+  "attack.t1071.004": [
+    "Command and Control"
+  ],
+  "attack.t1082": [
+    "Discovery"
+  ],
+  "attack.t1087.001": [
+    "Discovery"
+  ],
+  "attack.t1110": [
+    "Credential Access"
+  ],
+  "attack.t1127.001": [
+    "Stealth",
+    "Execution"
+  ],
+  "attack.t1137.006": [
+    "Persistence"
+  ],
+  "attack.t1140": [
+    "Stealth"
+  ],
+  "attack.t1218.004": [
+    "Stealth"
+  ],
+  "attack.t1218.005": [
+    "Stealth"
+  ],
+  "attack.t1218.007": [
+    "Stealth"
+  ],
+  "attack.t1218.010": [
+    "Stealth"
+  ],
+  "attack.t1218.011": [
+    "Stealth"
+  ],
+  "attack.t1543.003": [
+    "Persistence",
+    "Privilege Escalation"
+  ],
+  "attack.t1546.002": [
+    "Privilege Escalation",
+    "Persistence"
+  ],
+  "attack.t1546.010": [
+    "Privilege Escalation",
+    "Persistence"
+  ],
+  "attack.t1546.012": [
+    "Privilege Escalation",
+    "Persistence"
+  ],
+  "attack.t1547.001": [
+    "Persistence",
+    "Privilege Escalation"
+  ],
+  "attack.t1547.002": [
+    "Persistence",
+    "Privilege Escalation"
+  ],
+  "attack.t1547.004": [
+    "Persistence",
+    "Privilege Escalation"
+  ],
+  "attack.t1547.005": [
+    "Persistence",
+    "Privilege Escalation"
+  ],
+  "attack.t1547.010": [
+    "Persistence",
+    "Privilege Escalation"
+  ],
+  "attack.t1548.002": [
+    "Privilege Escalation"
+  ],
+  "attack.t1562.001": [
+    "Stealth"
+  ]
+}

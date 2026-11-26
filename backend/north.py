@@ -152,6 +152,7 @@ class Store:
                 """)
             db.execute("CREATE INDEX IF NOT EXISTS local_windows_time ON local_windows_events (timestamp, id)")
             if not self.url:
+                self._initialize_event_search(db)
                 db.execute("""
                     CREATE TABLE IF NOT EXISTS local_detection_findings (
                         id TEXT PRIMARY KEY, status TEXT NOT NULL, last_seen TEXT NOT NULL, payload TEXT NOT NULL
@@ -476,6 +477,31 @@ class Store:
                 for row in db.execute("SELECT payload FROM events ORDER BY timestamp, id")
             ]
 
+    @staticmethod
+    def _initialize_event_search(db):
+        if db.execute("SELECT 1 FROM sqlite_master WHERE name = 'events_search'").fetchone():
+            return
+        db.execute("SAVEPOINT event_search_setup")
+        try:
+            db.execute("""CREATE VIRTUAL TABLE IF NOT EXISTS events_search
+                          USING fts5(payload, content='events', content_rowid='rowid', tokenize='trigram')""")
+            db.execute("""CREATE TRIGGER IF NOT EXISTS events_search_insert AFTER INSERT ON events BEGIN
+                          INSERT INTO events_search(rowid, payload) VALUES (new.rowid, new.payload); END""")
+            db.execute("""CREATE TRIGGER IF NOT EXISTS events_search_delete AFTER DELETE ON events BEGIN
+                          INSERT INTO events_search(events_search, rowid, payload)
+                          VALUES ('delete', old.rowid, old.payload); END""")
+            db.execute("""CREATE TRIGGER IF NOT EXISTS events_search_update AFTER UPDATE OF payload ON events BEGIN
+                          INSERT INTO events_search(events_search, rowid, payload)
+                          VALUES ('delete', old.rowid, old.payload);
+                          INSERT INTO events_search(rowid, payload) VALUES (new.rowid, new.payload); END""")
+            db.execute("INSERT INTO events_search(events_search) VALUES ('rebuild')")
+        except sqlite3.OperationalError as error:
+            db.execute("ROLLBACK TO event_search_setup")
+            if "no such module" not in str(error) and "no such tokenizer" not in str(error):
+                raise
+        finally:
+            db.execute("RELEASE event_search_setup")
+
     def event_page(self, *, search="", kind=None, before=None, limit=50):
         marker = "%s" if self.url else "?"
         terms, params = [], []
@@ -491,9 +517,13 @@ class Store:
             timestamp, event_id = before
             terms.append(f"(timestamp < {marker} OR (timestamp = {marker} AND id < {marker}))")
             params.extend((timestamp, timestamp, event_id))
-        where = " WHERE " + " AND ".join(terms) if terms else ""
-        params.append(limit + 1)
         with self.connect() as db:
+            if (not self.url and re.fullmatch(r"[a-zA-Z0-9_.-]{3,200}", search)
+                    and db.execute("SELECT 1 FROM sqlite_master WHERE name = 'events_search'").fetchone()):
+                terms.append("rowid IN (SELECT rowid FROM events_search WHERE events_search MATCH ?)")
+                params.append(f'"{search.lower()}"')
+            where = " WHERE " + " AND ".join(terms) if terms else ""
+            params.append(limit + 1)
             rows = db.execute(
                 f"SELECT payload FROM events{where} ORDER BY timestamp DESC, id DESC LIMIT {marker}", params,
             ).fetchall()

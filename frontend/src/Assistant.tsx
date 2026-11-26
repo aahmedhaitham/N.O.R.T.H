@@ -76,6 +76,10 @@ export function AssistantPanel({ cite }: { cite: (area: Area, row: Row) => void 
   const [suggest, setSuggest] = useState(true);
   const [expanded, setExpanded] = useState<number[]>([]);
   const [copied, setCopied] = useState<number>();
+  const [dockWidth, setDockWidth] = useState(() => {
+    try { return Math.min(560, Math.max(280, Number(localStorage.getItem('north.assistant.width')) || 360)); }
+    catch { return 360; }
+  });
   const suggestions = suggest && input.trim() ? [...new Set(intents.flatMap((intent) => intent.examples))]
     .filter((question) => question.toLowerCase().includes(input.trim().toLowerCase())).slice(0, 6) : [];
   const field = useRef<HTMLInputElement>(null);
@@ -107,10 +111,16 @@ export function AssistantPanel({ cite }: { cite: (area: Area, row: Row) => void 
   }
   if (!request) return null;
   const latest = history.at(-1);
-  return <aside className="assistant-dock" aria-labelledby="assistant-title" onKeyDown={(event) => {
+  return <aside className="assistant-dock" style={{ width: `min(${dockWidth}px, 100%)` }} aria-labelledby="assistant-title" onKeyDown={(event) => {
     if (event.key === 'Escape') { event.stopPropagation(); assistant.close(); }
   }}>
     <header><h2 id="assistant-title">NORTH Assistant</h2><button type="button" onClick={assistant.close}>Close</button></header>
+    <label className="assistant-width">Panel width <input type="range" min="280" max="560" step="10" value={dockWidth}
+      onChange={(event) => {
+        const value = Number(event.target.value);
+        setDockWidth(value);
+        try { localStorage.setItem('north.assistant.width', String(value)); } catch { /* Keep the current width. */ }
+      }} /></label>
     <p>Built in · works offline · answers from your NORTH data</p>
     {context && <button type="button" onClick={() => setContext(undefined)}>Clear evidence context</button>}
     <div className="assistant-history" aria-live="polite">

@@ -6,6 +6,7 @@ import { FindingEvidence } from './LocalFindings';
 import { pollVisible } from './pollVisible';
 import { useAssistant } from './Assistant';
 import { readJson } from './readJson';
+import tacticData from './attackTactics.json';
 
 type Coverage = 'covered' | 'partly' | 'blind' | 'unchecked';
 type Requirement = { id: string; state: string; fix: string };
@@ -18,6 +19,7 @@ type TestResult = { evaluated_events: number; timed_out_rule_ids: string[]; matc
 
 const coverageLabels = { covered: 'Covered', partly: feedbackMessages.partlyCovered, blind: 'Blind', unchecked: 'Unchecked' };
 const techniqueId = (tag: string) => tag.replace(/^attack\./, '').toUpperCase();
+const tactics: Record<string, string[]> = tacticData;
 
 function useCatalog() {
   const publish = useAssistant()?.publish;
@@ -110,6 +112,14 @@ export function Detections() {
   const search = query.trim().toLowerCase();
   const rules = catalog?.rules.filter((rule) =>
     [rule.id, rule.title, ...rule.attack].some((value) => value.toLowerCase().includes(search)));
+  const groups = new Map<string, [string, Coverage][]>();
+  for (const item of Object.entries(catalog?.techniques ?? {})) {
+    for (const tactic of tactics[item[0]]?.length ? tactics[item[0]] : ['Tactic unavailable']) {
+      const group = groups.get(tactic) ?? [];
+      group.push(item);
+      groups.set(tactic, group);
+    }
+  }
   return <main className="dashboard">
     <header className="dashboard-heading"><h1>{strings.detections}</h1></header>
     <section className="panel">
@@ -117,11 +127,21 @@ export function Detections() {
       {catalog && <>
         <CoverageCounts catalog={catalog} />
         <div className="coverage-matrix">
-          {(Object.keys(coverageLabels) as Coverage[]).map((status) => <div key={status}>
-            <h3>{coverageLabels[status]}</h3>
-            <div className="finding-tags">{Object.entries(catalog.techniques).filter(([, level]) => level === status).map(([tag]) =>
+          {[...groups].sort(([a], [b]) => a.localeCompare(b)).map(([tactic, techniques]) => <div key={tactic}>
+            <h3>{tactic}</h3>
+            <ul className="coverage-techniques">{techniques.map(([tag, status]) => {
+              const related = catalog.rules.filter((rule) => rule.attack.includes(tag));
+              const reasons = [...new Set(related.flatMap((rule) => rule.enabled ?
+                rule.requires.filter((need) => need.state !== 'Observed').map((need) => need.state) : ['Rule disabled']))];
+              return <li key={tag}>
               <button type="button" key={tag} aria-pressed={query === techniqueId(tag)}
-                onClick={() => setQuery(query === techniqueId(tag) ? '' : techniqueId(tag))}>{techniqueId(tag)}</button>)}</div>
+                onClick={() => {
+                  setQuery(query === techniqueId(tag) ? '' : techniqueId(tag));
+                  document.getElementById('detection-rule-search')?.focus();
+                }}>{techniqueId(tag)} · {coverageLabels[status]}</button>
+              {status !== 'covered' && reasons.length > 0 && <small>{reasons.join(' · ')}</small>}
+              </li>;
+            })}</ul>
           </div>)}
         </div>
       </>}
@@ -132,7 +152,7 @@ export function Detections() {
       <h2>{strings.rules}</h2>
       <p className="reference">{strings.enableRulesToGenerateNewFindingsAutomatically}</p>
       <div className="finding-actions">
-        <label>{strings.findARule}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+        <label>{strings.findARule}<input id="detection-rule-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         <label>{strings.customYaml}<input ref={fileInput} type="file" accept=".yaml,.yml"
           onChange={(event) => setImportFile(event.target.files?.[0])} /></label>
         <button type="button" disabled={!catalog || !importFile || !!busy}
