@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { access, mkdir, mkdtemp, rm, writeFile } = require('node:fs/promises');
+const { access, mkdir, mkdtemp, readFile, rm, writeFile } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { makeCollectorInstall } = require('./collector-install.cjs');
@@ -12,6 +12,8 @@ test('guided collector setup keeps the key off command lines and scopes local st
   const token = 'b'.repeat(64);
   const trusted = 'https://workspace.example';
   let allowed = false;
+  let installedDirectory;
+  let failStop = false;
   const actions = [];
   const api = makeCollectorInstall({
     root: path.join(__dirname, '..'), data, isWindows: true, confirm: async () => allowed,
@@ -19,9 +21,11 @@ test('guided collector setup keeps the key off command lines and scopes local st
     async execute(script, args, input) {
       assert.ok(!args.includes(token));
       actions.push(path.basename(script) + ':' + args.at(-1));
+      if (failStop && args.at(-1) === 'Stop') throw new Error('Mock stop failure');
       if (args.includes('-PairFromStdin')) {
         assert.equal(input, token + '\n');
         const root = path.dirname(path.dirname(script));
+        installedDirectory = root;
         await access(path.join(root, 'backend', 'run_collector.py'));
         await assert.rejects(access(path.join(root, 'backend', 'north.sqlite3')));
         const settings = path.join(root, '.north-launcher');
@@ -40,9 +44,23 @@ test('guided collector setup keeps the key off command lines and scopes local st
   assert.deepEqual(actions, []);
   allowed = true;
   assert.equal((await invoke('setup', trusted, { source, token })).status, 200);
-  assert.deepEqual(await (await invoke('status')).json(), {
-    installed: true, task: { state: 'Running', last_start: null, last_result: 0 },
-  });
+  const status = await (await invoke('status')).json();
+  assert.equal(status.installed, true);
+  assert.equal(status.task.state, 'Running');
+  assert.match(status.bundle.current, /^[0-9a-f]{64}$/);
+  assert.equal(status.bundle.available, false);
+  const marker = path.join(installedDirectory, 'collector-bundle.txt');
+  const database = path.join(installedDirectory, '.north-launcher', 'collector.sqlite3');
+  await writeFile(marker, 'older-version');
+  await writeFile(database, 'existing telemetry');
+  failStop = true;
+  assert.equal((await invoke('update')).status, 503);
+  assert.equal(await readFile(marker, 'utf8'), 'older-version');
+  failStop = false;
+  assert.deepEqual(await (await invoke('update')).json(), { updated: true, restarted: true });
+  assert.equal(await readFile(database, 'utf8'), 'existing telemetry');
+  assert.equal(await readFile(marker, 'utf8'), status.bundle.current);
+  assert.deepEqual(await (await invoke('update')).json(), { updated: false });
   assert.deepEqual(await (await invoke('status', 'https://other.example')).json(), { installed: false });
   assert.equal((await invoke('disable', 'https://other.example')).status, 404);
   assert.equal((await invoke('restart')).status, 200);
@@ -50,6 +68,10 @@ test('guided collector setup keeps the key off command lines and scopes local st
   assert.deepEqual(actions, [
     'Start-NorthCollector.ps1:-PairFromStdin',
     'Set-NorthCollectorStartup.ps1:Enable',
+    'Set-NorthCollectorStartup.ps1:Stop',
+    'Set-NorthCollectorStartup.ps1:Restart',
+    'Set-NorthCollectorStartup.ps1:Stop',
+    'Set-NorthCollectorStartup.ps1:Restart',
     'Set-NorthCollectorStartup.ps1:Restart',
     'Set-NorthCollectorStartup.ps1:Disable',
   ]);

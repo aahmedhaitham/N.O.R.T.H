@@ -4,6 +4,7 @@ import { pollVisible } from './pollVisible';
 type Pairing = { source_id: string; label: string; revoked_at: string | null; updated_at: string | null };
 type Created = { source_id: string; label: string; token: string; issued_at?: string };
 type StartupTask = { state: string; last_start?: string | null; last_result?: number | null };
+type CollectorBundle = { current: string | null; available: boolean };
 
 export function CollectorSetup({ back, availableSources, useCollector }: {
   back: () => void; availableSources: string[]; useCollector: (id: string) => void;
@@ -24,7 +25,9 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
   const [desktopSetupBusy, setDesktopSetupBusy] = useState(false);
   const [installedSource, setInstalledSource] = useState('');
   const [taskMessage, setTaskMessage] = useState('');
-  const [startupStatus, setStartupStatus] = useState<{ source: string; task: StartupTask } | null>(null);
+  const [startupStatus, setStartupStatus] = useState<{
+    source: string; task: StartupTask; bundle?: CollectorBundle | null;
+  } | null>(null);
   const [startupRevision, setStartupRevision] = useState(0);
   const [guidedSource, setGuidedSource] = useState('');
   const [guidedMessage, setGuidedMessage] = useState('');
@@ -64,7 +67,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
         const result = await response.json();
         if (!controller.signal.aborted) {
           setInstalledSource(result.installed === true ? opened : '');
-          setStartupStatus(result.task ? { source: opened, task: result.task } : null);
+          setStartupStatus(result.task ? { source: opened, task: result.task, bundle: result.bundle } : null);
         }
       } catch {
         if (!controller.signal.aborted) setStartupStatus({ source: opened, task: { state: 'Unavailable' } });
@@ -158,16 +161,23 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
     }
   }
 
-  async function changeStartup(source: string, action: 'enable' | 'disable' | 'restart') {
+  async function changeStartup(source: string, action: 'enable' | 'disable' | 'restart' | 'update') {
     setDesktopSetupBusy(true);
     setTaskMessage('');
     try {
       const response = await fetch('/api/desktop/collector/' + action +
         '?source=' + encodeURIComponent(source), { method: 'POST' });
       if (response.status === 204) return;
-      if (!response.ok) throw new Error((await response.json()).detail);
-      setTaskMessage(action === 'disable' ? 'Background startup is disabled.' :
-        action === 'restart' ? 'Windows requested a collector restart.' : 'Windows requested a background collector start.');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail);
+      if (action === 'update') {
+        setTaskMessage(!result.updated ? 'This collector already has the bundled version.' :
+          result.restarted === false ? 'Collector updated. Windows could not restart it automatically.' :
+          result.restarted ? 'Collector updated. Windows requested a restart.' : 'Collector updated. Background startup settings were kept.');
+      } else {
+        setTaskMessage(action === 'disable' ? 'Background startup is disabled.' :
+          action === 'restart' ? 'Windows requested a collector restart.' : 'Windows requested a background collector start.');
+      }
       setStartupRevision((value) => value + 1);
     } catch (error) {
       setTaskMessage(error instanceof Error ? error.message : 'Windows could not update the collector task.');
@@ -176,6 +186,7 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
     }
   }
   const task = startupStatus?.source === opened ? startupStatus.task : undefined;
+  const bundle = startupStatus?.source === opened ? startupStatus.bundle : undefined;
 
   const keyPanel = created && <div className="pairing-secret">
         <h3>{created.issued_at ? 'Reconnect ' : 'Connect '}{created.label}</h3>
@@ -287,12 +298,16 @@ export function CollectorSetup({ back, availableSources, useCollector }: {
                   {!item.revoked_at && task && ['Ready', 'Running'].includes(task.state) &&
                     <button type="button" disabled={desktopSetupBusy}
                       onClick={() => void changeStartup(item.source_id, 'restart')}>Restart collector</button>}
+                  {!item.revoked_at && bundle?.available && <button type="button" disabled={desktopSetupBusy}
+                    onClick={() => void changeStartup(item.source_id, 'update')}>Update collector</button>}
                   <button type="button" disabled={desktopSetupBusy}
                     onClick={() => void changeStartup(item.source_id, 'disable')}>Disable background startup</button>
                 </div>}
                 {task && <p className="reference">Windows task: {task.state}
                   {task.last_start && <> · Last start <time dateTime={task.last_start}>{new Date(task.last_start).toLocaleString()}</time></>}
                   {task.last_result != null && task.state !== 'Running' && <> · Result {task.last_result}</>}</p>}
+                {bundle && <p className="reference">Collector build {bundle.current?.slice(0, 10) ?? 'Unrecorded'}
+                  {bundle.available && ' · Update available in this app'}</p>}
                 {desktop && taskMessage && <p role="status">{taskMessage}</p>}
                 {!item.revoked_at && <>
                   <p>Restart from the folder where you originally paired this collector. Windows uses the saved key.</p>

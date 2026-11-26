@@ -23,6 +23,7 @@ The public product is cloud-first. Users open the hosted app or an installed cli
 
 ### ATLAS network monitoring roadmap
 
+- Windows collector details detect a different bundled build and can update a managed collector in place. Updates stage code first and preserve the pairing, local database, and startup settings.
 - The Windows app shows the local collector task’s status and last start in its details, and can restart it using the existing encrypted pairing.
 - Windows desktop can create a pairing and connect the current PC as a single guided action. The key stays in the desktop bridge, and the app shows first-sync progress. Pairing other devices remains available.
 - Windows installer builds compile a standalone collector, bundle it with the app, and smoke-test the runtime before packaging and after installation. Guided setup uses the bundled executable when present and falls back to the Python launcher in development builds.

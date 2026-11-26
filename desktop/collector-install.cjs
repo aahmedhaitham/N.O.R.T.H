@@ -1,6 +1,6 @@
 const { execFile, spawn } = require('node:child_process');
 const { createHash } = require('node:crypto');
-const { access, copyFile, mkdir } = require('node:fs/promises');
+const { access, copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } = require('node:fs/promises');
 const path = require('node:path');
 const { promisify } = require('node:util');
 
@@ -14,6 +14,8 @@ const collectorFiles = [
 ];
 const sourcePattern = /^collector-[0-9a-f]{20}$/;
 const keyPattern = /^[0-9a-f]{64}$/;
+const executable = 'backend/NORTH-Collector.exe';
+const bundleMarker = 'collector-bundle.txt';
 const run = promisify(execFile);
 const windowsPowerShell = () => path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
 
@@ -36,16 +38,77 @@ async function queryStartup(script, directory) {
   return JSON.parse(stdout);
 }
 
+async function inspectBundle(root) {
+  const native = await access(path.join(root, executable)).then(() => true, () => false);
+  const files = native ? [...collectorFiles, executable] : collectorFiles;
+  const hash = createHash('sha256');
+  for (const file of files) {
+    const bytes = await readFile(path.join(root, file));
+    hash.update(file + ':' + bytes.length + ':').update(bytes);
+  }
+  return { files, native, version: hash.digest('hex') };
+}
+
+async function copyBundle(root, destination, bundle) {
+  for (const file of bundle.files) {
+    const target = path.join(destination, file);
+    await mkdir(path.dirname(target), { recursive: true });
+    await copyFile(path.join(root, file), target);
+  }
+  await writeFile(path.join(destination, bundleMarker), bundle.version, 'utf8');
+}
+
+async function compareBundle(destination, bundle) {
+  const installed = await readFile(path.join(destination, bundleMarker), 'utf8').catch(() => '');
+  const native = await access(path.join(destination, executable)).then(() => true, () => false);
+  return { current: installed || null, available: (bundle.native || !native) && installed !== bundle.version };
+}
+
+async function updateBundle(root, destination, bundle, stop) {
+  const staging = await mkdtemp(path.join(destination, '.bundle-update-'));
+  const changed = [];
+  let rollbackFailed = false;
+  try {
+    await copyBundle(root, path.join(staging, 'next'), bundle);
+    await stop();
+    for (const name of ['backend', 'tools', bundleMarker]) {
+      const installed = path.join(destination, name);
+      const backup = path.join(staging, 'old-' + name);
+      const original = await access(installed).then(() => true, () => false);
+      if (original) await rename(installed, backup);
+      const step = { installed, backup, original, replaced: false };
+      changed.push(step);
+      await rename(path.join(staging, 'next', name), installed);
+      step.replaced = true;
+    }
+  } catch (error) {
+    for (const step of changed.reverse()) {
+      try {
+        if (step.replaced) await rename(step.installed, path.join(staging, 'failed-' + path.basename(step.installed)));
+        if (step.original) await rename(step.backup, step.installed);
+      } catch {
+        rollbackFailed = true;
+      }
+    }
+    if (rollbackFailed) throw new Error('Collector update failed. The previous files were kept for recovery.');
+    throw error;
+  } finally {
+    if (!rollbackFailed) await rm(staging, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 function makeCollectorInstall({ root, data, confirm, execute = runPowerShell, readStatus = queryStartup,
   isWindows = process.platform === 'win32' }) {
   let installing = false;
+  let bundleInfo;
+  const bundledFiles = () => bundleInfo ??= inspectBundle(root);
   const startup = path.join(root, 'tools', 'Set-NorthCollectorStartup.ps1');
   return async (request, origin, cloud) => {
     if (!isWindows || !origin) return Response.json({ detail: 'Open a cloud workspace in NORTH for Windows.' }, { status: 501 });
     const url = new URL(request.url);
-    const operation = /^\/api\/desktop\/collector\/(setup|connect|status|enable|disable|restart)$/.exec(url.pathname)?.[1];
+    const operation = /^\/api\/desktop\/collector\/(setup|connect|status|enable|disable|restart|update)$/.exec(url.pathname)?.[1];
     const status = operation === 'status' && request.method === 'GET';
-    if (!status && (request.method !== 'POST' || !['setup', 'connect', 'enable', 'disable', 'restart'].includes(operation))) {
+    if (!status && (request.method !== 'POST' || !['setup', 'connect', 'enable', 'disable', 'restart', 'update'].includes(operation))) {
       return Response.json({ detail: 'Method not allowed.' }, { status: 405 });
     }
     if (operation !== 'setup' && operation !== 'connect') {
@@ -56,13 +119,34 @@ function makeCollectorInstall({ root, data, confirm, execute = runPowerShell, re
       if (status) {
         if (!installed) return Response.json({ installed: false });
         const task = await readStatus(startup, destination).catch(() => ({ state: 'Unavailable' }));
-        return Response.json({ installed: true, task });
+        const bundle = await bundledFiles().then((info) => compareBundle(destination, info)).catch(() => null);
+        return Response.json({ installed: true, task, bundle });
       }
       if (!installed) return Response.json({ detail: 'This collector is not installed by NORTH on this PC.' }, { status: 404 });
       if (installing) return Response.json({ detail: 'Collector setup is already running.' }, { status: 409 });
       installing = true;
       try {
         if (operation === 'enable' && !await confirm()) return new Response(null, { status: 204 });
+        if (operation === 'update') {
+          const bundle = await bundledFiles();
+          const version = await compareBundle(destination, bundle);
+          if (!version.available) return Response.json({ updated: false });
+          const task = await readStatus(startup, destination);
+          if (!['Running', 'Queued', 'Ready', 'Disabled', 'Not scheduled'].includes(task.state)) {
+            return Response.json({ detail: 'NORTH could not determine the current Windows task status.' }, { status: 503 });
+          }
+          const wasActive = ['Running', 'Queued'].includes(task.state);
+          const runTask = (action) => execute(startup, ['-CollectorDirectory', destination, '-Action', action]);
+          try {
+            await updateBundle(root, destination, bundle, () => runTask('Stop'));
+          } catch (error) {
+            if (wasActive) await runTask('Restart').catch(() => {});
+            return Response.json({ detail: error?.message === 'Collector update failed. The previous files were kept for recovery.' ?
+              error.message : 'NORTH could not replace the collector files.' }, { status: 503 });
+          }
+          const restart = wasActive ? await runTask('Restart').then(() => true, () => false) : null;
+          return Response.json({ updated: true, restarted: restart });
+        }
         const action = { enable: 'Enable', disable: 'Disable', restart: 'Restart' }[operation];
         await execute(startup, ['-CollectorDirectory', destination, '-Action', action]);
         return Response.json({ requested: operation });
@@ -112,14 +196,7 @@ function makeCollectorInstall({ root, data, confirm, execute = runPowerShell, re
         pairing = { source: newSource, token: created.token };
       }
       const destination = collectorDirectory(data, origin, pairing.source);
-      for (const file of collectorFiles) {
-        const target = path.join(destination, file);
-        await mkdir(path.dirname(target), { recursive: true });
-        await copyFile(path.join(root, file), target);
-      }
-      const executable = 'backend/NORTH-Collector.exe';
-      const bundled = await access(path.join(root, executable)).then(() => true, () => false);
-      if (bundled) await copyFile(path.join(root, executable), path.join(destination, executable));
+      await copyBundle(root, destination, await bundledFiles());
       await execute(path.join(destination, 'tools', 'Start-NorthCollector.ps1'),
         ['-Source', pairing.source, '-Workspace', origin, '-PairFromStdin'], pairing.token + '\n');
       await execute(path.join(destination, 'tools', 'Set-NorthCollectorStartup.ps1'), ['-Action', 'Enable']);

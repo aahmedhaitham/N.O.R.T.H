@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Status', 'Enable', 'Disable', 'Restart')][string]$Action = 'Status',
+    [ValidateSet('Status', 'Enable', 'Disable', 'Restart', 'Stop')][string]$Action = 'Status',
     [string]$CollectorDirectory,
     [switch]$AsJson
 )
@@ -19,6 +19,24 @@ try {
 }
 $taskName = "NORTH Collector $fingerprint"
 $task = Get-ScheduledTask -TaskName $taskName -TaskPath '\' -ErrorAction SilentlyContinue
+
+function Stop-NorthTask {
+    if ($task -and $task.State -in @('Running', 'Queued')) {
+        Stop-ScheduledTask -TaskName $taskName -TaskPath '\'
+    }
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    $lockPath = Join-Path $root '.north-launcher\collector.lock'
+    do {
+        try {
+            $probe = [IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None')
+            $probe.Dispose()
+            return
+        } catch [IO.IOException] {
+            if ([DateTime]::UtcNow -ge $deadline) { throw 'The collector did not finish stopping.' }
+            Start-Sleep -Milliseconds 250
+        }
+    } while ($true)
+}
 
 switch ($Action) {
     'Status' {
@@ -82,22 +100,9 @@ switch ($Action) {
     }
     'Restart' {
         if (!$task -or $task.State -eq 'Disabled') { throw 'Enable automatic startup before restarting this collector.' }
-        if ($task.State -eq 'Running') {
-            Stop-ScheduledTask -TaskName $taskName -TaskPath '\'
-            $deadline = [DateTime]::UtcNow.AddSeconds(10)
-            $lockPath = Join-Path $root '.north-launcher\collector.lock'
-            do {
-                Start-Sleep -Milliseconds 250
-                try {
-                    $probe = [IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None')
-                    $probe.Dispose()
-                    break
-                } catch [IO.IOException] {
-                    if ([DateTime]::UtcNow -ge $deadline) { throw 'The collector did not finish stopping.' }
-                }
-            } while ($true)
-        }
+        Stop-NorthTask
         Start-ScheduledTask -TaskName $taskName -TaskPath '\'
         Write-Host 'Windows requested a collector restart.'
     }
+    'Stop' { Stop-NorthTask }
 }
