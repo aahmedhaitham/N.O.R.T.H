@@ -29,3 +29,7 @@ Verify my PC keeps the latest 20 local reports and the baseline selected by the 
 ## Offline CloudTrail imports
 
 Imported CloudTrail evidence stays in the local database. NORTH keeps selected event metadata, including allowlisted identity ARNs and source addresses, and limited detection flags. Credential fields, session tokens, and original request payloads are excluded. Reports describe only the files imported into that database.
+
+## Local evidence integrity
+
+The desktop stores a Windows-protected integrity key in the current user's data folder. Linked event metadata stays in the local SQLite database. Settings can export a checkpoint containing the chain start, count, and authentication metadata without raw evidence or the key.

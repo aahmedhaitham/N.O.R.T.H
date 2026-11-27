@@ -73,8 +73,8 @@ async def self_test():
     print("NORTH Collector runtime checks passed.")
 
 
-async def collect_local():
-    store = Store(path=os.environ["NORTH_DB_PATH"])
+async def collect_local(store=None):
+    store = store if store is not None else Store(path=os.environ["NORTH_DB_PATH"])
     await run_in_threadpool(store.initialize)
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -103,10 +103,16 @@ async def main():
         # Load the async backend first, then restore normal DLL lookup for system commands.
         if not ctypes.windll.kernel32.SetDllDirectoryW(None):
             raise OSError("Could not restore the Windows DLL search path")
+    raw_key = os.environ.pop("NORTH_EVIDENCE_KEY", "")
+    key = bytes.fromhex(raw_key) if raw_key else None
+
+    def local_store():
+        return Store(path=os.environ["NORTH_DB_PATH"], integrity_key=key)
+
     if sys.argv[1:] == ["--self-test"]:
         await self_test()
     elif sys.argv[1:] == ["--local-monitor"] and sys.platform == "win32":
-        await collect_local()
+        await collect_local(local_store())
     elif sys.argv[1:] == ["--cloudtrail-workspace"]:
         from cloudtrail import ImportError as CloudTrailImportError, coverage_summary, import_export
 
@@ -115,7 +121,7 @@ async def main():
             if len(body) > 32_768:
                 raise CloudTrailImportError("The CloudTrail request is too large.")
             command = json.loads(body)
-            store = Store(path=os.environ["NORTH_DB_PATH"])
+            store = local_store()
             await run_in_threadpool(store.initialize)
             imported = await run_in_threadpool(import_export, store, command["path"]) if "path" in command else None
             report = await run_in_threadpool(coverage_summary, store)
@@ -128,12 +134,16 @@ async def main():
             if len(body) > 200_000:
                 raise RuleError("Rule request is too large")
             command = json.loads(body)
-            store = Store(path=os.environ["NORTH_DB_PATH"])
+            store = local_store()
             await run_in_threadpool(store.initialize)
             checks = json.loads(os.getenv("NORTH_RULE_SOURCE_CHECKS", "{}"))
             print(json.dumps(await run_in_threadpool(rule_workspace, store, command, source_checks=checks)))
         except (RuleError, json.JSONDecodeError, UnicodeDecodeError) as error:
             print(json.dumps({"detail": str(error)}))
+    elif sys.argv[1:] == ["--evidence-integrity"]:
+        store = local_store()
+        await run_in_threadpool(store.initialize)
+        print(json.dumps(await run_in_threadpool(store.verify_integrity)))
     elif sys.argv[1:] == ["--evaluate-findings"]:
         store = configured_store()
         if store.url:
@@ -143,7 +153,7 @@ async def main():
     elif not sys.argv[1:]:
         await collect()
     else:
-        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings | --local-monitor (Windows) | --rule-workspace | --cloudtrail-workspace]")
+        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings | --local-monitor (Windows) | --rule-workspace | --cloudtrail-workspace | --evidence-integrity]")
 
 
 if __name__ == "__main__":

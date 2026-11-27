@@ -1,6 +1,6 @@
 const { makeVerifyPc } = require('./verify-pc.cjs');
 const { makeLoggingRepair } = require('./logging-repair.cjs');
-const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, safeStorage, session, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { networkInterfaces } = require('node:os');
@@ -74,7 +74,7 @@ const loggingRepair = makeLoggingRepair({
     return response === 1;
   },
 });
-const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData'),
+const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData'), keyProtection: safeStorage,
   sourceChecks: localWorkspace.sourceChecks, packagedFirst: app.isPackaged });
 const verifyPc = makeVerifyPc({
   directory: app.getPath('userData'),
@@ -164,7 +164,7 @@ async function handleLocalRequest(request, api, origin) {
   if (api === localWorkspace && url.pathname === '/api/local/verify-pc') return verifyPc(request);
   const repair = /^\/api\/local\/posture\/repair\/([a-z-]+)\/(enable|undo)$/.exec(url.pathname);
   if (api === localWorkspace && repair) return loggingRepair(request, repair[1], repair[2] === 'undo');
-  if (api === localWorkspace && (/^\/api\/local\/(findings|evidence|rules)(\/|$)/).test(url.pathname)) {
+  if (api === localWorkspace && (/^\/api\/local\/(findings|evidence|rules|integrity)(\/|$)/).test(url.pathname)) {
     return localFindings.handle(request);
   }
   if (url.pathname.startsWith('/api/')) {

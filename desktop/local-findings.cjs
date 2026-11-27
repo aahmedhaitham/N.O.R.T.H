@@ -1,9 +1,10 @@
+const { makeIntegrityKey } = require('./integrity-key.cjs');
 const { execFile, spawn } = require('node:child_process');
 const { existsSync } = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 
-function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedFirst = true, supported = process.platform === 'win32' }) {
+function makeLocalFindings({ root, data, launch = spawn, sourceChecks, keyProtection, packagedFirst = true, supported = process.platform === 'win32' }) {
   const dbPath = path.join(data, 'local-findings.sqlite3');
   const backend = path.join(root, 'backend');
   const packaged = path.join(backend, 'NORTH-Collector.exe');
@@ -21,6 +22,15 @@ function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedF
   }
 
   const env = { ...process.env, NORTH_DB_PATH: dbPath, PYTHONNOUSERSITE: '1', PYTHONPATH: '' };
+  delete env.NORTH_EVIDENCE_KEY;
+  const integrityKey = keyProtection && makeIntegrityKey(data, keyProtection, () => accessStore((db) => {
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='local_integrity_head'").get()) return false;
+    return db.prepare('SELECT 1 FROM local_integrity_head LIMIT 1').get()
+      || db.prepare('SELECT 1 FROM local_integrity_entries LIMIT 1').get();
+  }));
+  function localEnvironment() {
+    return integrityKey ? { ...env, NORTH_EVIDENCE_KEY: integrityKey() } : env;
+  }
 
   async function ruleRequest(command, argument = '--rule-workspace') {
     const target = runtime(argument);
@@ -29,8 +39,8 @@ function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedF
     return new Promise((resolve, reject) => {
       const [file, args] = target;
       const worker = execFile(file, args, {
-        env: { ...env, NORTH_RULE_SOURCE_CHECKS: JSON.stringify(checks) },
-        cwd: backend, windowsHide: true, timeout: 20_000, maxBuffer: 512_000,
+        env: { ...localEnvironment(), NORTH_RULE_SOURCE_CHECKS: JSON.stringify(checks) },
+        cwd: backend, windowsHide: true, timeout: argument === '--evidence-integrity' ? 120_000 : 20_000, maxBuffer: 512_000,
       }, (error, stdout) => {
         if (error) return reject(error);
         try {
@@ -57,7 +67,7 @@ function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedF
     const [file, args] = target;
     try {
       const worker = launch(file, args, {
-        env,
+        env: localEnvironment(),
         cwd: backend, windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'],
       });
       failed = false;
@@ -85,6 +95,15 @@ function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedF
 
   async function handle(request) {
     const { pathname, searchParams } = new URL(request.url);
+    if (pathname === '/api/local/integrity') {
+      if (request.method !== 'POST') return new Response(null, { status: 405 });
+      if (request.headers.get('origin') !== 'north://app') return new Response(null, { status: 403 });
+      try {
+        return Response.json(await ruleRequest('{}', '--evidence-integrity'));
+      } catch {
+        return Response.json({ state: 'unavailable' }, { status: 503 });
+      }
+    }
     if (pathname === '/api/local/rules') {
       try {
         let result;

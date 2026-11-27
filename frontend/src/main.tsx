@@ -1,3 +1,4 @@
+import { EvidenceIntegrity } from './EvidenceIntegrity';
 import { feedbackMessages } from './messages';
 import { clientMessages } from './messages';
 import { mainMessages as strings, formatMessage } from './messages';
@@ -403,7 +404,7 @@ function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
         <h1>{simpleText.settings}</h1><button type="button" onClick={() => setLocalSettings(false)}>{simpleText.back}</button>
       </header><section className="panel"><DisplayModeControl />
         <button type="button" onClick={() => window.dispatchEvent(new Event(setupEvent))}>{onboardingMessages.reopen}</button>
-      </section></main>}
+      </section>{desktopLocal && <EvidenceIntegrity />}</main>}
       <div className="workspace-pages" hidden={Boolean(panel) || localSettings}>
       {view === 'dashboard' && <Dashboard endpoint={networkEndpoint} cases={cases} loaded={loaded}
         demo={publicDemo} local={desktopLocal} localFindings={!cloud && !publicDemo}

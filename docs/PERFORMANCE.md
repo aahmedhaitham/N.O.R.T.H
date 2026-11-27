@@ -30,3 +30,12 @@ Measured with the same synthetic 500,000-event workload on this workstation. The
 | Rule evaluation | 8,397.9 events/sec | 10,075.5 events/sec |
 
 The ingest measurement includes maintaining the search index. These are single benchmark runs with possible workstation load variation. The table above records an earlier baseline.
+
+## M6 evidence chain cost
+
+Five runs per mode, alternating order, used 10,000 synthetic events per run with the SQLite search index enabled. Run `python benchmark_north.py --events 10000` and repeat with `--integrity`. Other local validation was running during part of the sample.
+
+| Integrity mode | Median events/sec | Observed range |
+| --- | ---: | ---: |
+| Off | 4,847.7 | 2,774.7–5,116.4 |
+| On | 3,958.6 | 2,574.8–4,231.4 |

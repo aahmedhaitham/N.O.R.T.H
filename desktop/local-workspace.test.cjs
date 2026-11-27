@@ -278,3 +278,23 @@ test('posture detects exclusion additions and removals across unreadable samples
   assert.deepEqual((await postureHistory(file)([], at, [second])).exclusion_changes, { added: 1, removed: 1 });
   assert.doesNotMatch(await fs.readFile(file, 'utf8'), /synthetic-/);
 });
+
+test('protected evidence keys are reused and a missing key for an existing chain fails closed', async (t) => {
+  const { makeIntegrityKey } = require('./integrity-key.cjs');
+  const directory = await fs.mkdtemp(path.join(tmpdir(), 'north-key-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const protection = {
+    isEncryptionAvailable: () => true,
+    encryptString: (value) => Buffer.from('test-protected:' + value, 'utf8'),
+    decryptString: (value) => value.toString('utf8').replace('test-protected:', ''),
+  };
+  const original = makeIntegrityKey(directory, protection, () => false)();
+  assert.match(original, /^[a-f0-9]{64}$/);
+  assert.equal(makeIntegrityKey(directory, protection, () => true)(), original);
+  const file = path.join(directory, 'evidence-integrity.key');
+  assert.notEqual(await fs.readFile(file, 'utf8'), original);
+  await fs.writeFile(file, 'corrupted');
+  assert.throws(makeIntegrityKey(directory, protection, () => true), /Invalid protected/);
+  await fs.unlink(file);
+  assert.throws(makeIntegrityKey(directory, protection, () => true), /missing its protected key/);
+});

@@ -436,3 +436,11 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Tests cover migration, duplicates, wrong or missing keys, modified payloads and timestamps, deleted events and chain entries, and a missing or altered chain head.
 - Verified: 229 backend tests, 2 subtests, 38 desktop tests, 3 cloud tests and the desktop UI build.
 - M6 remains open. Windows-protected key storage, the Settings and checkpoint flows, and ingest-cost measurement are pending. The desktop has not enabled the chain.
+
+### M6 — protected desktop keys and Settings verification
+
+- The Windows desktop uses Electron safeStorage for the local evidence key. The local worker receives the key for the database operation and removes it from the inherited environment before launching any helper. An existing chain with a missing key fails closed.
+- Settings verifies the linked event history and optionally exports its authenticated checkpoint without raw evidence or the key. The report shows the chain start, count, or first broken link. Earlier evidence is outside the chain.
+- Verified: 229 backend tests, 2 subtests, 39 desktop tests, 3 cloud tests and the UI build. The source collector verified a synthetic event and returned a key-free checkpoint. The DPAPI storage boundary uses an injected protection double in desktop tests.
+- Five 10,000-event synthetic runs per mode measured median ingestion of 4,847.7 events/sec without integrity and 3,958.6 with it. See docs/PERFORMANCE.md for ranges.
+- Packaged Windows verification and real safeStorage key persistence remain unverified. Full-host takeover and rollback require independent trust evidence.

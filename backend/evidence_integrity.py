@@ -90,4 +90,7 @@ def verify(db, key):
         previous = digest
     if sequence != end or not hmac.compare_digest(previous, expected):
         return {"state": "broken", "sequence": sequence + 1, "event_id": None}
-    return {"state": "verified", "start": start, "records": sequence}
+    return {"state": "verified", "start": start, "records": sequence, "checkpoint": {
+        "format": 1, "start": start, "genesis": genesis, "records": sequence, "digest": expected,
+        "signature": checkpoint[4],
+    }}

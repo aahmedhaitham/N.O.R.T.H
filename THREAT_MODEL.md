@@ -30,4 +30,10 @@ signing. Coverage of hostile event rendering is not exhaustive.
 
 ### Local evidence integrity
 
-The SQLite evidence database is readable by programs with access to its files. Packet captures also rely on file permissions for confidentiality. The opt-in HMAC chain verifies the linked evidence recorded after migration and detects changes or missing records within that chain. It provides no confidentiality, and an attacker who controls the PC and the key can replace the evidence and recompute authentication data. The desktop key setup and external checkpoint workflow are pending.
+The SQLite evidence database is readable by programs with access to its files. Packet captures also rely on file permissions for confidentiality. The opt-in HMAC chain verifies the linked evidence recorded after migration and detects changes or missing records within that chain. It provides no confidentiality, and an attacker who controls the PC and the key can replace the evidence and recompute authentication data. Electron protects the local HMAC key with Windows safeStorage and passes it to the local collector process. Settings can export an authenticated checkpoint without the key. Store an exported checkpoint outside the PC to retain an independent reference to the state at that time. A full database and key compromise or a rollback of all local files can evade a verification based only on this PC.
+
+### Repair, collector, and import boundaries
+
+Windows repair scripts are restricted to known settings. NORTH shows the old and requested values in a native confirmation dialog, verifies the repair script against a pinned digest, and uses Windows administrator approval before applying changes. The elevated script checks that the value still matches the preview. NORTH retains requested and completed or unconfirmed outcomes and undo values locally. Some existing read-only bundled Windows scripts are invoked with a scoped PowerShell `-ExecutionPolicy Bypass` process flag.
+
+Collector and browser session credentials remain separate from the integrity key. The offline sample verification reads stored evidence and does not change Windows. CloudTrail files enter through a size- and record-bounded parser, and only limited normalized metadata is kept. Update and installer integrity still depend on the trusted publisher and distribution channel.
