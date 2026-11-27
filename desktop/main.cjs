@@ -1,3 +1,4 @@
+const { makeVerifyPc } = require('./verify-pc.cjs');
 const { makeLoggingRepair } = require('./logging-repair.cjs');
 const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session, shell } = require('electron');
 const fs = require('node:fs/promises');
@@ -75,6 +76,19 @@ const loggingRepair = makeLoggingRepair({
 });
 const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData'),
   sourceChecks: localWorkspace.sourceChecks, packagedFirst: app.isPackaged });
+const verifyPc = makeVerifyPc({
+  directory: app.getPath('userData'),
+  readSnapshot: localWorkspace.verifyPcSnapshot,
+  async readState() {
+    let monitor = [];
+    try { monitor = localFindings.sourceHealth(); } catch {}
+    return { ...await localWorkspace.verifyPcState(), monitor };
+  },
+  async readFindings() {
+    const response = await localFindings.handle(new Request('north://app/api/local/findings'));
+    return response.ok ? response.json() : null;
+  },
+});
 const packetCapture = makePacketCapture({});
 let offlineCountryLookup;
 
@@ -116,6 +130,7 @@ async function handleLocalRequest(request, api, origin) {
   if (url.pathname === '/api/desktop/remote-locations') return desktopLocations(request);
   if (url.pathname.startsWith('/api/desktop/capture/')) return packetCapture(request);
   if (url.pathname.startsWith('/api/desktop/collector/')) return collectorInstall(request, origin, api);
+  if (api === localWorkspace && url.pathname === '/api/local/verify-pc') return verifyPc(request);
   const repair = /^\/api\/local\/posture\/repair\/([a-z-]+)\/(enable|undo)$/.exec(url.pathname);
   if (api === localWorkspace && repair) return loggingRepair(request, repair[1], repair[2] === 'undo');
   if (api === localWorkspace && (/^\/api\/local\/(findings|evidence|rules)(\/|$)/).test(url.pathname)) {

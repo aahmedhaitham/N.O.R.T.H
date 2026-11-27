@@ -174,7 +174,15 @@ function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedF
     return new Response(null, { status: 404 });
   }
 
-  return { handle, stop };
+  function sourceHealth() {
+    return accessStore((db) => db.prepare('SELECT source, state, checked_at FROM local_source_health')
+      .all().filter((row) => {
+        const age = Date.now() - Date.parse(row.checked_at);
+        return age >= 0 && age <= 120_000;
+      })) ?? [];
+  }
+
+  return { handle, stop, sourceHealth };
 }
 
 module.exports = { makeLocalFindings };

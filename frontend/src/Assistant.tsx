@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { answer, intents, type Area, type Row, type Snapshot } from './assistantEngine';
+import { answer, intents, type Area, type Row, type Snapshot, type VerificationSummary } from './assistantEngine';
 import type { ChartEvent } from './OverviewCharts';
 
 type Selection = { area: Area; row: Row };
 type AssistantState = {
+  publishVerification: (summary?: VerificationSummary) => void;
   read: () => Snapshot; publish: (area: Area, rows: Row[]) => void;
   events: (rows: ChartEvent[]) => void; event: (id: string) => ChartEvent | undefined;
   locations: (rows: Record<string, string>) => void;
@@ -28,6 +29,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         return country ? { ...row, country, terms: [...(row.terms ?? []), country] } : row;
       }),
     }),
+    publishVerification: (summary?: VerificationSummary) => { data.current.verification = summary; },
     publish: (area: Area, rows: Row[]) => { data.current[area] = rows.slice(0, 200); },
     events: (rows: ChartEvent[]) => {
       const incoming = new Map(rows.slice(0, 100).map((event) => [event.id, event]));

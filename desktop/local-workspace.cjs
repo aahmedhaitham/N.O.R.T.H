@@ -237,7 +237,7 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
     if (reportId) {
       const incident = scriptCases((await sysmon()).events).find((item) => item.id === reportId);
       if (!incident) return Response.json({ detail: 'Investigation unavailable' }, { status: 404 });
-      const lines = incident.evidence.map((event) => `- ${event.timestamp} · Sysmon ${event.kind} · Evidence ${event.id}`);
+      const lines = incident.evidence.map((event) => `- ${event.timestamp} Â· Sysmon ${event.kind} Â· Evidence ${event.id}`);
       return new Response([`# ${incident.title}`, '', incident.summary, '', ...lines].join('\n'), { headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         'Content-Disposition': `attachment; filename="north-${reportId}.md"`,
@@ -305,6 +305,12 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
     return { sysmon: { state: current.state, problem: current.problem,
       kinds: [...new Set(current.events.map((event) => event.kind))] } };
   };
+  handle.verifyPcState = async () => {
+    const { sysmon: source } = await handle.sourceChecks();
+    const settings = await posture();
+    return { source, posture: settings, details: await postureDetails() };
+  };
+  handle.verifyPcSnapshot = () => read(path.join(scripts, 'Read-NorthPcSnapshot.ps1'), [], 45_000);
   return handle;
 }
 

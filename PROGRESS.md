@@ -408,3 +408,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added local Defender exclusion details and counts for added and removed entries since the last readable list. The saved comparison uses keyed digests. Readable data is bounded and shown only in the local dashboard.
 - Verified: 193 backend tests, 2 subtests, 34 desktop tests, 3 cloud tests, both PowerShell syntax checks, the pinned repair digest and the desktop UI build. The Windows reader returned 25 checks. All seven read-only repair previews were readable.
 - M3 implementation is available locally. Real UAC apply and undo, the confirmed Defender scan, and packaged desktop acceptance remain unverified. The repair round trip used a fake backend, and Windows settings were not modified.
+
+### M4 — Verify my PC and What Changed
+
+- Added a local dashboard flow in Simple and Analyst modes. It reuses the Sysmon and Windows source checks, posture and Defender readers, and unreviewed findings. The Assistant shows the latest report's same three counts while the local dashboard is loaded.
+- Added bounded snapshots for startup entries, services, scheduled tasks, listening endpoints, selected firewall rule properties, local users and admins, the hosts file, proxy and DNS settings, and Defender exclusions. The user can choose a known-good snapshot, inspect the last 20 reports and export Markdown. Diffs report added or modified and removed or replaced observations by category. The app links to the passive sensor evidence check.
+- Verified: 193 backend tests, 2 subtests, 38 desktop tests, 3 cloud tests, Windows snapshot reader syntax and desktop UI build. A read-only Windows run returned 10 of 11 categories. Tests cover every category, local request scope, baseline persistence, unavailable findings, and Overview/Assistant count agreement.
+- Packaged desktop acceptance remains open. Snapshot comparisons cover the selected properties and readable records. The report does not infer who caused a change.

@@ -1,3 +1,4 @@
+import { VerifyPc } from './VerifyPc';
 import { Posture } from './Posture';
 import { feedbackMessages } from './messages';
 import { DashboardMessages as strings } from './messages';
@@ -154,13 +155,15 @@ export function Dashboard({ endpoint, cases, loaded, demo, local, localFindings,
         </div>)}
         {localFindings && <LocalFindings desktop={local} onHealth={setFindingHealth} />}
       </section>
+      {local && <VerifyPc openDetections={openDetections} />}
       {local && <Posture />}
     </main>;
   }
 
   return <main className="dashboard overview-grid">
     <header className="dashboard-heading"><h1>{strings.securityOverview}</h1>{demo && <p className="reference">{strings.syntheticTelemetry}</p>}</header>
-    {local && <Posture />}
+    {local && <VerifyPc openDetections={openDetections} />}
+      {local && <Posture />}
     <MotionCard index={0} label={strings.needsAttention}>
       <header className="overview-heading"><CircleAlert size={18} /><h2>{strings.needsAttention}</h2></header>
       {localFindings && <LocalFindings desktop={local} />}

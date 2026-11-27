@@ -3,7 +3,8 @@ export type Row = {
   id: string; label: string; detail?: string; timestamp?: string; status?: string;
   terms?: string[]; guidance?: string; alternative?: string; country?: string;
 };
-export type Snapshot = Partial<Record<Area, Row[]>> & { unavailable?: Partial<Record<Area, string>> };
+export type VerificationSummary = { at: string; counts: number[] };
+export type Snapshot = Partial<Record<Area, Row[]>> & { verification?: VerificationSummary; unavailable?: Partial<Record<Area, string>> };
 export type Tool = Area | 'guide';
 type Intent = { id: string; examples: string[]; keywords: string[]; tool: Tool; template: string; follow: string[] };
 const intent = (id: string, tool: Tool, template: string, keywords: string, ...examples: string[]): Intent =>
@@ -87,6 +88,11 @@ export function matchIntent(question: string) {
 
 export function answer(question: string, source: Snapshot, context?: { area: Area; row: Row }, now = Date.now()) {
   const { query, intent, suggestions } = matchIntent(question);
+  if ((intent?.id === 'status' || normalize(question) === 'verify my pc') && source.verification) {
+    const { at, counts: [fine, review, unknown] } = source.verification;
+    return { text: `Latest Verify my PC report (${at}): ${fine} checked and fine, ${review} need a look, ${unknown} could not be checked.`,
+      suggestions: ['What needs attention?'], rows: [] };
+  }
   if (!intent) return { text: 'I couldn’t confidently match that question.', suggestions, rows: [] };
   const normalized = normalize(query);
   const knownCountry = source.events?.some((row) => row.country &&
