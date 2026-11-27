@@ -21,3 +21,5 @@ The local Ollama feature sends evidence-derived observations to the Ollama servi
 ## Windows posture
 
 While posture checks are enabled in the visible local dashboard, NORTH reads selected Windows settings and saves the timestamp and outcome of each check in the desktop user data folder. The latest snapshot supports comparison on the next check. Defender exclusion paths and local account details are omitted from this posture snapshot.
+
+The posture panel displays readable Defender exclusions locally. NORTH persists keyed digests for comparing exclusion changes. Confirmed repairs save a local audit journal and the setting values needed for undo.

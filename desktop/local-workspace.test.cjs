@@ -226,3 +226,55 @@ test('Defender scan requires the local UI and native confirmation', async () => 
   assert.deepEqual(await (await workspace(request())).json(), { state: 'accepted' });
   assert.equal(scans, 1);
 });
+
+test('logging repair previews exact values and saves undo and audit before applying', async (t) => {
+  const { makeLoggingRepair } = require('./logging-repair.cjs');
+  const directory = await fs.mkdtemp(path.join(tmpdir(), 'north-repair-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  let value = -1;
+  let approve = false;
+  const previews = [];
+  const repair = makeLoggingRepair({
+    directory, async confirm(...preview) { previews.push(preview); return approve; },
+    async run(_script, id, action, expected, desired) {
+      assert.equal(id, 'script-block');
+      if (action === 'read') return { value, location: 'HKLM\\fixture' };
+      assert.equal(expected, value);
+      const journal = await fs.readFile(path.join(directory, 'posture-audit.jsonl'), 'utf8');
+      assert.equal(JSON.parse(journal.trim().split('\n').at(-1)).state, 'requested');
+      await fs.access(path.join(directory, 'posture-script-block-undo.json'));
+      value = desired;
+    },
+  });
+  const request = () => new Request('north://app/api/local/posture/repair/script-block/enable',
+    { method: 'POST', headers: { origin: 'north://app' } });
+  assert.equal((await repair(new Request('north://app/'), 'script-block', false)).status, 405);
+  assert.equal((await repair(request(), 'arbitrary-id', false)).status, 404);
+  assert.equal((await (await repair(request(), 'script-block', false)).json()).state, 'cancelled');
+  assert.equal(value, -1);
+  approve = true;
+  assert.equal((await (await repair(request(), 'script-block', false)).json()).state, 'completed');
+  assert.equal(value, 1);
+  assert.equal((await (await repair(request(), 'script-block', true)).json()).state, 'completed');
+  assert.equal(value, -1);
+  assert.deepEqual(previews, [['HKLM\\fixture', -1, 1, false], ['HKLM\\fixture', -1, 1, false],
+    ['HKLM\\fixture', 1, -1, true]]);
+  const altered = path.join(directory, 'altered.ps1');
+  await fs.writeFile(altered, 'invalid script');
+  const verified = makeLoggingRepair({ script: altered, directory, confirm: () => assert.fail('unexpected prompt') });
+  assert.equal((await verified(request(), 'script-block', false)).status, 503);
+});
+
+test('posture detects exclusion additions and removals across unreadable samples', async (t) => {
+  const { postureHistory } = require('./posture-history.cjs');
+  const directory = await fs.mkdtemp(path.join(tmpdir(), 'north-exclusions-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const file = path.join(directory, 'posture.json');
+  const at = '2026-11-27T12:00:00Z';
+  const first = 'ExclusionPath: synthetic-first';
+  const second = 'ExclusionPath: synthetic-second';
+  await postureHistory(file)([], at, [first]);
+  await postureHistory(file)([], at, null);
+  assert.deepEqual((await postureHistory(file)([], at, [second])).exclusion_changes, { added: 1, removed: 1 });
+  assert.doesNotMatch(await fs.readFile(file, 'utf8'), /synthetic-/);
+});

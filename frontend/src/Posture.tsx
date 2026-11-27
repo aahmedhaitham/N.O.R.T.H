@@ -3,9 +3,9 @@ import { pollVisible } from './pollVisible';
 import { readJson } from './readJson';
 
 type Check = { id: string; title: string; status: 'pass' | 'fail' | 'unknown'; reason: string; weight: number };
-type Drift = { compared_at?: string | null; unavailable?: boolean;
+type Drift = { exclusion_changes?: { added: number; removed: number }; compared_at?: string | null; unavailable?: boolean;
   changes?: { id: string; title: string; before: Check['status']; after: Check['status'] }[] };
-type Snapshot = { state: string; checks: Check[]; updated_at: string | null; score: { earned: number; possible: number; unknown: number }; drift?: Drift };
+type Snapshot = { state: string; checks: Check[]; updated_at: string | null; score: { earned: number; possible: number; unknown: number }; drift?: Drift; exclusions?: string[] | null };
 
 type Details = { state: string; pending_updates?: number | null; recent_defender_detections?: number | null;
   support_end?: string | null; support_reviewed?: string | null; last_update_at?: string | null; last_scan_at?: string | null };
@@ -58,16 +58,33 @@ export function Posture() {
     }
   }
 
+  const [repairPending, setRepairPending] = useState(false);
+  const [repairMessage, setRepairMessage] = useState('');
+  async function repair(id: string, operation: 'enable' | 'undo') {
+    setRepairPending(true);
+    setRepairMessage('');
+    try {
+      const result = await readJson<{ state: string }>(`/api/local/posture/repair/${id}/${operation}`,
+        { method: 'POST' }, 240_000);
+      setRepairMessage(result.state === 'completed' ? 'Windows accepted the setting change. NORTH will recheck it.'
+        : result.state === 'unchanged' ? 'The setting already has the requested value.' : 'Setting change canceled.');
+    } catch {
+      setRepairMessage('NORTH could not confirm the change. Check the current value before retrying.');
+    } finally {
+      setRepairPending(false);
+    }
+  }
+
   return <section className="panel">
     <h2>Windows posture</h2>
     <button type="button" onClick={() => { setRunning(false); setEnabled(!enabled); }}>
       {enabled ? 'Pause posture checks' : 'Start posture checks'}
     </button>
     {' '}<button type="button" disabled={scanPending} onClick={() => void requestScan()}>
-      {scanPending ? 'Waiting for Defender…' : 'Request Defender quick scan'}
+      {scanPending ? 'Waiting for Defenderâ€¦' : 'Request Defender quick scan'}
     </button>
     {scanMessage && <p role="status">{scanMessage}</p>}
-    {running && <p role="status">Checking settings…</p>}
+    {running && <p role="status">Checking settingsâ€¦</p>}
     {!snapshot && !failed && <p>Read firewall, Defender and other Windows settings on this PC.</p>}
     {failed && <p role="status">Windows posture could not be read. Try again.</p>}
     {snapshot && <p role="status">
@@ -78,7 +95,7 @@ export function Posture() {
     {snapshot?.drift?.compared_at && <details>
       <summary>Changes since the previous check</summary>
       {snapshot.drift.changes?.length ? <ul>{snapshot.drift.changes.map((change) => <li key={change.id}>
-        {change.title} · {labels[change.before]} → {labels[change.after]}
+        {change.title} Â· {labels[change.before]} â†’ {labels[change.after]}
       </li>)}</ul> : <p>None of the check results changed.</p>}
     </details>}
     {details && <details>
@@ -96,8 +113,23 @@ export function Posture() {
       </ul>
       <p>Cached update results depend on the most recent Windows Update scan.</p>
     </details>}
+    {snapshot && <details>
+      <summary>Defender exclusions</summary>
+      {snapshot.drift?.exclusion_changes && <p>
+        {snapshot.drift.exclusion_changes.added} added · {snapshot.drift.exclusion_changes.removed} removed
+        since the last readable exclusion list.
+      </p>}
+      {snapshot.exclusions === null || snapshot.exclusions === undefined ? <p>Could not check the exclusion list.</p>
+        : snapshot.exclusions.length ? <ul>{snapshot.exclusions.map((entry) => <li key={entry}><code>{entry}</code></li>)}</ul>
+        : <p>Defender returned no exclusions.</p>}
+    </details>}
+    {repairMessage && <p role="status">{repairMessage}</p>}
     {snapshot && <ul>{snapshot.checks.map((item) => <li key={item.id}>
-      <strong>{item.title}</strong> · {labels[item.status]}. {item.reason}{item.status === 'fail' && ` · ${item.weight} points missed`}
+      <strong>{item.title}</strong> Â· {labels[item.status]}. {item.reason}{item.status === 'fail' && ` Â· ${item.weight} points missed`}
+      {['process-command-line', 'script-block', 'smbv1', 'firewall-domain', 'firewall-private', 'firewall-public', 'autorun-policy'].includes(item.id) && <>
+        {' '}<button type="button" disabled={repairPending} onClick={() => void repair(item.id, 'enable')}>Preview repair</button>
+        {' '}<button type="button" disabled={repairPending} onClick={() => void repair(item.id, 'undo')}>Preview undo</button>
+      </>}
     </li>)}</ul>}
   </section>;
 }

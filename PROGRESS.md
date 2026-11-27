@@ -401,3 +401,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added a local-only Defender quick-scan request with a native confirmation dialog. The handler refuses requests from other origins and avoids duplicate requests while confirmation or launch is pending. The UI reports request acceptance or uncertainty, and directs the user to Windows Security for scan results.
 - Verified: 193 backend tests, 2 subtests, 32 desktop tests, 3 cloud tests, scan script syntax and desktop UI build. The desktop test uses a fake scan runner and proves cancellation leaves it untouched. A live scan and packaged desktop walkthrough were not run.
 - M3 remains open for Windows settings repairs with exact previews, UAC, audit records and undo, plus individual Defender exclusion change tracking.
+
+### M3 — confirmed posture repairs and exclusion changes
+
+- Implemented seven allowlisted repairs: the two logging settings, SMBv1 server protocol, the three local firewall profiles, and computer AutoRun policy. The desktop previews the exact old and requested value, requires native confirmation and UAC, checks the packaged script hash, rechecks the old value after elevation, records the undo value before applying, audits requests and outcomes, and reads back the result. A managed firewall policy can still override the local policy value.
+- Added local Defender exclusion details and counts for added and removed entries since the last readable list. The saved comparison uses keyed digests. Readable data is bounded and shown only in the local dashboard.
+- Verified: 193 backend tests, 2 subtests, 34 desktop tests, 3 cloud tests, both PowerShell syntax checks, the pinned repair digest and the desktop UI build. The Windows reader returned 25 checks. All seven read-only repair previews were readable.
+- M3 implementation is available locally. Real UAC apply and undo, the confirmed Defender scan, and packaged desktop acceptance remain unverified. The repair round trip used a fake backend, and Windows settings were not modified.

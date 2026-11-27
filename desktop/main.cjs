@@ -1,3 +1,4 @@
+const { makeLoggingRepair } = require('./logging-repair.cjs');
 const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
@@ -53,6 +54,25 @@ const localWorkspace = makeLocalWorkspace(scripts, undefined,
     });
     return response === 1;
   });
+const loggingRepair = makeLoggingRepair({
+  script: path.join(scripts, 'Set-NorthLoggingPosture.ps1'),
+  directory: app.getPath('userData'),
+  async confirm(location, before, after, undo) {
+    if (!activeWindow || activeWindow.isDestroyed()) return false;
+    const display = (value) => {
+      if (location.startsWith('HKLM')) return value === -1 ? 'Value absent' : 'DWORD ' + value;
+      return value === -1 ? 'Not configured' : value ? 'Enabled' : 'Disabled';
+    };
+    const { response } = await dialog.showMessageBox(activeWindow, {
+      type: 'question', title: 'Windows posture repair',
+      message: undo ? 'Undo the saved NORTH setting change?' : 'Apply this Windows setting change?',
+      detail: location + '\nCurrent: ' + display(before) + '\nRequested: ' + display(after) +
+        '\nWindows will ask for administrator approval.',
+      buttons: ['Cancel', 'Continue to administrator approval'], defaultId: 0, cancelId: 0,
+    });
+    return response === 1;
+  },
+});
 const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData'),
   sourceChecks: localWorkspace.sourceChecks, packagedFirst: app.isPackaged });
 const packetCapture = makePacketCapture({});
@@ -96,6 +116,8 @@ async function handleLocalRequest(request, api, origin) {
   if (url.pathname === '/api/desktop/remote-locations') return desktopLocations(request);
   if (url.pathname.startsWith('/api/desktop/capture/')) return packetCapture(request);
   if (url.pathname.startsWith('/api/desktop/collector/')) return collectorInstall(request, origin, api);
+  const repair = /^\/api\/local\/posture\/repair\/([a-z-]+)\/(enable|undo)$/.exec(url.pathname);
+  if (api === localWorkspace && repair) return loggingRepair(request, repair[1], repair[2] === 'undo');
   if (api === localWorkspace && (/^\/api\/local\/(findings|evidence|rules)(\/|$)/).test(url.pathname)) {
     return localFindings.handle(request);
   }

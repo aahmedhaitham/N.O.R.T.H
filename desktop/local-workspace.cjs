@@ -106,10 +106,13 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
         if (check.status === 'pass') score.earned += check.weight;
       }
     }
+    const exclusions = Array.isArray(snapshot.exclusions) && snapshot.exclusions.length <= 200 &&
+      snapshot.exclusions.every((entry) => typeof entry === 'string' && entry.length <= 512)
+      ? [...new Set(snapshot.exclusions)] : null;
     const drift = observePosture
-      ? await observePosture(checks, new Date().toISOString()).catch(() => ({ unavailable: true }))
+      ? await observePosture(checks, new Date().toISOString(), exclusions).catch(() => ({ unavailable: true }))
       : undefined;
-    return { checks, score, drift };
+    return { checks, score, drift, exclusions };
   }, { checks: [] });
   const postureDetails = cachedReader(async () => {
     const details = await read(path.join(scripts, 'Read-NorthPostureDetails.ps1'), []);

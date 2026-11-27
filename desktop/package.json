@@ -35,6 +35,7 @@
       "device-history.cjs",
       "listener-history.cjs",
       "posture-history.cjs",
+      "logging-repair.cjs",
       "windows-servicing.json",
       "packet-capture.cjs",
       "collector-install.cjs",
@@ -97,6 +98,7 @@
           "Read-NorthPosture.ps1",
           "Read-NorthPostureDetails.ps1",
           "Start-NorthDefenderQuickScan.ps1",
+          "Set-NorthLoggingPosture.ps1",
           "SysmonFormat.ps1"
         ]
       }

@@ -1,4 +1,15 @@
 $ErrorActionPreference = 'Stop'
+$exclusions = $null
+try {
+    $preferences = Get-MpPreference
+    $entries = @(foreach ($category in @('ExclusionPath','ExclusionProcess','ExclusionExtension','ExclusionIpAddress')) {
+        foreach ($entry in $preferences.$category) {
+            if ($entry) { "${category}: $entry" }
+        }
+    })
+    if ($null -ne $preferences -and $entries.Count -le 200 -and
+        @($entries | Where-Object Length -gt 512).Count -eq 0) { $exclusions = $entries }
+} catch {}
 $checks = @(
     function Read-Check($Id, $Title, [scriptblock]$Read) {
         $status = 'unknown'
@@ -98,13 +109,9 @@ $checks = @(
     Read-Check 'defender-behavior' 'Defender behavior monitoring enabled' { $defender.BehaviorMonitorEnabled }
     Read-Check 'defender-on-access' 'Defender on-access protection enabled' { $defender.OnAccessProtectionEnabled }
     Read-Check 'defender-exclusions' 'No exclusions returned by Defender preferences' {
-        $preferences = Get-MpPreference
-        if ($null -ne $preferences) {
-            $entries = @($preferences.ExclusionPath) + @($preferences.ExclusionProcess) + @($preferences.ExclusionExtension)
-            @($entries | Where-Object { $_ }).Count -eq 0
-        }
+        if ($null -ne $exclusions) { $exclusions.Count -eq 0 }
     }
 
 )
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-ConvertTo-Json -InputObject @{checks=$checks} -Depth 4 -Compress
+ConvertTo-Json -InputObject @{checks=$checks; exclusions=$exclusions} -Depth 4 -Compress
