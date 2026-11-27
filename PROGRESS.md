@@ -333,3 +333,14 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Confirm real Security audit and Sysmon events are collected on Windows, including parent paths, access masks, group SIDs and file-create event 11. Compare source coverage with actual event types available on the PC.
 - On a desktop build, verify finding confidence and rarity in Simple and Analyst mode, and verify that Detections displays the trace, event selection and noise estimate for a rule preview.
 - Collect evidence from ordinary workloads before drawing conclusions about false-positive rates. The audit uses qualitative estimates and the tests use synthetic events.
+
+### Feature completion M2 — passive health foundation
+
+- Extended the existing Windows source watcher. It persists the most recent source check, collector activity and event timestamp locally. Sysmon reports a quiet state after an hour without a newer observed event. Quiet can reflect ordinary inactivity. Read failures, disabled channels and denied access have distinct explanations.
+- Source-health transitions produce reviewable findings through the existing local findings store. Repeated identical states do not create repeated findings. Historical findings remain available after the source recovers.
+- Verified with 184 backend tests and 2 subtests, 28 desktop tests, 3 cloud tests, and the desktop UI build. The source-health regression uses synthetic timestamps and exercises waiting, observed, quiet, denied and recovered states.
+- M2 remains open. Sysmon service-state and policy drift collection, self-test runs and reports, and coverage verification from confirmed results remain unimplemented.
+
+#### Needs manual verification
+
+- Check that the local Windows source monitor displays a finding for an observed source failure and records recovery when that source becomes readable again. Validate the quiet threshold on a real workstation before interpreting its frequency.

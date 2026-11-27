@@ -173,6 +173,11 @@ class Store:
                     )
                     """)
                 db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_source_snapshots (
+                        source TEXT PRIMARY KEY, payload TEXT NOT NULL
+                    )
+                    """)
+                db.execute("""
                     CREATE TABLE IF NOT EXISTS local_observed_event_types (
                         source TEXT NOT NULL, kind INTEGER NOT NULL, PRIMARY KEY (source, kind)
                     )
@@ -343,6 +348,38 @@ class Store:
                 INSERT INTO local_source_health VALUES (?, ?, ?)
                 ON CONFLICT (source) DO UPDATE SET state = excluded.state, checked_at = excluded.checked_at
                 """, (source, state, checked_at))
+
+    def record_source_snapshot(self, source, snapshot):
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT payload FROM local_source_snapshots WHERE source = ?", (source,)).fetchone()
+            previous = json.loads(row[0]) if row else {}
+            snapshot = {**snapshot}
+            for field in ("last_event_at", "last_collected_at"):
+                snapshot[field] = max(filter(None, (snapshot.get(field), previous.get(field))), default=None)
+            db.execute("""INSERT INTO local_source_snapshots VALUES (?, ?)
+                          ON CONFLICT (source) DO UPDATE SET payload = excluded.payload""",
+                       (source, json.dumps(snapshot)))
+            db.execute("""INSERT INTO local_source_health VALUES (?, ?, ?)
+                          ON CONFLICT (source) DO UPDATE SET state = excluded.state, checked_at = excluded.checked_at""",
+                       (source, "collecting" if snapshot["state"] == "no_data" and snapshot["last_event_at"]
+                        else snapshot["state"], snapshot["checked_at"]))
+            changed = snapshot["health"] != previous.get("health") or snapshot["reason"] != previous.get("reason")
+            if changed and snapshot["health"] in {"quiet", "unavailable"}:
+                checked = snapshot["checked_at"]
+                identity = hashlib.sha256(f"sensor-health:{source}:{checked}".encode()).hexdigest()[:24]
+                self._write_findings(db, [{
+                    "id": identity, "rule_id": "sensor-health", "title": f"Check the {source} source",
+                    "severity": "low", "plain_summary": snapshot["reason"], "what_to_do": snapshot["fix"],
+                    "first_seen": checked, "last_seen": checked, "evidence_ids": [],
+                    "confidence": "single observation", "rarity": "unknown",
+                }])
+            return snapshot
+
+    def source_snapshot(self, source):
+        with self.connect() as db:
+            row = db.execute("SELECT payload FROM local_source_snapshots WHERE source = ?", (source,)).fetchone()
+        return json.loads(row[0]) if row else {}
 
     def local_windows_events(self, *, limit=100):
         marker = "%s" if self.url else "?"

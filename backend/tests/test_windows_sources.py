@@ -147,3 +147,37 @@ def test_sysmon_file_creation_is_collected_and_counts_toward_rule_coverage(tmp_p
     catalog = rule_workspace(store, now=now)
     rule = next(row for row in catalog["rules"] if row["id"] == "powershell-script-write")
     assert rule["coverage"] == "covered"
+
+def test_passive_source_health_tracks_quiet_failure_and_recovery(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    from windows_sources import source_snapshot
+
+    store = Store(path=tmp_path / "health.sqlite")
+    store.initialize()
+    now = datetime(2026, 1, 15, 10, tzinfo=timezone.utc)
+    initial = {"fix": "Check the Sysmon log."}
+
+    waiting = source_snapshot(initial, "no_data", 0, None, now, expect_activity=True)
+    assert waiting["health"] == "waiting"
+    assert store.record_source_snapshot("sysmon", waiting) == waiting
+    assert store.detection_findings() == []
+
+    observed = source_snapshot(waiting, "collecting", 1, now.isoformat(), now, expect_activity=True)
+    store.record_source_snapshot("sysmon", observed)
+    quiet = source_snapshot(observed, "no_data", 0, None, now + timedelta(hours=1), expect_activity=True)
+    assert quiet["health"] == "quiet"
+    assert quiet["last_event_at"] == now.isoformat()
+    store.record_source_snapshot("sysmon", quiet)
+    store.record_source_snapshot("sysmon", quiet)
+    assert len(store.detection_findings()) == 1
+
+    denied = source_snapshot(quiet, "access_denied", 0, None, now + timedelta(hours=2), expect_activity=True)
+    store.record_source_snapshot("sysmon", denied)
+    assert store.source_snapshot("sysmon")["health"] == "unavailable"
+    assert len(store.detection_findings()) == 2
+    recovered_at = now + timedelta(hours=3)
+    recovered = source_snapshot(denied, "collecting", 1, recovered_at.isoformat(), recovered_at, expect_activity=True)
+    store.record_source_snapshot("sysmon", recovered)
+    assert store.source_snapshot("sysmon")["health"] == "observed"
+    assert len(store.detection_findings()) == 2
+    assert source_snapshot(observed, "no_data", 0, None, recovered_at)["health"] == "observed"

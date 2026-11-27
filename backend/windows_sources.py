@@ -7,7 +7,7 @@ import os
 import socket
 import sqlite3
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from ipaddress import ip_address
 from pathlib import Path
 
@@ -67,6 +67,11 @@ def normalize_record(source, record):
 
 
 def collect_source(store, source):
+    state, count, _ = read_source_batch(store, source)
+    return state, count
+
+
+def read_source_batch(store, source):
     if source not in SOURCE_EVENTS:
         raise ValueError("Unsupported Windows event source")
     offset = "local-windows:" + source
@@ -86,13 +91,15 @@ def collect_source(store, source):
         raise ValueError("Invalid Windows source state or position")
     if not isinstance(records, list) or len(records) > 100 or bool(records) != (state == "collecting"):
         raise ValueError("Invalid Windows event batch")
+    last_event_at = None
     if state in {"collecting", "no_data"}:
         events = [normalize_record(source, record) for record in records]
         positions = [int(event["source_event_id"]) for event in events]
         if positions and (sorted(set(positions)) != positions or positions[-1] != position):
             raise ValueError("Invalid Windows source cursor ordering")
         store.ingest_local_windows(events, checkpoint=(offset, position))
-    return state, len(records)
+        last_event_at = max((event["timestamp"] for event in events), default=None)
+    return state, len(records), last_event_at
 
 
 def collect_tcp_sample(store):
@@ -142,6 +149,32 @@ def collect_tcp_sample(store):
     return ("collecting" if rows else "no_data"), len(rows)
 
 
+SOURCE_FAILURES = {
+    "not_installed": "Windows could not find the event channel.",
+    "access_denied": "Windows denied this account access to the source.",
+    "misconfigured": "Windows reports that the event channel is disabled.",
+    "read_failed": "The collector could not read the source.",
+    "unavailable": "Windows did not provide a source snapshot.",
+}
+
+
+def source_snapshot(previous, state, count, last_event_at, now, *, expect_activity=False):
+    stamp = now.isoformat()
+    last_event = max(filter(None, (last_event_at, previous.get("last_event_at"))), default=None)
+    if state in SOURCE_FAILURES:
+        health = "unavailable"
+        reason = SOURCE_FAILURES[state]
+    elif expect_activity and last_event and now - datetime.fromisoformat(last_event) >= timedelta(hours=1):
+        health = "quiet"
+        reason = "No new Sysmon event has been observed for an hour. Activity or logging may have changed."
+    else:
+        health = "observed" if last_event or count else "waiting"
+        reason = ""
+    return {**previous, "state": state, "health": health, "reason": reason, "checked_at": stamp,
+            "last_collected_at": stamp if count else previous.get("last_collected_at"),
+            "last_event_at": last_event}
+
+
 class WindowsSources:
     def __init__(self, store, enabled):
         self.store = store
@@ -151,22 +184,26 @@ class WindowsSources:
                                "fix": "Check whether this account can read the local Windows TCP/IP provider."}
 
     async def watch(self, source):
+        try:
+            previous = await run_in_threadpool(self.store.source_snapshot, source)
+        except sqlite3.Error:
+            previous = {}
+        self.current[source] = {**self.current[source], **previous}
         while True:
+            last_event_at = None
             try:
                 if source == "tcp":
                     state, count = await run_in_threadpool(collect_tcp_sample, self.store)
                 else:
-                    state, count = await run_in_threadpool(collect_source, self.store, source)
+                    state, count, last_event_at = await run_in_threadpool(read_source_batch, self.store, source)
             except (OSError, TypeError, ValueError, KeyError, AttributeError, sqlite3.Error, subprocess.SubprocessError):
                 state, count = "read_failed", 0
             previous = self.current[source]
-            if state == "no_data" and previous["last_collected_at"]:
-                state = "collecting"
-            self.current[source] = {**previous, "state": state,
-                                    "last_collected_at": datetime.now(timezone.utc).isoformat() if count
-                                    else previous["last_collected_at"]}
+            current = source_snapshot(previous, state, count, last_event_at, datetime.now(timezone.utc),
+                                      expect_activity=source == "sysmon")
+            self.current[source] = current
             try:
-                await run_in_threadpool(self.store.save_source_health, source, state, datetime.now(timezone.utc).isoformat())
+                await run_in_threadpool(self.store.record_source_snapshot, source, current)
             except sqlite3.Error:
                 pass
             await asyncio.sleep(60 if source == "tcp" else 2 if count == 100 else 30)
