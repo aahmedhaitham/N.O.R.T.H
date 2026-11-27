@@ -361,3 +361,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - The passive Windows Security collector records audit-policy change event 4719 and links it to a local review finding. The change is evidence of policy activity and does not establish which logging capabilities remain available.
 - Verified: 192 backend tests, 2 subtests, 28 desktop tests and 3 cloud tests passed. The UI built with the existing bundle-size warning.
 - M2 remains partially complete. The live simulation and verified-coverage tier are open. Desktop and live Windows observations remain unverified.
+
+### M2 — recorded pipeline coverage
+
+- Detections has a Verified from recorded findings tier. A confirmed replay must link recent local events to the same finding previously saved by the detection pipeline. The rule must be enabled, the required sources currently observed, and the report less than a day old.
+- Verified: 193 backend tests, 2 subtests, 28 desktop tests, 3 cloud tests and the desktop UI build. The regression distinguishes replay alone, a stored finding, stale coverage, an expired report and a disabled rule.
+- Live Windows and desktop acceptance remain unverified. The original active persistence simulations are outside the delivered passive implementation.

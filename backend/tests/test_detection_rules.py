@@ -481,3 +481,25 @@ def test_recorded_sensor_check_explains_missing_signal(source_state, expected):
     assert result["outcome"] == expected
     result, = recorded_sensor_check([rule], {rule.id}, [], {"system": source_state})
     assert result["outcome"] == "rule_disabled"
+
+def test_sensor_coverage_needs_fresh_source_and_independent_finding(tmp_path):
+    store = Store(path=tmp_path / "verified.sqlite")
+    store.initialize()
+    event = records("detections_positive.json", "windows-service-installed")[0]
+    now = datetime.fromisoformat(event["timestamp"])
+    store.ingest_local_windows([event])
+    store.save_source_health("system", "collecting", now.isoformat())
+
+    def coverage(at):
+        return rule_workspace(store, now=at)["techniques"]["attack.t1543.003"]
+
+    rule_workspace(store, {"action": "verify-sensors", "confirmed": True}, now=now)
+    assert coverage(now) == "covered"
+    assert consume_detection_queue(store, bundled_rules(), now=now) == 1
+    assert coverage(now) == "verified"
+    assert coverage(now + timedelta(minutes=3)) != "verified"
+    later = now + timedelta(days=1)
+    store.save_source_health("system", "collecting", later.isoformat())
+    assert coverage(later) == "covered"
+    rule_workspace(store, {"action": "toggle", "id": "windows-service-installed", "enabled": False}, now=now)
+    assert coverage(now) != "verified"

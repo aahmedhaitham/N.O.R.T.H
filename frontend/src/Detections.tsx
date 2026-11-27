@@ -8,7 +8,7 @@ import { useAssistant } from './Assistant';
 import { readJson } from './readJson';
 import tacticData from './attackTactics.json';
 
-type Coverage = 'covered' | 'partly' | 'blind' | 'unchecked';
+type Coverage = 'verified' | 'covered' | 'partly' | 'blind' | 'unchecked';
 type Requirement = { id: string; state: string; fix: string };
 type Rule = {
   id: string; title: string; severity: string; enabled: boolean; attack: string[];
@@ -21,7 +21,7 @@ type TestResult = { evaluated_events: number; timed_out_rule_ids: string[]; matc
   noise?: { alerts: number; hours: number; alerts_per_day: number | null };
 };
 
-const coverageLabels = { covered: 'Covered', partly: feedbackMessages.partlyCovered, blind: 'Blind', unchecked: 'Unchecked' };
+const coverageLabels = { verified: 'Verified from recorded findings', covered: 'Covered', partly: feedbackMessages.partlyCovered, blind: 'Blind', unchecked: 'Unchecked' };
 const techniqueId = (tag: string) => tag.replace(/^attack\./, '').toUpperCase();
 const tactics: Record<string, string[]> = tacticData;
 
@@ -201,7 +201,7 @@ export function Detections() {
                   setQuery(query === techniqueId(tag) ? '' : techniqueId(tag));
                   document.getElementById('detection-rule-search')?.focus();
                 }}>{techniqueId(tag)} · {coverageLabels[status]}</button>
-              {status !== 'covered' && reasons.length > 0 && <small>{reasons.join(' · ')}</small>}
+              {status !== 'covered' && status !== 'verified' && reasons.length > 0 && <small>{reasons.join(' · ')}</small>}
               </li>;
             })}</ul>
           </div>)}

@@ -482,6 +482,11 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
             raise RuleError("Confirm the recorded evidence check")
         events = [event_contract(event) for event in store.local_windows_events(limit=500)]
         results = recorded_sensor_check([known[identity] for identity in SENSOR_RULES], disabled, events, health)
+        event_times = {event["id"]: datetime.fromisoformat(event["ts"]) for event in events}
+        for result in results:
+            evidence = result["evidence_ids"]
+            if evidence and all(now - timedelta(days=1) <= event_times[item] <= now for item in evidence):
+                result["finding_id"] = finding_identity(result["id"], evidence)
         report = {"checked_at": now.isoformat(), "sample_size": len(events), "results": results,
                   "verified": sum(result["outcome"] == "verified" for result in results)}
         with store.connect() as db:
@@ -537,6 +542,16 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
         return {"id": value, "state": detail, "source_state": state,
                 "fix": FIXES.get(source, "Check whether the collector can read OpenSSH journal events.")}
 
+    with store.connect() as db:
+        latest_report = db.execute("SELECT payload FROM local_sensor_verification ORDER BY id DESC LIMIT 1").fetchone()
+        report = json.loads(latest_report[0]) if latest_report else None
+        verified = set()
+        if report and timedelta(0) <= now - datetime.fromisoformat(report["checked_at"]) < timedelta(days=1):
+            for result in report["results"]:
+                finding_id = result.get("finding_id")
+                if finding_id and db.execute("SELECT 1 FROM local_detection_findings WHERE id = ?", (finding_id,)).fetchone():
+                    verified.add(result["id"])
+    levels = ("blind", "unchecked", "partly", "covered", "verified")
     techniques = defaultdict(int)
     entries = []
     for rule in rules:
@@ -546,7 +561,7 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
         coverage = 0
         if enabled:
             if requirements and confirmed == len(requirements):
-                coverage = 3
+                coverage = 4 if rule.id in verified else 3
             elif confirmed or any(need["state"] in ("Can’t determine (needs admin)", "Event type unconfirmed")
                                   for need in requirements):
                 coverage = 2
@@ -555,12 +570,10 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
         for tag in filter(TECHNIQUE.fullmatch, rule.tags):
             techniques[tag] = max(techniques[tag], coverage)
         entries.append({"id": rule.id, "title": rule.title, "severity": rule.severity, "enabled": enabled,
-                        "attack": rule.tags, "coverage": ("blind", "unchecked", "partly", "covered")[coverage],
+                        "attack": rule.tags, "coverage": levels[coverage],
                         "requires": requirements})
-    with store.connect() as db:
-        latest_report = db.execute("SELECT payload FROM local_sensor_verification ORDER BY id DESC LIMIT 1").fetchone()
-    return {"rules": entries, "sensor_report": json.loads(latest_report[0]) if latest_report else None,
-            "techniques": {tag: ("blind", "unchecked", "partly", "covered")[level] for tag, level in sorted(techniques.items())}}
+    return {"rules": entries, "sensor_report": report,
+            "techniques": {tag: levels[level] for tag, level in sorted(techniques.items())}}
 
 
 def evaluate_rules(rules, events):
@@ -585,13 +598,18 @@ def evaluate_rules(rules, events):
     return {"matches": results, "timed_out_rule_ids": skipped}
 
 
+def finding_identity(rule_id, evidence):
+    payload = json.dumps([rule_id, sorted(evidence)], separators=(",", ":")).encode()
+    return hashlib.sha256(payload).hexdigest()[:24]
+
+
 def findings_from_matches(matches, events):
     by_id = {event["id"]: event for event in events}
     for match in matches:
         groups = match.get("evidence_groups") or ((identity,) for identity in match["evidence_ids"])
         for group in groups:
             evidence = [by_id[identity] for identity in group]
-            identity = hashlib.sha256(json.dumps([match["rule_id"], sorted(group)], separators=(",", ":")).encode()).hexdigest()[:24]
+            identity = finding_identity(match["rule_id"], group)
             yield {**{key: value for key, value in match.items() if key not in ("evidence_groups", "evidence_ids")},
                    "id": identity, "evidence_ids": group,
                    "entities": {"hosts": sorted({event["host"] for event in evidence if event["host"]})},
