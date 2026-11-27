@@ -27,3 +27,7 @@ loopback cookies are scoped by host and path, not port, so other same-host
 listeners remain inside that local trust boundary. The packaged application
 still relies on Windows permissions, capture driver policy and trusted release
 signing. Coverage of hostile event rendering is not exhaustive.
+
+### Local evidence integrity
+
+The SQLite evidence database is readable by programs with access to its files. Packet captures also rely on file permissions for confidentiality. The opt-in HMAC chain verifies the linked evidence recorded after migration and detects changes or missing records within that chain. It provides no confidentiality, and an attacker who controls the PC and the key can replace the evidence and recompute authentication data. The desktop key setup and external checkpoint workflow are pending.

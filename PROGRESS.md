@@ -429,3 +429,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added 12 CloudTrail rules and first-seen region and source-address findings against previously imported evidence. Rules use conservative structured flags for recognized administrator policy, GuardDuty disablement, explicit public S3 grants and IPv4 world ingress. Effective access, other ACL or policy shapes, missing exports, and activity outside the imported time range remain unknown.
 - Verified: 221 backend tests, 2 subtests, 38 desktop tests, 3 cloud tests, desktop UI build, and the source collector command against a temporary synthetic export and database. Each rule has checked positive and negative fixtures. The source collector smoke imported 3 events and created 3 findings.
 - Packaged desktop acceptance remains open. The optional IAM graph was deferred. Live AWS APIs and credentials are outside this offline workflow.
+
+### M6 — local evidence integrity foundation
+
+- Added an opt-in HMAC chain covering new records in both local SQLite event tables, with a signed chain head and transactionally linked event writes. Verification identifies the first changed, missing or mislinked record. Existing events are outside the chain and verification reports its start time.
+- Tests cover migration, duplicates, wrong or missing keys, modified payloads and timestamps, deleted events and chain entries, and a missing or altered chain head.
+- Verified: 229 backend tests, 2 subtests, 38 desktop tests, 3 cloud tests and the desktop UI build.
+- M6 remains open. Windows-protected key storage, the Settings and checkpoint flows, and ingest-cost measurement are pending. The desktop has not enabled the chain.

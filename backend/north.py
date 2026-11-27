@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from ipaddress import ip_address
 from pathlib import Path
 from event_contract import event_contract
+import evidence_integrity
 
 
 SSH_FAILURE = 1001
@@ -119,9 +120,12 @@ def normalize(raw: dict) -> dict:
 
 
 class Store:
-    def __init__(self, url: str | None = None, path: str | Path = "north.sqlite3"):
+    def __init__(self, url: str | None = None, path: str | Path = "north.sqlite3", *, integrity_key: bytes | None = None):
         self.url = url
         self.path = path
+        if integrity_key is not None and (url or not isinstance(integrity_key, bytes) or len(integrity_key) != 32):
+            raise ValueError("Evidence integrity requires a 32-byte key and the local SQLite store")
+        self.integrity_key = integrity_key
 
     @contextmanager
     def connect(self):
@@ -153,6 +157,7 @@ class Store:
             db.execute("CREATE INDEX IF NOT EXISTS local_windows_time ON local_windows_events (timestamp, id)")
             if not self.url:
                 self._initialize_event_search(db)
+                evidence_integrity.initialize(db, self.integrity_key)
                 db.execute("""
                     CREATE TABLE IF NOT EXISTS local_detection_findings (
                         id TEXT PRIMARY KEY, status TEXT NOT NULL, last_seen TEXT NOT NULL, payload TEXT NOT NULL
@@ -328,23 +333,43 @@ class Store:
                 )
             return inserted
 
+    def verify_integrity(self):
+        if self.url:
+            return {"state": "not_enabled"}
+        with self.connect() as db:
+            db.execute("BEGIN")
+            return evidence_integrity.verify(db, self.integrity_key)
+
     def _insert_events(self, db, events, *, local, enqueue):
         table = "local_windows_events" if local else "events"
         marker = "%s" if self.url else "?"
         values = ", ".join([marker] * 3)
         inserted = 0
+        if not self.url and not db.in_transaction:
+            db.execute("BEGIN IMMEDIATE")
+        checkpoint = evidence_integrity.head(db) if not self.url else None
+        if self.integrity_key is not None and checkpoint is None:
+            raise ValueError("Evidence integrity checkpoint is missing")
+        if checkpoint and (self.integrity_key is None or not evidence_integrity.authentic(self.integrity_key, checkpoint)):
+            raise ValueError("Evidence integrity key is unavailable or invalid")
         for event in events:
+            payload = json.dumps(event)
             added = db.execute(
                 f"INSERT INTO {table} (id, timestamp, payload) VALUES ({values}) ON CONFLICT (id) DO NOTHING",
-                (event["id"], event["timestamp"], json.dumps(event)),
+                (event["id"], event["timestamp"], payload),
             ).rowcount
             inserted += added
+            if added and checkpoint:
+                checkpoint = evidence_integrity.append(db, self.integrity_key, checkpoint, int(local),
+                                                       event["id"], event["timestamp"], payload)
             if added and enqueue and not self.url:
                 db.execute("INSERT OR IGNORE INTO local_detection_queue (event_id, local_windows) VALUES (?, ?)",
                            (event["id"], int(local)))
                 if local and event.get("source"):
                     db.execute("INSERT OR IGNORE INTO local_observed_event_types VALUES (?, ?)",
                                (event["source"], event["kind"]))
+        if inserted and checkpoint:
+            evidence_integrity.save_head(db, checkpoint)
         return inserted
 
     def save_source_health(self, source, state, checked_at):
