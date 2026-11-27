@@ -1,0 +1,310 @@
+{
+  "T1003.001": {
+    "expected_rules": [
+      "lsass-process-access"
+    ],
+    "atomic_test": ""
+  },
+  "T1016": {
+    "expected_rules": [
+      "network-configuration"
+    ],
+    "atomic_test": ""
+  },
+  "T1018": {
+    "expected_rules": [
+      "domain-controller-discovery",
+      "network-name-lookup"
+    ],
+    "atomic_test": ""
+  },
+  "T1021.001": {
+    "expected_rules": [
+      "remote-desktop-client",
+      "remote-interactive-logon-success"
+    ],
+    "atomic_test": ""
+  },
+  "T1021.004": {
+    "expected_rules": [
+      "ssh-client"
+    ],
+    "atomic_test": ""
+  },
+  "T1049": {
+    "expected_rules": [
+      "network-connections"
+    ],
+    "atomic_test": ""
+  },
+  "T1053.005": {
+    "expected_rules": [
+      "scheduled-task-created"
+    ],
+    "atomic_test": ""
+  },
+  "T1055": {
+    "expected_rules": [
+      "remote-thread-observed"
+    ],
+    "atomic_test": ""
+  },
+  "T1057": {
+    "expected_rules": [
+      "process-inventory"
+    ],
+    "atomic_test": ""
+  },
+  "T1059": {
+    "expected_rules": [
+      "office-shell-start"
+    ],
+    "atomic_test": ""
+  },
+  "T1059.001": {
+    "expected_rules": [
+      "powershell-encoded-command",
+      "powershell-hidden-window",
+      "powershell-script-write"
+    ],
+    "atomic_test": ""
+  },
+  "T1059.003": {
+    "expected_rules": [
+      "terminal-shell"
+    ],
+    "atomic_test": ""
+  },
+  "T1059.005": {
+    "expected_rules": [
+      "console-script-host",
+      "windows-script-host"
+    ],
+    "atomic_test": ""
+  },
+  "T1071.004": {
+    "expected_rules": [
+      "periodic-dns-query"
+    ],
+    "atomic_test": ""
+  },
+  "T1078.004": {
+    "expected_rules": [
+      "cloudtrail-console-no-mfa",
+      "cloudtrail-root-use"
+    ],
+    "atomic_test": ""
+  },
+  "T1082": {
+    "expected_rules": [
+      "discovery-utility-burst",
+      "system-information"
+    ],
+    "atomic_test": ""
+  },
+  "T1087.001": {
+    "expected_rules": [
+      "account-enumeration"
+    ],
+    "atomic_test": ""
+  },
+  "T1098.001": {
+    "expected_rules": [
+      "cloudtrail-access-key-created"
+    ],
+    "atomic_test": ""
+  },
+  "T1098.003": {
+    "expected_rules": [
+      "cloudtrail-admin-policy"
+    ],
+    "atomic_test": ""
+  },
+  "T1098.007": {
+    "expected_rules": [
+      "local-admin-member-added"
+    ],
+    "atomic_test": ""
+  },
+  "T1105": {
+    "expected_rules": [
+      "certificate-url-cache"
+    ],
+    "atomic_test": ""
+  },
+  "T1110": {
+    "expected_rules": [
+      "remote-interactive-logon-failure",
+      "repeated-ssh-authentication-failures"
+    ],
+    "atomic_test": ""
+  },
+  "T1110.001": {
+    "expected_rules": [
+      "cloudtrail-console-failures"
+    ],
+    "atomic_test": ""
+  },
+  "T1127.001": {
+    "expected_rules": [
+      "msbuild-observed"
+    ],
+    "atomic_test": ""
+  },
+  "T1136.001": {
+    "expected_rules": [
+      "local-user-created"
+    ],
+    "atomic_test": ""
+  },
+  "T1137.006": {
+    "expected_rules": [
+      "office-addin"
+    ],
+    "atomic_test": ""
+  },
+  "T1140": {
+    "expected_rules": [
+      "certificate-utility"
+    ],
+    "atomic_test": ""
+  },
+  "T1218.004": {
+    "expected_rules": [
+      "installutil-observed"
+    ],
+    "atomic_test": ""
+  },
+  "T1218.005": {
+    "expected_rules": [
+      "mshta-observed"
+    ],
+    "atomic_test": ""
+  },
+  "T1218.007": {
+    "expected_rules": [
+      "msiexec-observed"
+    ],
+    "atomic_test": ""
+  },
+  "T1218.010": {
+    "expected_rules": [
+      "regsvr32-observed"
+    ],
+    "atomic_test": ""
+  },
+  "T1218.011": {
+    "expected_rules": [
+      "rundll32-observed"
+    ],
+    "atomic_test": ""
+  },
+  "T1490": {
+    "expected_rules": [
+      "shadow-copy-deletion-request"
+    ],
+    "atomic_test": ""
+  },
+  "T1530": {
+    "expected_rules": [
+      "cloudtrail-public-bucket-policy"
+    ],
+    "atomic_test": ""
+  },
+  "T1543.003": {
+    "expected_rules": [
+      "windows-service-installed"
+    ],
+    "atomic_test": ""
+  },
+  "T1546.002": {
+    "expected_rules": [
+      "screensaver-path"
+    ],
+    "atomic_test": ""
+  },
+  "T1546.010": {
+    "expected_rules": [
+      "appinit-dlls"
+    ],
+    "atomic_test": ""
+  },
+  "T1546.012": {
+    "expected_rules": [
+      "ifeo-debugger"
+    ],
+    "atomic_test": ""
+  },
+  "T1547.001": {
+    "expected_rules": [
+      "boot-execute",
+      "registry-run-value-set"
+    ],
+    "atomic_test": ""
+  },
+  "T1547.002": {
+    "expected_rules": [
+      "lsa-auth-packages"
+    ],
+    "atomic_test": ""
+  },
+  "T1547.004": {
+    "expected_rules": [
+      "winlogon-shell",
+      "winlogon-userinit"
+    ],
+    "atomic_test": ""
+  },
+  "T1547.005": {
+    "expected_rules": [
+      "lsa-security-packages"
+    ],
+    "atomic_test": ""
+  },
+  "T1547.010": {
+    "expected_rules": [
+      "print-monitor-dll"
+    ],
+    "atomic_test": ""
+  },
+  "T1548.002": {
+    "expected_rules": [
+      "uac-policy-change"
+    ],
+    "atomic_test": ""
+  },
+  "T1562.001": {
+    "expected_rules": [
+      "defender-realtime-setting"
+    ],
+    "atomic_test": ""
+  },
+  "T1685.002": {
+    "expected_rules": [
+      "cloudtrail-config-stopped",
+      "cloudtrail-logging-stopped",
+      "cloudtrail-trail-changed",
+      "cloudtrail-trail-deleted"
+    ],
+    "atomic_test": ""
+  },
+  "T1685.005": {
+    "expected_rules": [
+      "security-log-cleared",
+      "system-log-cleared"
+    ],
+    "atomic_test": ""
+  },
+  "T1685.007": {
+    "expected_rules": [
+      "cloudtrail-guardduty-changed"
+    ],
+    "atomic_test": ""
+  },
+  "T1686.001": {
+    "expected_rules": [
+      "cloudtrail-world-ingress"
+    ],
+    "atomic_test": ""
+  }
+}

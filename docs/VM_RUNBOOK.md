@@ -42,3 +42,24 @@ preview artifacts in the VM before disconnecting it for first-launch testing.
 
 Live detection results remain unverified until a separately authorized recorded
 run provides evidence. A synthetic dry run verifies the report and renderer.
+
+## Recorded exercise windows
+
+The files under tools/atomic correlate observations from exercises that have
+already been recorded independently. The technique map lists candidate NORTH
+rule IDs. Test identifiers are blank. Keep the VM network isolated, take a
+snapshot before an approved exercise, and record the UTC start and exclusive
+end in a local copy of the supplied CSV. After recording evidence, shut down
+NORTH, copy the database, check that the copy opens, and revert the VM.
+
+Use `completed` when the reviewer confirmed the activity occurred. Use
+`source_missing` for missing logs or denied read access, `possible_rule_gap`
+only when the expected evidence was collected and the relevant rule was
+enabled, `blocked_by_platform` when the source records the platform
+preventing the activity, and `not_applicable` when the test does not apply.
+
+The report command consumes only the copied database and the CSV. Keep the
+default recorded-review label for synthetic inputs. Use `--recorded-live`
+only after checking real run records and the original linked observations.
+Neither a timestamp match alone nor an offline replay establishes live
+coverage. Details are in [Coverage](COVERAGE.md).

@@ -444,3 +444,11 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Verified: 229 backend tests, 2 subtests, 39 desktop tests, 3 cloud tests and the UI build. The source collector verified a synthetic event and returned a key-free checkpoint. The DPAPI storage boundary uses an injected protection double in desktop tests.
 - Five 10,000-event synthetic runs per mode measured median ingestion of 4,847.7 events/sec without integrity and 3,958.6 with it. See docs/PERFORMANCE.md for ranges.
 - Packaged Windows verification and real safeStorage key persistence remain unverified. Full-host takeover and rollback require independent trust evidence.
+
+### M7 — offline proof tooling
+
+- Added a commit-pinned EVTX downloader with license, signature, size, and SHA-256 checks, plus a Windows replay tool that reports matched rules by ATT&CK technique from recorded observations.
+- Added the manual run-log template and mapping, with blank exercise test identifiers. The read-only reporter checks expected rule IDs and existing evidence inside the submitted time windows, then emits a report compatible with the renderer and coverage checker.
+- Offline dataset smoke: the downloaded 69,632-byte GPL-3.0 EVTX from dataset commit 4ceed2f4706daf601c212a8f91c113dd85349a2c produced 19 supported records, 4 skipped records, and a registry-run-value-set match under T1547.001. No rules timed out. The dataset and its provenance sidecar stayed in the ignored local folder.
+- Verified: 232 backend tests, 2 subtests, 39 desktop tests, 3 cloud tests, the UI build, PowerShell reader syntax, and the coverage claims checker. Unit tests exercised provenance, offline replay, and recorded-window evidence matching and removal.
+- Live detection validation remains not yet run. The tools consume recorded activity only. Exercise execution and attack automation are outside this implementation.
