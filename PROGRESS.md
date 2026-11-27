@@ -415,3 +415,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added bounded snapshots for startup entries, services, scheduled tasks, listening endpoints, selected firewall rule properties, local users and admins, the hosts file, proxy and DNS settings, and Defender exclusions. The user can choose a known-good snapshot, inspect the last 20 reports and export Markdown. Diffs report added or modified and removed or replaced observations by category. The app links to the passive sensor evidence check.
 - Verified: 193 backend tests, 2 subtests, 38 desktop tests, 3 cloud tests, Windows snapshot reader syntax and desktop UI build. A read-only Windows run returned 10 of 11 categories. Tests cover every category, local request scope, baseline persistence, unavailable findings, and Overview/Assistant count agreement.
 - Packaged desktop acceptance remains open. Snapshot comparisons cover the selected properties and readable records. The report does not infer who caused a change.
+
+### M5 — offline CloudTrail import foundation
+
+- Added backend/cloudtrail.py for local command-line import of JSON and gzip CloudTrail exports into the private SQLite event store. It validates the full batch before inserting, deduplicates by event ID, and reports event count, time range, regions and event sources.
+- The importer allowlists normalized fields and omits original request payloads, access-key fields and session tokens. It bounds file and decompressed size and record count. The normalized event contract exposes the CloudTrail event and identity metadata.
+- Verified: 196 backend tests, 2 subtests, 38 desktop tests, 3 cloud tests and the desktop UI build. Tests cover JSON and gzip, malformed and oversized data, sensitive field omission, normalization, duplicates and the local storage boundary.
+- M5 remains open for the desktop import flow, narrowly allowlisted request parameters, detection rules and fixtures, and coverage presentation.
