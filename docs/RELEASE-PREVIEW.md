@@ -1,10 +1,10 @@
-# NORTH v0.3.0-preview · unsigned Windows release notes
+# NORTH v0.4.0-preview · unsigned Windows release notes
 
-This is a preview release candidate. It includes the Windows desktop console, first-run setup, Simple and Analyst modes, local rule management, and NORTH Assistant. The desktop can open **This computer** without a cloud workspace. A configured collector and source permissions determine which live evidence appears.
+This is the published unsigned Windows preview. It includes the Windows desktop console, first-run setup, Simple and Analyst modes, local rule management, and NORTH Assistant. The desktop can open **This computer** without a cloud workspace. A configured collector and source permissions determine which live evidence appears.
 
 ## Download and verify
 
-Use the artifact from a successful **Build NORTH for Windows** run for the intended commit. The upload follows the installer walkthrough. Keep the installer, portable app, `SHA256SUMS.txt`, and `BUILD-INFO.json` from the same run. [Windows build workflow](https://github.com/aahmedhaitham/N.O.R.T.H/actions/workflows/desktop.yml)
+Download the files from the [public preview release](https://github.com/aahmedhaitham/NORTH-Releases/releases/tag/v0.4.0-preview). To verify a future candidate, use the artifact from a successful **Build NORTH for Windows** run for the intended commit. The upload follows the installer walkthrough. Keep the installer, portable app, `SHA256SUMS.txt`, and `BUILD-INFO.json` from the same run. [Windows build workflow](https://github.com/aahmedhaitham/N.O.R.T.H/actions/workflows/desktop.yml)
 
 Run this in the extracted artifact folder before opening the installer:
 

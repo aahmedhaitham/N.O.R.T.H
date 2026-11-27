@@ -465,3 +465,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Ran the benchmark orchestrator five times per mode on 20,000 synthetic events per run. The results include per-run values and observed ranges for indexed versus unindexed search, integrity-chain ingest cost, rule evaluation and Assistant routing performance.
 - Prepared repository metadata, reviewed the list of 11 open dependency PRs, and documented the public build attestation and SignPath handoff. GitHub reported the source public with no detected license. No repository or release settings were changed.
 - Verified: 232 backend tests, 2 subtests, 40 desktop tests, 3 cloud tests, desktop UI build, relative documentation links, benchmark statistics and the coverage claims checker. Packaged acceptance, a synthetic screenshot, live coverage and signing remain release work.
+
+### M1–M9 Windows preview published
+
+- Published v0.4.0-preview with the Windows x64 installer, portable executable, SHA-256 manifests, and build metadata from source commit bf47482.
+- Verify NORTH run 46071531910 and Windows build 46071531958 passed. The installer smoke covered both display modes, and GitHub generated build attestations.
+- Added a verified Command Prompt download and synthetic Analyst screenshot to the public README. Removed the unused Ollama benchmark while preserving the optional FastAPI development integration.
+- Clean-VM offline first launch, upgrades, uninstall, live detection and repair checks, and Windows publisher signing remain open.

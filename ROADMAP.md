@@ -1,8 +1,7 @@
 # NORTH roadmap
 
-The table reflects the current source tree. The public Windows preview was
-built before the M1–M9 work. The [status sheet](STATUS.md) distinguishes
-automated checks, live checks, and release readiness.
+The public Windows preview includes M1–M9. The [status sheet](STATUS.md)
+distinguishes automated checks, live checks, and release readiness.
 
 | Milestone | Current status | Evidence and remaining acceptance |
 | --- | --- | --- |

@@ -10,7 +10,7 @@ _Analyst overview in the portfolio workspace with synthetic telemetry._
 
 ## Quick start
 
-1. Download the Windows installer and SHA256SUMS.txt from the [public NORTH v0.3.0 preview](https://github.com/aahmedhaitham/NORTH-Releases/releases/tag/v0.3.0-preview).
+1. Download the Windows installer and SHA256SUMS.txt from the [public NORTH v0.4.0 preview](https://github.com/aahmedhaitham/NORTH-Releases/releases/tag/v0.4.0-preview).
 2. Verify the SHA-256 checksum before running **NORTH-Setup-Windows-x64.exe**. This Windows preview is unsigned. [Preview release notes and verification](docs/RELEASE-PREVIEW.md)
 3. Open NORTH, finish or skip setup, and use **Ctrl+J** for NORTH Assistant. In **This computer**, NORTH uses local data and can offer monitoring when the account has access to Windows sources.
 
@@ -21,7 +21,7 @@ Windows x64 preview and verifies the installer against that release's SHA-256
 file. It leaves the verified installer in Downloads for you to open.
 
 ```cmd
-powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; $v='v0.3.0-preview'; $base='https://github.com/aahmedhaitham/NORTH-Releases/releases/download/'+$v; $dir=Join-Path $env:USERPROFILE ('Downloads\NORTH-'+$v); New-Item -ItemType Directory -Force -Path $dir | Out-Null; $name='NORTH-Setup-Windows-x64.exe'; $installer=Join-Path $dir $name; $sums=Join-Path $dir 'SHA256SUMS.txt'; $pending=$installer+'.download'; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/'+$name) -OutFile $pending; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/SHA256SUMS.txt') -OutFile $sums; $pattern='^([a-fA-F0-9]{64})  '+[regex]::Escape($name)+'$'; $lines=@(Select-String -LiteralPath $sums -Pattern $pattern); if($lines.Count -ne 1){throw 'Installer checksum entry could not be verified.'}; $sha=[Security.Cryptography.SHA256]::Create(); $stream=[IO.File]::OpenRead($pending); try{$actual=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','')}finally{$stream.Dispose();$sha.Dispose()}; if($actual -ine $lines[0].Matches[0].Groups[1].Value){throw 'Installer checksum could not be verified. Discard the downloaded file.'}; Move-Item -LiteralPath $pending -Destination $installer -Force; Write-Output ('Verified installer: '+$installer)"
+powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; $v='v0.4.0-preview'; $base='https://github.com/aahmedhaitham/NORTH-Releases/releases/download/'+$v; $dir=Join-Path $env:USERPROFILE ('Downloads\NORTH-'+$v); New-Item -ItemType Directory -Force -Path $dir | Out-Null; $name='NORTH-Setup-Windows-x64.exe'; $installer=Join-Path $dir $name; $sums=Join-Path $dir 'SHA256SUMS.txt'; $pending=$installer+'.download'; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/'+$name) -OutFile $pending; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/SHA256SUMS.txt') -OutFile $sums; $pattern='^([a-fA-F0-9]{64})  '+[regex]::Escape($name)+'$'; $lines=@(Select-String -LiteralPath $sums -Pattern $pattern); if($lines.Count -ne 1){throw 'Installer checksum entry could not be verified.'}; $sha=[Security.Cryptography.SHA256]::Create(); $stream=[IO.File]::OpenRead($pending); try{$actual=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','')}finally{$stream.Dispose();$sha.Dispose()}; if($actual -ine $lines[0].Matches[0].Groups[1].Value){throw 'Installer checksum could not be verified. Discard the downloaded file.'}; Move-Item -LiteralPath $pending -Destination $installer -Force; Write-Output ('Verified installer: '+$installer)"
 ```
 
 The installer is unsigned. Windows can still show a publisher or reputation
@@ -40,12 +40,12 @@ To run the synthetic developer demo, see [Development](docs/DEVELOPMENT.md). Sou
 | **Detections** | Review local findings and enabled rules, then inspect which event sources support each ATT&CK tactic. |
 | **NORTH Assistant** | Ask plain-language questions about loaded data and open cited evidence. It works offline. |
 
-## Current development build
+## New in the Windows preview
 
-The current source adds **Verify my PC**, Windows posture and known-good
+This preview adds **Verify my PC**, Windows posture and known-good
 comparisons, offline CloudTrail import, evidence-integrity checkpoints, and
-recorded detector validation. These features are available in source builds
-and are pending packaged release acceptance. See [status](STATUS.md) and
+recorded detector validation. GitHub verified first launch in Simple and
+Analyst modes. Clean-VM upgrade, uninstall and live repairs are still open. See [status](STATUS.md) and
 [roadmap](ROADMAP.md) for the verification boundary.
 
 ## Try a short investigation
