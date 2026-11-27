@@ -10,7 +10,7 @@
   plain_summary: Windows recorded a new service.
   what_to_do: Compare the service name and executable with recent software changes.
   requires: ['system:7045']
-  tests: {positive: detections_positive.json, negative: detections_negative.json}
+  tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}
 
 - id: scheduled-task-created
   title: A Windows scheduled task was created
@@ -24,7 +24,7 @@
   plain_summary: Windows recorded the creation of a scheduled task.
   what_to_do: Check whether the task name and creator match an expected change.
   requires: ['security:4698']
-  tests: {positive: detections_positive.json, negative: detections_negative.json}
+  tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}
 
 - id: remote-thread-observed
   title: A process created a thread in another process
@@ -32,13 +32,14 @@
   severity: medium
   logsource: {source: sysmon}
   detection:
-    thread: {EventID: 8}
-    condition: thread
+    thread: {EventID: 8, 'SourceImage|re': '.', 'TargetImage|re': '.'}
+    diagnostics: {'SourceImage|re': '^c:\\windows\\(?:system32|syswow64)\\werfault\.exe$'}
+    condition: thread and not diagnostics
   falsepositives: [Debuggers and legitimate security tools can create remote threads.]
   plain_summary: Sysmon recorded a thread created in a different process.
   what_to_do: Review the source and target process and compare them with installed tools.
   requires: ['sysmon:8']
-  tests: {positive: detections_positive.json, negative: detections_negative.json}
+  tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}
 
 - id: lsass-process-access
   title: A process opened LSASS
@@ -48,12 +49,15 @@
   detection:
     access: {EventID: 10}
     lsass: {'TargetImage|endswith': '\lsass.exe'}
-    condition: access and lsass
+    memory: {'GrantedAccess|re': '^0x[0-9a-f]*[13579bdf][0-9a-f]$'}
+    diagnostics: {'SourceImage|re': '^c:\\windows\\(?:system32|syswow64)\\werfault\.exe$'}
+    source_image: {'SourceImage|re': '.'}
+    condition: access and lsass and memory and source_image and not diagnostics
   falsepositives: [Security tools and Windows components can legitimately access LSASS.]
-  plain_summary: Sysmon recorded access to the Windows authentication process.
+  plain_summary: Sysmon recorded memory-read access to the Windows authentication process.
   what_to_do: Check which process requested access and whether it is expected on this PC.
   requires: ['sysmon:10']
-  tests: {positive: detections_positive.json, negative: detections_negative.json}
+  tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}
 
 - id: registry-run-value-set
   title: A Windows sign-in startup registry value was set
@@ -68,7 +72,7 @@
   plain_summary: Sysmon recorded a change to a registry entry that can launch a program at sign-in.
   what_to_do: Confirm the startup entry belongs to software you installed or manage.
   requires: ['sysmon:13']
-  tests: {positive: detections_positive.json, negative: detections_negative.json}
+  tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}
 - id: powershell-script-write
   title: PowerShell process wrote a script file
   tags: [attack.t1059.001]
@@ -246,229 +250,241 @@
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "system-information"
-  title: "System information utility started"
+  title: "System information utility launched by an application or script host"
   tags: ["attack.t1082"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "systeminfo.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "systeminfo.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Support and hardware inventory can cause this observation."]
-  plain_summary: "Windows recorded a process start for systeminfo.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "account-enumeration"
-  title: "Account identity utility started"
+  title: "Account identity utility launched by an application or script host"
   tags: ["attack.t1087.001"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "whoami.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "whoami.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Troubleshooting account permissions can cause this observation."]
-  plain_summary: "Windows recorded a process start for whoami.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "network-configuration"
-  title: "Network configuration utility started"
+  title: "Network configuration utility launched by an application or script host"
   tags: ["attack.t1016"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "ipconfig.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "ipconfig.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Routine network troubleshooting can cause this observation."]
-  plain_summary: "Windows recorded a process start for ipconfig.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "network-connections"
-  title: "Network connection inventory utility started"
+  title: "Network connection inventory utility launched by an application or script host"
   tags: ["attack.t1049"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "netstat.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "netstat.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Troubleshooting local sockets can cause this observation."]
-  plain_summary: "Windows recorded a process start for netstat.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "network-name-lookup"
-  title: "NetBIOS name utility started"
+  title: "NetBIOS name utility launched by an application or script host"
   tags: ["attack.t1018"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "nbtstat.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "nbtstat.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Legacy network troubleshooting can cause this observation."]
-  plain_summary: "Windows recorded a process start for nbtstat.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "process-inventory"
-  title: "Process inventory utility started"
+  title: "Process inventory utility launched by an application or script host"
   tags: ["attack.t1057"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "tasklist.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "tasklist.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Support and performance investigation can cause this observation."]
-  plain_summary: "Windows recorded a process start for tasklist.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "domain-controller-discovery"
-  title: "Domain diagnostics utility started"
+  title: "Domain diagnostics utility launched by an application or script host"
   tags: ["attack.t1018"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "nltest.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "nltest.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Domain maintenance can cause this observation."]
-  plain_summary: "Windows recorded a process start for nltest.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "terminal-shell"
-  title: "Windows command shell started"
+  title: "Windows command shell launched by an application or script host"
   tags: ["attack.t1059.003"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "cmd.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "cmd.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Interactive support and ordinary automation can cause this observation."]
-  plain_summary: "Windows recorded a process start for cmd.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "windows-script-host"
-  title: "Windows Script Host started"
+  title: "Windows Script Host launched by an application or script host"
   tags: ["attack.t1059.005"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "wscript.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "wscript.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Enterprise logon scripts and automation can cause this observation."]
-  plain_summary: "Windows recorded a process start for wscript.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "console-script-host"
-  title: "Console Script Host started"
+  title: "Console Script Host launched by an application or script host"
   tags: ["attack.t1059.005"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "cscript.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "cscript.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Routine Windows scripting can cause this observation."]
-  plain_summary: "Windows recorded a process start for cscript.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "mshta-observed"
-  title: "HTML application host started"
+  title: "HTML application host with a matching argument"
   tags: ["attack.t1218.005"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "mshta.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "mshta.exe"}, "argument": {"CommandLine|re": "https?://|(?:javascript|vbscript):"}, "condition": "observed and argument"}
   falsepositives: ["Legacy HTML application launch can cause this observation."]
-  plain_summary: "Windows recorded a process start for mshta.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with a command-line argument selected by the rule."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "msiexec-observed"
-  title: "Windows Installer process started"
+  title: "Windows Installer process launched by an application or script host"
   tags: ["attack.t1218.007"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "msiexec.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "msiexec.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Software installation and updates can cause this observation."]
-  plain_summary: "Windows recorded a process start for msiexec.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "regsvr32-observed"
-  title: "Component registration utility started"
+  title: "Component registration utility with a matching argument"
   tags: ["attack.t1218.010"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "regsvr32.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "regsvr32.exe"}, "argument": {"CommandLine|re": "https?://|(?:\\.sct|\\.js)(?:[\"\\s,]|$)"}, "condition": "observed and argument"}
   falsepositives: ["Component installation can cause this observation."]
-  plain_summary: "Windows recorded a process start for regsvr32.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with a command-line argument selected by the rule."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "rundll32-observed"
-  title: "Windows DLL launcher started"
+  title: "Windows DLL launcher with a matching argument"
   tags: ["attack.t1218.011"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "rundll32.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "rundll32.exe"}, "argument": {"CommandLine|re": "https?://|(?:\\.js|\\.vbs)(?:[\"\\s,]|$)"}, "condition": "observed and argument"}
   falsepositives: ["Supported Windows and application functions can cause this observation."]
-  plain_summary: "Windows recorded a process start for rundll32.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with a command-line argument selected by the rule."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "installutil-observed"
-  title: "Managed installer utility started"
+  title: "Managed installer utility launched by an application or script host"
   tags: ["attack.t1218.004"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "installutil.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "installutil.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Developer or enterprise deployment can cause this observation."]
-  plain_summary: "Windows recorded a process start for installutil.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "msbuild-observed"
-  title: "Build utility started"
+  title: "Build utility launched by an application or script host"
   tags: ["attack.t1127.001"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "msbuild.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "msbuild.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Compiling software can cause this observation."]
-  plain_summary: "Windows recorded a process start for msbuild.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "remote-desktop-client"
-  title: "Remote Desktop client started"
+  title: "Remote Desktop client launched by an application or script host"
   tags: ["attack.t1021.001"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "mstsc.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "mstsc.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Authorized remote administration can cause this observation."]
-  plain_summary: "Windows recorded a process start for mstsc.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "ssh-client"
-  title: "SSH client started"
+  title: "SSH client launched by an application or script host"
   tags: ["attack.t1021.004"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "ssh.exe"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "ssh.exe"}, "parent": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|chrome|wscript|excel|msedge|cscript|outlook|firefox|powerpnt)\\.exe$"}, "condition": "observed and parent"}
   falsepositives: ["Authorized management or development can cause this observation."]
-  plain_summary: "Windows recorded a process start for ssh.exe. The executable name alone does not establish intent."
+  plain_summary: "Windows recorded this utility with an Office, browser, or Windows Script Host parent."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
 
 - id: "certificate-utility"
-  title: "Certificate utility recorded a decode-related argument"
+  title: "Certificate utility requested decoding"
   tags: ["attack.t1140"]
-  severity: "info"
+  severity: "low"
   logsource: {"source": "security"}
-  detection: {"observed": {"EventID": 4688, "ProcessName": "certutil.exe", "CommandLine|contains": "decode"}, "condition": "observed"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "certutil.exe"}, "argument": {"CommandLine|re": "(?:^|\\s)-decode(?:\\s|$)"}, "condition": "observed and argument"}
   falsepositives: ["Certificate enrollment and diagnostics can cause this observation."]
-  plain_summary: "Windows recorded a certutil process with decode-related text in its command line."
+  plain_summary: "Windows recorded this utility with a command-line argument selected by the rule."
+  what_to_do: "Review the command line, parent and user if this process start is unexpected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "certificate-url-cache"
+  title: "Certificate utility accessed a remote URL through its cache"
+  tags: ["attack.t1105"]
+  severity: "low"
+  logsource: {"source": "security"}
+  detection: {"observed": {"EventID": 4688, "ProcessName": "certutil.exe"}, "cache": {"CommandLine|re": "(?:^|\\s)-urlcache(?:\\s|$)"}, "remote": {"CommandLine|contains": ["https://", "http://"]}, "condition": "observed and cache and remote"}
+  falsepositives: ["Certificate enrollment and diagnostics can cause this observation."]
+  plain_summary: "Windows recorded this utility with a command-line argument selected by the rule."
   what_to_do: "Review the command line, parent and user if this process start is unexpected."
   requires: ["security:4688"]
   tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
@@ -522,6 +538,106 @@
     condition: shell and argument
   falsepositives: [Authorized automation may encode arguments to preserve quoting.]
   plain_summary: Windows recorded PowerShell starting with an encoded-command argument.
+  what_to_do: Review the parent process and compare the command line with approved automation.
+  requires: ['security:4688']
+  tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}
+
+- id: "security-log-cleared"
+  title: "Windows security audit log cleared"
+  tags: ["attack.t1685.005"]
+  severity: "high"
+  logsource: {"source": "security"}
+  detection: {"cleared": {"EventID": 1102}, "condition": "cleared"}
+  falsepositives: ["An approved maintenance or retention procedure may clear logs."]
+  plain_summary: "Windows recorded that an event log was cleared."
+  what_to_do: "Check whether authorized maintenance explains the log clear and preserve available evidence."
+  requires: ["security:1102"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "system-log-cleared"
+  title: "Windows recorded a log clear"
+  tags: ["attack.t1685.005"]
+  severity: "high"
+  logsource: {"source": "system"}
+  detection: {"cleared": {"EventID": 104, "Provider": "Microsoft-Windows-Eventlog"}, "condition": "cleared"}
+  falsepositives: ["An approved maintenance or retention procedure may clear logs."]
+  plain_summary: "Windows recorded that an event log was cleared."
+  what_to_do: "Check whether authorized maintenance explains the log clear and preserve available evidence."
+  requires: ["system:104"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "local-user-created"
+  title: "A local Windows user was created"
+  tags: ["attack.t1136.001"]
+  severity: "medium"
+  logsource: {"source": "security"}
+  detection: {"created": {"EventID": 4720, "LocalAccount": "yes"}, "condition": "created"}
+  falsepositives: ["Provisioning and endpoint management can create authorized local users."]
+  plain_summary: "Windows recorded creation of a user in this PC\u2019s account domain."
+  what_to_do: "Verify the account and compare it with approved changes."
+  requires: ["security:4720"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "local-admin-member-added"
+  title: "A member was added to built-in Administrators"
+  tags: ["attack.t1098.007"]
+  severity: "high"
+  logsource: {"source": "security"}
+  detection: {"added": {"EventID": 4732, "TargetGroupSid": "S-1-5-32-544"}, "condition": "added"}
+  falsepositives: ["An approved provisioning process can grant local administration."]
+  plain_summary: "Windows recorded a membership addition to the built-in Administrators group."
+  what_to_do: "Verify the membership change and its authorization."
+  requires: ["security:4732"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "office-shell-start"
+  title: "Office launched a command shell"
+  tags: ["attack.t1059"]
+  severity: "medium"
+  logsource: {"source": "security"}
+  detection: {"shell": {"EventID": 4688, "ProcessName": ["cmd.exe", "powershell.exe", "pwsh.exe"]}, "office": {"ParentImage|re": "(?:^|[\\\\/])(?:winword|excel|powerpnt|outlook)\\.exe$"}, "condition": "shell and office"}
+  falsepositives: ["Approved Office automation can launch command shells."]
+  plain_summary: "Windows recorded a command shell launched by an Office process."
+  what_to_do: "Check the parent process and corresponding Office activity."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "shadow-copy-deletion-request"
+  title: "A process requested shadow copy deletion"
+  tags: ["attack.t1490"]
+  severity: "high"
+  logsource: {"source": "security"}
+  detection: {"process": {"EventID": 4688, "ProcessName": ["vssadmin.exe", "wmic.exe"]}, "arguments": {"CommandLine|re": "(?:^|\\s)(?:delete\\s+shadows|shadowcopy\\s+delete)(?:\\s|$)"}, "condition": "process and arguments"}
+  falsepositives: ["Approved backup maintenance can remove shadow copies."]
+  plain_summary: "Windows recorded arguments requesting deletion of shadow copies."
+  what_to_do: "Check backup maintenance and confirm whether the request was expected."
+  requires: ["security:4688"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+
+- id: "discovery-utility-burst"
+  title: "Several discovery utilities ran under one parent"
+  tags: ["attack.t1082"]
+  severity: "medium"
+  logsource: {"source": "sysmon"}
+  detection: {"discovery": {"EventID": 1, "ProcessName": ["systeminfo.exe", "whoami.exe", "ipconfig.exe", "netstat.exe", "nbtstat.exe", "tasklist.exe", "nltest.exe"]}, "condition": "discovery"}
+  falsepositives: ["Inventory agents and authorized diagnostic scripts may launch multiple utilities in sequence."]
+  plain_summary: "Sysmon observed three distinct discovery utilities under one parent within 60 seconds."
+  what_to_do: "Review the parent and recorded process evidence."
+  requires: ["sysmon:1"]
+  tests: {"positive": "rule_catalog_positive.json", "negative": "rule_catalog_negative.json"}
+  correlation: {"type": "threshold", "group_by": ["Host", "ParentProcessGuid"], "window_seconds": 60, "count": 3, "distinct": "ProcessName"}
+
+- id: powershell-hidden-window
+  title: PowerShell started with a hidden window
+  tags: [attack.t1059.001]
+  severity: medium
+  logsource: {source: security}
+  detection:
+    shell: {EventID: 4688, ProcessName: [powershell.exe, pwsh.exe]}
+    argument: {'CommandLine|re': '(?:^|\s)-(?:windowstyle|w)\s+"?hidden"?(?:\s|$)'}
+    condition: shell and argument
+  falsepositives: [Approved background jobs may hide their console window.]
+  plain_summary: Windows recorded PowerShell requesting a hidden window.
   what_to_do: Review the parent process and compare the command line with approved automation.
   requires: ['security:4688']
   tests: {positive: rule_catalog_positive.json, negative: rule_catalog_negative.json}

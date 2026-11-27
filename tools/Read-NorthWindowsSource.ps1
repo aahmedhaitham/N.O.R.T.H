@@ -6,14 +6,14 @@ param(
 $ErrorActionPreference = 'Stop'
 $definition = switch ($Source) {
     'sysmon' { @{ Log = 'Microsoft-Windows-Sysmon/Operational'; Ids = @(1,3,7,8,10,11,13,22) } }
-    'security' { @{ Log = 'Security'; Ids = @(4624,4625,4688,4698) } }
-    'system' { @{ Log = 'System'; Ids = @(7045) } }
+    'security' { @{ Log = 'Security'; Ids = @(1102,4624,4625,4688,4698,4720,4732) } }
+    'system' { @{ Log = 'System'; Ids = @(104,7045) } }
     'powershell' { @{ Log = 'Microsoft-Windows-PowerShell/Operational'; Ids = @(4104) } }
     'defender' { @{ Log = 'Microsoft-Windows-Windows Defender/Operational'; Ids = @(1116,1117,1118,1119,5001,5007) } }
 }
 $allowedFields = @('Image','ImageLoaded','ProcessGuid','ProcessId','CommandLine','ParentProcessGuid',
-    'ParentImage','ParentCommandLine','User','TargetImage','TargetFilename','TargetObject','QueryName','SourceImage',
-    'NewProcessName','NewProcessId','TargetUserName','TargetDomainName','TargetUserSid','IpAddress','IpPort',
+    'ParentImage','ParentProcessName','GrantedAccess','ParentCommandLine','User','TargetImage','TargetFilename','TargetObject','QueryName','SourceImage',
+    'NewProcessName','NewProcessId','TargetUserName','TargetDomainName','TargetUserSid','TargetSid','MemberSid','IpAddress','IpPort',
     'TaskName','ServiceName','ImagePath','ScriptBlockId','Path','Threat Name','Detection ID',
     'Initiated','DestinationIp','DestinationPort','Protocol','LogonType')
 
@@ -47,6 +47,7 @@ try {
                 $value = [string]$field.InnerText
                 $fields[$name] = $value.Substring(0, [Math]::Min(1024, $value.Length))
             }
+            $fields["Provider"] = [string]$item.ProviderName
             @{
                 host = [string]$item.MachineName
                 event_id = [int]$item.Id

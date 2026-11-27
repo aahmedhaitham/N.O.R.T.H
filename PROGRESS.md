@@ -318,3 +318,18 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 
 - With Sysmon file creation enabled, confirm a previously recorded event 11 appears in the Windows local collector and that the PowerShell script-write coverage reflects the observed event types.
 - With previously recorded Security 4688 events containing command-line data, verify that the new rule and appropriate evidence appear in the desktop.
+
+### Feature completion M1 — implemented and automated checks passed
+
+- Reworked 19 process-start rules to require command-line or parent context. Preserved rule IDs and original ATT&CK IDs. Added distinct discovery correlation and the high-signal Windows rules documented in docs/RULE-QUALITY-AUDIT.md. The current catalog check reports 51 rules and no info-level process-start rules.
+- Remote-thread rules require source and target evidence. The LSASS rule requires the memory-read access bit and an observed source. Both exclude the standard Windows Error Reporting executable paths. Service and scheduled-task creation remain broad, with synthetic examples of ordinary matching maintenance.
+- Added positive and negative event fixtures and correlation scenarios, including ordinary launches, repeated utilities, wrong parents, missing fields, wrong sources and observations outside the time window. The Sysmon file-create test verifies source coverage against synthetic stored records.
+- Finding details present severity, evidence confidence and baseline rarity. Detections can replay disabled rules against recent stored evidence, show a selectable event trace, and estimate alerts per day when the sample spans at least an hour. These are local observations from the replay sample.
+- Commands and outcomes: backend .venv/Scripts/python.exe -m pytest -q -o faulthandler_timeout=15 tests (183 passed, 2 subtests); npm.cmd --prefix desktop test (28 passed); node --test cloud/worker.test.mjs cloud/geoip.test.mjs (3 passed); npm.cmd --prefix desktop run build:ui (passed with the bundle-size warning); PowerShell event reader parse (passed).
+- Milestones M2–M9 remain open.
+
+#### Needs manual verification
+
+- Confirm real Security audit and Sysmon events are collected on Windows, including parent paths, access masks, group SIDs and file-create event 11. Compare source coverage with actual event types available on the PC.
+- On a desktop build, verify finding confidence and rarity in Simple and Analyst mode, and verify that Detections displays the trace, event selection and noise estimate for a rule preview.
+- Collect evidence from ordinary workloads before drawing conclusions about false-positive rates. The audit uses qualitative estimates and the tests use synthetic events.

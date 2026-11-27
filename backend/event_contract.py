@@ -70,7 +70,8 @@ def event_contract(event):
     category, action = _CLASSIFICATIONS.get(kind, ("other", "observe"))
     journal = kind in (1001, 1002)
     process_path = _text(fields.get("image") or fields.get("newProcessName") or fields.get("imagePath") or event.get("process"))
-    parent_path = _text(fields.get("parentImage"))
+    host = _text(event.get("host"), 512)
+    parent_path = _text(fields.get("parentImage") or fields.get("parentProcessName"))
     username = _text(fields.get("user"), 512)
     domain, separator, name = username.partition("\\")
     initiated = _text(fields.get("initiated"), 12).casefold()
@@ -87,7 +88,7 @@ def event_contract(event):
         "source_event_id": _text(record_id, 256),
         "category": category,
         "action": action,
-        "host": _text(event.get("host"), 512),
+        "host": host,
         "asset_id": _text(event.get("asset_id"), 512),
         "process": {
             "guid": _text(event.get("process_guid") or fields.get("processGuid"), 128),
@@ -100,6 +101,8 @@ def event_contract(event):
             "parent_path": parent_path,
             "parent_cmdline": _text(fields.get("parentCommandLine")),
             "target_path": _text(fields.get("targetImage")),
+            "source_path": _text(fields.get("sourceImage")),
+            "granted_access": _text(fields.get("grantedAccess"), 16),
             "loaded_image": _text(fields.get("imageLoaded")),
             "user": username,
         },
@@ -126,5 +129,9 @@ def event_contract(event):
                          "addresses": [_text(address, 64) for address in fields.get("addresses", [])[:12]]}}
            if kind == 2002 else {}),
         "raw": {"event_type": kind, "channel": _text(system.get("channel"), 128),
+                **({"local_account": "yes"} if kind == 4720 and host
+                   and _text(fields.get("targetDomainName")).casefold() == host.split(".")[0].casefold() else {}),
+                **({"group_sid": _text(fields.get("targetSid"), 256)} if kind == 4732 else {}),
+                **({"provider": _text(fields.get("provider"), 128)} if fields.get("provider") else {}),
                 **({"logon_type": _text(fields.get("logonType"), 12)} if fields.get("logonType") else {})},
     }

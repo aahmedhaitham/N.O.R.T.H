@@ -71,3 +71,50 @@ These estimates describe likely benign firing frequency on a general Windows wor
 ## Design notes
 
 Use distinct discovery utilities per observed parent process over an event-time window. Treat a missing parent identifier as insufficient context. Require command-line or parent evidence for elevated process findings. Keep unmatched telemetry searchable and record the effect on technique coverage before removing a rule. Prefer specific documented exclusions over broad process-name exemptions.
+
+## Context added to process-start rules
+
+Rule IDs and existing ATT&CK tags were retained. A bare executable name no longer fires any of these 19 rules. Their effective coverage now requires command-line data or an observed parent path. Historical findings are retained.
+
+- system-information: requires parent context.
+- account-enumeration: requires parent context.
+- network-configuration: requires parent context.
+- network-connections: requires parent context.
+- network-name-lookup: requires parent context.
+- process-inventory: requires parent context.
+- domain-controller-discovery: requires parent context.
+- terminal-shell: requires parent context.
+- windows-script-host: requires parent context.
+- console-script-host: requires parent context.
+- mshta-observed: requires argument context.
+- msiexec-observed: requires parent context.
+- regsvr32-observed: requires argument context.
+- rundll32-observed: requires argument context.
+- installutil-observed: requires parent context.
+- msbuild-observed: requires parent context.
+- remote-desktop-client: requires parent context.
+- ssh-client: requires parent context.
+- certificate-utility: requires argument context.
+
+## M1 scope and interpretation
+
+- The Windows error-reporting exclusion is limited to the standard System32 and SysWOW64 executable paths. A path match does not authenticate a binary. Remote-thread detections require source and target paths. LSASS detections require a source path and the process memory-read bit in GrantedAccess. Unknown masks or missing source paths cannot satisfy that rule. Service installs and scheduled-task creation remain broad, with ordinary updater and management fixtures that intentionally match.
+- The discovery burst uses Sysmon process starts, the same host and parent GUID, and case-insensitive distinct process names in a 60-second window. Its ATT&CK mapping is a rule-level description. A burst may contain different utilities, so inspect the evidence to determine which observations apply.
+- Replay evaluates the latest 500 unique stored events at most, including disabled rules. The trace shows the selected event's source, named selections and condition. A correlation rule still needs its full event group. The daily rate extrapolates from the sampled elapsed time and is unavailable for a sample shorter than one hour or an evaluation that times out.
+- Finding confidence describes evidence structure: correlated observations or a single observation. It is qualitative. Baseline rarity reports first seen, previously observed, rare outbound destination, or unknown when the store cannot make a comparison. Findings already stored keep their historical evidence and review status.
+
+## Added detections
+
+| Rule | Likely benign frequency | Why |
+| --- | --- | --- |
+| Discovery utility burst | Medium | Inventory and support scripts can launch multiple diagnostic tools under one parent. |
+| Encoded PowerShell | Medium | Managed automation can encode arguments for quoting. |
+| Hidden PowerShell window | Medium | Scheduled jobs can hide a console window. |
+| Security and System log cleared | Low | Approved retention or maintenance can clear logs. |
+| Local user created | Low | Provisioning can legitimately create local accounts. |
+| Local administrator added | Low | Approved elevation and support provisioning can add group members. |
+| Office shell start | Low | Office add-ins and approved automation can launch a shell. |
+| Shadow copy deletion request | Low | Backup retention jobs can request deletion. |
+| Certificate utility remote URL cache | Low | Certificate diagnostics can access a remote resource through the cache. |
+
+New mappings checked against Enterprise ATT&CK: [T1082](https://attack.mitre.org/techniques/T1082/), [T1059](https://attack.mitre.org/techniques/T1059/), [T1059.001](https://attack.mitre.org/techniques/T1059/001/), [T1685.005](https://attack.mitre.org/techniques/T1685/005/), [T1136.001](https://attack.mitre.org/techniques/T1136/001/), [T1098.007](https://attack.mitre.org/techniques/T1098/007/), [T1490](https://attack.mitre.org/techniques/T1490/), and [T1105](https://attack.mitre.org/techniques/T1105/). Certificate decode keeps its existing T1140 tag. No original ATT&CK IDs were removed.

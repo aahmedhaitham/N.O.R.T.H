@@ -18,8 +18,8 @@ from north import collector_tool
 
 SOURCE_EVENTS = {
     "sysmon": {1, 3, 7, 8, 10, 11, 13, 22},
-    "security": {4624, 4625, 4688, 4698},
-    "system": {7045},
+    "security": {1102, 4624, 4625, 4688, 4698, 4720, 4732},
+    "system": {104, 7045},
     "powershell": {4104},
     "defender": {1116, 1117, 1118, 1119, 5001, 5007},
 }
@@ -32,9 +32,9 @@ FIXES = {
 }
 STATES = {"collecting", "no_data", "not_installed", "access_denied", "misconfigured"}
 FIELDS = frozenset((
-    "Image", "ImageLoaded", "ProcessGuid", "ProcessId", "CommandLine", "ParentProcessGuid",
-    "ParentImage", "ParentCommandLine", "User", "TargetImage", "TargetFilename", "TargetObject", "QueryName", "SourceImage",
-    "NewProcessName", "NewProcessId", "TargetUserName", "TargetDomainName", "TargetUserSid", "IpAddress", "IpPort",
+    "Provider", "Image", "ImageLoaded", "ProcessGuid", "ProcessId", "CommandLine", "ParentProcessGuid",
+    "ParentImage", "ParentProcessName", "GrantedAccess", "ParentCommandLine", "User", "TargetImage", "TargetFilename", "TargetObject", "QueryName", "SourceImage",
+    "NewProcessName", "NewProcessId", "TargetUserName", "TargetDomainName", "TargetUserSid", "TargetSid", "MemberSid", "IpAddress", "IpPort",
     "TaskName", "ServiceName", "ImagePath", "ScriptBlockId", "Path", "Threat Name", "Detection ID",
     "Initiated", "DestinationIp", "DestinationPort", "Protocol", "LogonType",
 ))

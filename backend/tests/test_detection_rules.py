@@ -90,6 +90,8 @@ def test_configured_rules_cover_observed_sources_and_preview_without_creating_fi
     assert not entry()["enabled"]
     test = rule_workspace(store, {"action": "test", "id": rule_id})
     assert test["matches"][0]["evidence_ids"] == (event["id"],)
+    assert test["trace"] == {"event_id": event["id"], "source_matches": True,
+                             "selections": {"service_install": True}, "condition": True}
     assert store.detection_findings() == []
     assert consume_detection_queue(store, active_rules(store)) == 1
     assert store.detection_findings() == []
@@ -98,7 +100,7 @@ def test_configured_rules_cover_observed_sources_and_preview_without_creating_fi
 def test_yaml_correlations_preserve_legacy_evidence_groups():
     normalized = [normalize(item) for item in demo_alerts(include_linux=True)]
     cases = {case["title"]: tuple(event["id"] for event in case["evidence"]) for case in build_cases(normalized)}
-    rules = [rule for rule in bundled_rules() if rule.correlation and rule.correlation.kind in ("threshold", "sequence")]
+    rules = [rule for rule in bundled_rules() if rule.id in ("powershell-script-write", "repeated-ssh-authentication-failures")]
     events = [event_contract(item) for item in reversed(normalized)]
     assert len(rules) == 2
     for rule in rules:
@@ -329,6 +331,7 @@ def test_first_seen_baselines_learn_then_alert_once_and_stay_local(tmp_path):
         "first-seen-process-path": [new_process["id"]],
         "first-seen-process-destination": [new_destination["id"]],
     }
+    assert all(item["rarity"] == "first seen" for item in store.detection_findings())
     ingest([record(5, 2, r"c:\example\NEW.exe"),
             record(6, 2, r"C:\Example\baseline.exe", destination="192.0.2.43"),
             record(7, 0.5, r"C:\Example\old-import.exe"),
@@ -350,10 +353,95 @@ def test_first_seen_baselines_learn_then_alert_once_and_stay_local(tmp_path):
     frequency_findings = [item for item in store.detection_findings() if item["rule_id"] == "rare-process-destination"]
     assert [item["evidence_ids"] for item in frequency_findings] == [[rare["id"]]]
 
-def test_encoded_powershell_fixture_cases_match_individually():
-    rule = next(rule for rule in bundled_rules() if rule.id == "powershell-encoded-command")
+@pytest.mark.parametrize(
+    "rule",
+    [rule for rule in bundled_rules() if rule.fixtures["positive"] == "rule_catalog_positive.json"
+     and rule.correlation is None],
+    ids=lambda rule: rule.id,
+)
+def test_keyed_single_event_fixtures_match_individually(rule):
     positive = records(rule.fixtures["positive"], rule.id)
     negative = records(rule.fixtures["negative"], rule.id)
-    assert len(positive) == len(negative) == 3
+    assert len(positive) >= 3 and len(negative) >= 3
     assert all(rule.evidence([event_contract(event)]) for event in positive)
     assert not any(rule.evidence([event_contract(event)]) for event in negative)
+
+
+def test_rule_replay_traces_selected_nonmatch_and_reports_sample_rate(tmp_path):
+    store = Store(path=tmp_path / "rule-replay.sqlite3")
+    store.initialize()
+    matching = records("detections_positive.json", "windows-service-installed")[0]
+    nonmatching = records("detections_negative.json", "windows-service-installed")[0]
+    nonmatching["timestamp"] = "2026-01-15T12:00:00+00:00"
+    store.ingest_local_windows([matching, nonmatching])
+    result = rule_workspace(store, {"action": "test", "id": "windows-service-installed",
+                                    "event_id": nonmatching["id"]})
+    assert result["event_ids"] == [nonmatching["id"], matching["id"]]
+    assert result["trace"] == {"event_id": nonmatching["id"], "source_matches": False,
+                                "selections": {"service_install": False}, "condition": False}
+    assert result["noise"] == {"alerts": 1, "hours": 2, "alerts_per_day": 12}
+    assert store.detection_findings() == []
+
+
+def test_discovery_uses_distinct_names_and_separates_parents():
+    rule = next(rule for rule in bundled_rules() if rule.id == "discovery-utility-burst")
+    good = [event_contract(event) for event in records(rule.fixtures["positive"], rule.id)]
+    bad = [event_contract(event) for event in records(rule.fixtures["negative"], rule.id)]
+    assert len(rule.evidence(list(reversed(good)))) == 3
+    assert not rule.evidence(bad)
+    replay = evaluate_rules([rule], good)
+    from detection_rules import findings_from_matches
+    findings = list(findings_from_matches(replay["matches"], good))
+    assert len(findings) == 3
+    assert all(item["confidence"] == "correlated" and item["rarity"] == "unknown" for item in findings)
+
+@pytest.mark.parametrize("identity", ["powershell-script-write", "repeated-ssh-authentication-failures", "periodic-dns-query"])
+def test_existing_correlations_replay_independent_positive_and_near_miss_scenarios(identity):
+    rule = next(rule for rule in bundled_rules() if rule.id == identity)
+    projected = [event_contract(event) for event in records(rule.fixtures["positive"], identity)]
+    group = rule.evidence(projected)[0]
+    by_id = {item["id"]: item for item in projected}
+    examples = [by_id[event_id] for event_id in group]
+    ordered = sorted(examples, key=lambda item: item["ts"])
+
+    for minutes in (0, 6, 21):
+        shifted = [
+            {**event, "id": f"{event['id']}-{minutes}",
+             "ts": (datetime.fromisoformat(event["ts"]) + timedelta(minutes=minutes)).isoformat()}
+            for event in ordered
+        ]
+        assert len(rule.evidence(shifted)) == 1
+
+    wrong_source = [{**event, "source": "synthetic-other"} for event in ordered]
+    late = {**ordered[-1], "ts": (datetime.fromisoformat(ordered[0]["ts"])
+                                  + rule.correlation.window + timedelta(seconds=1)).isoformat()}
+    keyless = [{**event, "host": "", "asset_id": "", "process": {**event["process"], "guid": ""},
+                "dns": {"query": ""}, "network": {**event["network"], "src": {"ip": ""}}} for event in ordered]
+    assert not rule.evidence(wrong_source)
+    assert not rule.evidence(keyless)
+    if identity == "powershell-script-write":
+        assert not rule.evidence([ordered[0], {**late, **{"file": {"path": "C:/Example/fixture.ps1"},
+                                                       "raw": {"event_type": 11}}}])
+    else:
+        assert not rule.evidence([*ordered[:-1], late])
+
+def test_rule_finding_uses_learned_process_baseline(tmp_path):
+    store = Store(path=tmp_path / "scoring.sqlite3")
+    store.initialize()
+    start = datetime(2026, 1, 15, 10, tzinfo=timezone.utc)
+    rule = next(rule for rule in bundled_rules() if rule.id == "powershell-encoded-command")
+
+    def ingest(number, at, folder, arguments):
+        event = normalize_record("security", {
+            "host": "WIN-SYNTHETIC", "event_id": 4688, "record_id": number, "timestamp": at.isoformat(),
+            "fields": {"NewProcessName": fr"C:\Example\{folder}\powershell.exe", "CommandLine": arguments},
+        })
+        store.ingest_local_windows([event])
+        consume_detection_queue(store, [rule], now=at, learning_hours=1)
+
+    ingest(1, start, "known", "synthetic normal")
+    ingest(2, start + timedelta(hours=2), "known", "synthetic -enc AAAA")
+    ingest(3, start + timedelta(hours=3), "new", "synthetic -enc AAAA")
+    findings = [item for item in store.detection_findings() if item["rule_id"] == rule.id]
+    assert [item["rarity"] for item in findings] == ["first seen", "previously observed"]
+    assert all(item["confidence"] == "single observation" for item in findings)

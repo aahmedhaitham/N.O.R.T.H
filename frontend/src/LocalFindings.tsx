@@ -6,6 +6,7 @@ import { Explain, useAssistant } from './Assistant';
 
 type FindingStatus = 'new' | 'reviewed' | 'benign';
 type Finding = {
+  confidence?: string; rarity?: string;
   id: string; title: string; severity: string; last_seen: string; status: FindingStatus; attack?: string[];
   plain_summary: string; what_to_do: string; evidence_ids: string[];
   rule_id?: string; falsepositives?: string[];
@@ -85,6 +86,7 @@ function FindingRow({ finding, onReviewed }: {
       {' '}<TimeDisplay value={finding.last_seen} />
     </summary>
     <p>{finding.plain_summary}</p>
+    <p>Confidence: {finding.confidence === "correlated" || finding.confidence === "single observation" ? finding.confidence : "unknown"} · Baseline rarity: {finding.rarity ?? "unknown"}</p>
     <p>{finding.what_to_do}</p>
     {!!finding.falsepositives?.length && <p>{finding.falsepositives[0]}</p>}
     {(finding.rule_id || !!finding.attack?.length) && <details open={mode === 'analyst' || undefined}>

@@ -29,6 +29,9 @@
   "attack.t1057": [
     "Discovery"
   ],
+  "attack.t1059": [
+    "Execution"
+  ],
   "attack.t1059.001": [
     "Execution"
   ],
@@ -47,12 +50,22 @@
   "attack.t1087.001": [
     "Discovery"
   ],
+  "attack.t1098.007": [
+    "Persistence",
+    "Privilege Escalation"
+  ],
+  "attack.t1105": [
+    "Command and Control"
+  ],
   "attack.t1110": [
     "Credential Access"
   ],
   "attack.t1127.001": [
     "Stealth",
     "Execution"
+  ],
+  "attack.t1136.001": [
+    "Persistence"
   ],
   "attack.t1137.006": [
     "Persistence"
@@ -74,6 +87,9 @@
   ],
   "attack.t1218.011": [
     "Stealth"
+  ],
+  "attack.t1490": [
+    "Impact"
   ],
   "attack.t1543.003": [
     "Persistence",
@@ -116,5 +132,8 @@
   ],
   "attack.t1562.001": [
     "Stealth"
+  ],
+  "attack.t1685.005": [
+    "Defense Impairment"
   ]
 }

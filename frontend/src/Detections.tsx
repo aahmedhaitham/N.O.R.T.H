@@ -15,7 +15,11 @@ type Rule = {
   coverage: Coverage; requires: Requirement[];
 };
 type Catalog = { rules: Rule[]; techniques: Record<string, Coverage> };
-type TestResult = { evaluated_events: number; timed_out_rule_ids: string[]; matches: { evidence_ids: string[] }[] };
+type TestResult = { evaluated_events: number; timed_out_rule_ids: string[]; matches: { evidence_ids: string[] }[];
+  event_ids?: string[];
+  trace?: { event_id: string; source_matches: boolean; selections: Record<string, boolean>; condition: boolean };
+  noise?: { alerts: number; hours: number; alerts_per_day: number | null };
+};
 
 const coverageLabels = { covered: 'Covered', partly: feedbackMessages.partlyCovered, blind: 'Blind', unchecked: 'Unchecked' };
 const techniqueId = (tag: string) => tag.replace(/^attack\./, '').toUpperCase();
@@ -79,11 +83,11 @@ export function Detections() {
   const [importFile, setImportFile] = useState<File>();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  async function submit(action: 'toggle' | 'test' | 'import', rule?: Rule) {
+  async function submit(action: 'toggle' | 'test' | 'import', rule?: Rule, eventId?: string) {
     setBusy(rule?.id ?? 'import');
     setMessage('');
     try {
-      let command: Record<string, unknown> = { action, id: rule?.id, enabled: !rule?.enabled };
+      let command: Record<string, unknown> = { action, id: rule?.id, enabled: !rule?.enabled, event_id: eventId };
       if (action === 'import') {
         if (!importFile || importFile.size > 128_000) throw new Error(clientMessages.chooseAYamlFileSmallerThanKb);
         command = { action, yaml: await importFile.text() };
@@ -174,6 +178,24 @@ export function Detections() {
           <p>{result.test.timed_out_rule_ids.length ? strings.theRuleReachedItsEvaluationTimeLimit :
             formatMessage(strings.message012StoredEvents, result.test.matches.length ? 'Matched' : feedbackMessages.noMatchIn, result.test.matches.length ?
               result.test.matches.flatMap((match) => match.evidence_ids).length + feedbackMessages.evidenceEventsOutOf : '', result.test.evaluated_events)}</p>
+          {result.test.noise && <p>{result.test.noise.alerts} replay alerts over {result.test.noise.hours.toFixed(2)} hours.
+            {result.test.noise.alerts_per_day === null ? ' At least one hour is needed for a daily estimate.' :
+              ` Estimated ${result.test.noise.alerts_per_day} alerts per day in this sample.`}</p>}
+          {result.test.trace && <div>
+            <p>Event trace · {result.test.trace.event_id}</p>
+            <ul>
+              <li>Source: {result.test.trace.source_matches ? 'matched' : 'did not match'}</li>
+              {Object.entries(result.test.trace.selections).map(([name, matched]) =>
+                <li key={name}>{name}: {matched ? 'matched' : 'did not match'}</li>)}
+              <li>Condition: {result.test.trace.condition ? 'matched' : 'did not match'}</li>
+            </ul>
+            <details><summary>Choose a replay event</summary>
+              <ul>{result.test.event_ids?.map((id) => <li key={id}>
+                <button type="button" disabled={!!busy || id === result.test.trace?.event_id}
+                  onClick={() => void submit('test', rule, id)}>{id}</button>
+              </li>)}</ul>
+            </details>
+          </div>}
           {result.test.matches.flatMap((match) => match.evidence_ids).map((id) => <FindingEvidence key={id} id={id} />)}
         </div>}
       </details>)}

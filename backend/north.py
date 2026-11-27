@@ -390,6 +390,7 @@ class Store:
         return [json.loads(row[0]) for row in rows[:500]], len(rows) > 500
 
     def complete_detections(self, identities, findings, *, observations=(), now=None, learning_until=None):
+        observations_by_id = {}
         with self.connect() as db:
             if observations:
                 db.execute("BEGIN IMMEDIATE")
@@ -402,10 +403,18 @@ class Store:
                                            (scope,)).fetchone()
                     added = db.execute("INSERT OR IGNORE INTO local_baseline_entities VALUES (?, ?)",
                                        (scope, entity)).rowcount
-                    if added and now >= deadline and finding["first_seen"] >= deadline:
-                        self._write_findings(db, [finding])
+                    if now >= deadline and finding["first_seen"] >= deadline:
+                        observations_by_id[finding["evidence_ids"][0]] = "first seen" if added else "previously observed"
+                        if added:
+                            self._write_findings(db, [finding])
                     if rare is not None:
                         self._observe_destination_frequency(db, scope, entity, rare, now, deadline)
+            for finding in findings:
+                comparisons = {observations_by_id.get(identity) for identity in finding["evidence_ids"]}
+                if "first seen" in comparisons:
+                    finding["rarity"] = "first seen"
+                elif "previously observed" in comparisons:
+                    finding["rarity"] = "previously observed"
             self._write_findings(db, findings)
             db.executemany("DELETE FROM local_detection_queue WHERE event_id = ?", [(identity,) for identity in identities])
 
@@ -553,7 +562,7 @@ class Store:
                 )
 
 
-def threshold_groups(events, *, group_key, count, window, time_key="timestamp"):
+def threshold_groups(events, *, group_key, count, window, time_key="timestamp", distinct_key=None):
     pending_by_key = {}
     for event in sorted(events, key=lambda item: (item[time_key], item["id"])):
         key = group_key(event)
@@ -562,8 +571,11 @@ def threshold_groups(events, *, group_key, count, window, time_key="timestamp"):
         while pending and instant - pending[0][0] > window:
             pending.popleft()
         pending.append((instant, event))
-        if len(pending) == count:
-            yield key, [item for _, item in pending]
+        candidates = [item for _, item in pending]
+        if distinct_key:
+            candidates = list({distinct_key(item): item for item in candidates}.values())
+        if len(candidates) == count:
+            yield key, candidates
             pending.clear()
 
 

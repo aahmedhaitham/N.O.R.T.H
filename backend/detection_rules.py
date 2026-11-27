@@ -31,8 +31,11 @@ FIELDS = {
     "TargetFilename": "file.path", "TargetObject": "registry.target", "QueryName": "dns.query",
     "SourceIp": "network.src.ip", "DestinationIp": "network.dst.ip", "EventID": "raw.event_type",
     "Host": "host", "User": "user.name", "Action": "action", "TargetImage": "process.target_path",
+    "Provider": "raw.provider",
+    "LocalAccount": "raw.local_account", "TargetGroupSid": "raw.group_sid",
     "AssetId": "asset_id", "ProcessGuid": "process.guid",
-    "ImageLoaded": "process.loaded_image", "LogonType": "raw.logon_type",
+    "ParentProcessGuid": "process.parent_guid", "SourceImage": "process.source_path",
+    "GrantedAccess": "process.granted_access", "ImageLoaded": "process.loaded_image", "LogonType": "raw.logon_type",
 }
 IDENTIFIER = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]{0,31}")
 TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*|[()]")
@@ -54,6 +57,7 @@ class Correlation:
     start: object = None
     context: object = None
     jitter: int = 0
+    distinct: str | None = None
 
 
 
@@ -71,6 +75,7 @@ class Rule:
     fixtures: dict
     predicate: object
     correlation: Correlation | None = None
+    selections: dict | None = None
 
     def matches(self, event):
         return all(event.get(key) == value for key, value in self.logsource.items()) and self.predicate(event)
@@ -84,9 +89,13 @@ class Rule:
         keyed = [(key, event) for key, event in keyed if all(isinstance(value, str) and value for value in key)]
         if spec.kind == "threshold":
             return [tuple(event["id"] for event in group) for _, group in threshold_groups(
-                (event for _, event in keyed if self.predicate(event)),
+                (event for _, event in keyed if self.predicate(event) and (
+                    not spec.distinct or isinstance(field_value(event, spec.distinct), str)
+                    and field_value(event, spec.distinct)
+                )),
                 group_key=lambda event: tuple(field_value(event, path) for path in spec.group_by),
-                count=spec.count, window=spec.window, time_key="ts")]
+                count=spec.count, window=spec.window, time_key="ts",
+                distinct_key=(lambda event: field_value(event, spec.distinct).casefold()) if spec.distinct else None)]
         if spec.kind == "interval":
             buckets = defaultdict(list)
             for key, event in sorted(keyed, key=lambda row: (row[1]["ts"], row[1]["id"])):
@@ -292,7 +301,7 @@ def compile_rule(data):
             raise RuleError("Unsupported correlation type")
         kind = value["type"]
         field = "start" if kind == "sequence" else "count"
-        extra = {"context"} if kind == "sequence" else set()
+        extra = {"context"} if kind == "sequence" else {"distinct"} if kind == "threshold" else set()
         required = {"type", "group_by", "window_seconds", field} | ({"jitter_seconds"} if kind == "interval" else set())
         if set(value) - extra != required:
             raise RuleError("Invalid correlation fields")
@@ -308,7 +317,11 @@ def compile_rule(data):
             if (type(count) is not int or not (3 if kind == "interval" else 2) <= count <= 100
                     or type(jitter) is not int or not 0 <= jitter <= 15):
                 raise RuleError("Invalid threshold")
-            correlation = Correlation(kind, paths, timedelta(seconds=seconds), count=count, jitter=jitter)
+            distinct = value.get("distinct")
+            if "distinct" in value and (not isinstance(distinct, str) or distinct not in FIELDS):
+                raise RuleError("Invalid distinct field")
+            correlation = Correlation(kind, paths, timedelta(seconds=seconds), count=count, jitter=jitter,
+                                      distinct=FIELDS.get(distinct))
         else:
             start = value["start"]
             if not isinstance(start, str) or start not in selections:
@@ -320,7 +333,7 @@ def compile_rule(data):
                                       context=selections.get(context))
     return Rule(data["id"], data["title"], data["severity"], tags, logsource, requires, falsepositives,
                 data["plain_summary"], data["what_to_do"], fixtures,
-                condition_predicate(detection["condition"], selections), correlation)
+                condition_predicate(detection["condition"], selections), correlation, selections)
 
 
 def parse_catalog(text):
@@ -416,9 +429,30 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
         observed = {f"{source}:{kind}" for source, kind in
                     db.execute("SELECT source, kind FROM local_observed_event_types")}
     if action == "test":
-        events = recent_detection_events(store, 100)
-        result = evaluate_rules([known[identity]], events)
-        return {**result, "evaluated_events": len(events)}
+        rule = known[identity]
+        events = recent_detection_events(store, 500)
+        result = evaluate_rules([rule], events)
+        if not result["timed_out_rule_ids"] and events:
+            chosen_id = command.get("event_id", events[0]["id"])
+            chosen = next((event for event in events if event["id"] == chosen_id), None)
+            if chosen is None:
+                raise RuleError("Choose an event from the replay sample")
+            try:
+                result["trace"] = {
+                    "event_id": chosen["id"],
+                    "source_matches": all(chosen.get(key) == value for key, value in rule.logsource.items()),
+                    "selections": {name: test(chosen) for name, test in rule.selections.items()},
+                    "condition": rule.predicate(chosen),
+                }
+            except TimeoutError:
+                result["timed_out_rule_ids"].append(rule.id)
+        if not result["timed_out_rule_ids"] and len(events) > 1:
+            duration = datetime.fromisoformat(events[0]["ts"]) - datetime.fromisoformat(events[-1]["ts"])
+            count = sum(len(match.get("evidence_groups", match["evidence_ids"])) for match in result["matches"])
+            result["noise"] = {"alerts": count, "hours": duration.total_seconds() / 3600,
+                               "alerts_per_day": round(count * 86400 / duration.total_seconds(), 2)
+                               if duration.total_seconds() >= 3600 else None}
+        return {**result, "evaluated_events": len(events), "event_ids": [event["id"] for event in events]}
 
     for name, check in (source_checks or {}).items():
         state = check.get("state")
@@ -498,14 +532,16 @@ def findings_from_matches(matches, events):
             yield {**{key: value for key, value in match.items() if key not in ("evidence_groups", "evidence_ids")},
                    "id": identity, "evidence_ids": group,
                    "entities": {"hosts": sorted({event["host"] for event in evidence if event["host"]})},
-                   "confidence": "unrated",
+                   "confidence": "correlated" if len(group) > 1 else "single observation",
+                   "rarity": "unknown",
                    "first_seen": min(event["ts"] for event in evidence),
                    "last_seen": max(event["ts"] for event in evidence)}
 
 
 def recent_detection_events(store, limit):
     events = store.event_page(limit=limit)["events"] + store.local_windows_events(limit=limit)
-    events.sort(key=lambda item: (item["timestamp"], item["id"]), reverse=True)
+    events = sorted({event["id"]: event for event in events}.values(),
+                    key=lambda item: (item["timestamp"], item["id"]), reverse=True)
     return [event_contract(event) for event in events[:limit]]
 
 
@@ -564,6 +600,9 @@ def baseline_observations(events):
                 "title": "A process returned to a rarely observed destination",
                 "plain_summary": "This process and destination pair accounted for at most 5% of this PC's outbound observations during learning.",
             }], [event])
+        finding["rarity"] = "first seen"
+        if rare is not None:
+            rare["rarity"] = "rare"
         yield scope, key, finding, rare
 
 
