@@ -80,13 +80,32 @@ function activity(events) {
 
 function makeLocalWorkspace(scripts, read = readScript, history, observeListeners) {
   const states = new Set(['Listen', 'Established', 'SynSent', 'SynReceived', 'CloseWait']);
+  const postureWeights = {
+    'firewall-domain': 3, 'firewall-private': 3, 'firewall-public': 3,
+    'defender-realtime': 3, 'defender-signatures': 2, 'defender-tamper': 2, 'os-encryption': 3,
+    smbv1: 3, rdp: 3, uac: 2, 'secure-boot': 2, 'guest-account': 2,
+  };
   const posture = cachedReader(async () => {
     const snapshot = await read(path.join(scripts, 'Read-NorthPosture.ps1'), []);
     if (!Array.isArray(snapshot?.checks) || snapshot.checks.length > 32 || !snapshot.checks.every((check) =>
       check && /^[a-z0-9-]{1,48}$/.test(check.id) && ['pass', 'fail', 'unknown'].includes(check.status) &&
       typeof check.title === 'string' && check.title.length <= 128 &&
       typeof check.reason === 'string' && check.reason.length <= 256)) throw new Error('Invalid posture response');
-    return { checks: snapshot.checks };
+    if (new Set(snapshot.checks.map(({ id }) => id)).size !== snapshot.checks.length) {
+      throw new Error('Duplicate posture check');
+    }
+    const checks = snapshot.checks.map(({ id, title, reason, status }) => ({
+      id, title, reason, status, weight: Object.hasOwn(postureWeights, id) ? postureWeights[id] : 1,
+    }));
+    const score = { earned: 0, possible: 0, unknown: 0 };
+    for (const check of checks) {
+      if (check.status === 'unknown') score.unknown++;
+      else {
+        score.possible += check.weight;
+        if (check.status === 'pass') score.earned += check.weight;
+      }
+    }
+    return { checks, score };
   }, { checks: [] });
   const tcp = cachedReader(async () => {
     const sample = await read(path.join(scripts, 'Read-NorthTcp.ps1'), []);

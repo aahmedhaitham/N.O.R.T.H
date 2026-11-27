@@ -146,7 +146,15 @@ test('local posture preserves unknown checks and rejects malformed snapshots', a
   });
   const payload = await (await ready(request)).json();
   assert.equal(payload.state, 'ready');
-  assert.deepEqual(payload.checks, checks);
+  assert.deepEqual(payload.checks, [{ ...checks[0], weight: 2 }]);
+  assert.deepEqual(payload.score, { earned: 0, possible: 0, unknown: 1 });
+
+  const mixed = makeLocalWorkspace('tools', async () => ({ checks: [
+    ...checks,
+    { id: 'firewall-public', title: 'Firewall', status: 'fail', reason: 'Review.' },
+    { id: 'uac', title: 'UAC', status: 'pass', reason: 'Observed.' },
+  ] }));
+  assert.deepEqual((await (await mixed(request)).json()).score, { earned: 2, possible: 5, unknown: 1 });
 
   const invalid = makeLocalWorkspace('tools', async () => ({ checks: [{ ...checks[0], status: 'guessed' }] }));
   assert.deepEqual(await (await invalid(request)).json(), {

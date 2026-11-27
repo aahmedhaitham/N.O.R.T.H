@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { readJson } from './readJson';
 
-type Check = { id: string; title: string; status: 'pass' | 'fail' | 'unknown'; reason: string };
-type Snapshot = { state: string; checks: Check[]; updated_at: string | null };
+type Check = { id: string; title: string; status: 'pass' | 'fail' | 'unknown'; reason: string; weight: number };
+type Snapshot = { state: string; checks: Check[]; updated_at: string | null; score: { earned: number; possible: number; unknown: number } };
 
 const labels = { pass: 'Observed', fail: 'Needs a look', unknown: 'Could not check' };
 
@@ -32,8 +32,12 @@ export function Posture() {
     </button>
     {!snapshot && !failed && <p>Read firewall, Defender and other Windows settings on this PC.</p>}
     {failed && <p role="status">Windows posture could not be read. Try again.</p>}
+    {snapshot && <p role="status">
+      {snapshot.score.possible ? `Posture score: ${snapshot.score.earned} of ${snapshot.score.possible} available points.` : 'No score available yet.'}
+      {' '}{snapshot.score.unknown} checks could not be scored.
+    </p>}
     {snapshot && <ul>{snapshot.checks.map((item) => <li key={item.id}>
-      <strong>{item.title}</strong> · {labels[item.status]}. {item.reason}
+      <strong>{item.title}</strong> · {labels[item.status]}. {item.reason}{item.status === 'fail' && ` · ${item.weight} points missed`}
     </li>)}</ul>}
   </section>;
 }

@@ -53,6 +53,34 @@ $checks = @(
     $defender = try { Get-MpComputerStatus } catch { $null }
     Read-Check 'defender-realtime' 'Defender real-time protection enabled' { $defender.RealTimeProtectionEnabled }
     Read-Check 'defender-tamper' 'Defender tamper protection enabled' { $defender.IsTamperProtected }
+    Read-Check 'defender-signatures' 'Defender signatures updated within seven days' {
+        $age = $defender.AntivirusSignatureAge
+        if ($null -ne $age -and $age -ge 0 -and $age -lt [uint32]::MaxValue) { $age -le 7 }
+    }
+    Read-Check 'defender-scan' 'Defender scan recorded within 30 days' {
+        $ages = @($defender.QuickScanAge, $defender.FullScanAge) | Where-Object {
+            $null -ne $_ -and $_ -ge 0 -and $_ -lt [uint32]::MaxValue
+        }
+        if ($ages.Count) { ($ages | Measure-Object -Minimum).Minimum -le 30 }
+    }
+    Read-Check 'os-encryption' 'Windows drive BitLocker protection enabled' {
+        $status = (Get-BitLockerVolume -MountPoint $env:SystemDrive).ProtectionStatus
+        if ($null -ne $status -and $status.ToString() -in @('On','Off','0','1')) {
+            $status.ToString() -in @('On','1')
+        }
+    }
+    Read-Check 'guest-account' 'Built-in local Guest account disabled' {
+        $guest = Get-LocalUser | Where-Object { $_.SID.Value -match '-501$' } | Select-Object -First 1
+        if ($guest.Enabled -is [bool]) { !$guest.Enabled }
+    }
+    Read-Check 'sysmon-service' 'Sysmon service running' {
+        $services = @(Get-Service -Name 'Sysmon','Sysmon64' -ErrorAction SilentlyContinue)
+        if ($services.Count) { $services.Status -contains 'Running' }
+    }
+    Read-Check 'update-reboot' 'No Windows Update reboot marker' {
+        !(Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
+    }
+
 )
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 ConvertTo-Json -InputObject @{checks=$checks} -Depth 4 -Compress

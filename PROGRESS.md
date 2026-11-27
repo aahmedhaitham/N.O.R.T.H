@@ -374,3 +374,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Verified: 193 backend tests, 2 subtests, 29 desktop tests, 3 cloud tests, PowerShell syntax, and the desktop UI build.
 - A direct Windows PowerShell run returned an authorization error. The packaged Windows reader and desktop walkthrough remain unverified.
 - M3 remains open. Remaining scope includes the full catalog, Defender and update details, posture scoring, drift history, and audited confirmed fixes and undo.
+
+### M3 — weighted posture score and expanded checks
+
+- Expanded the Windows posture reader from 12 to 18 observations with Defender signature and scan recency, BitLocker protection, built-in Guest, Sysmon service status and the Windows Update reboot marker.
+- The local desktop API computes earned and available points using fixed weights. Unknown checks are excluded, duplicate IDs are rejected, and each failed check displays its point cost. The score summarizes checked settings.
+- Verified: 193 backend tests, 2 subtests, 29 desktop tests, 3 cloud tests and the desktop UI build. A direct local Windows reader run returned 18 results (14 pass, 4 unknown). The packaged desktop walkthrough remains unverified.
+- M3 remains open for the rest of the posture catalog, deeper Defender and Windows Update details, drift history, and confirmed fixes and undo.
