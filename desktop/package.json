@@ -92,6 +92,7 @@
           "Read-NorthSysmon.ps1",
           "Read-NorthAdapterTraffic.ps1",
           "Read-NorthTcp.ps1",
+          "Read-NorthPosture.ps1",
           "SysmonFormat.ps1"
         ]
       }

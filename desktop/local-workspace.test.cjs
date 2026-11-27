@@ -136,3 +136,20 @@ test('local device review persists across desktop sessions', async (t) => {
   assert.equal(response.status, 200);
   assert.equal((await deviceHistory(file).observe([device(2)], later)).unreviewed, 0);
 });
+
+test('local posture preserves unknown checks and rejects malformed snapshots', async () => {
+  const request = new Request('north://app/api/local/posture');
+  const checks = [{ id: 'secure-boot', title: 'Secure Boot enabled', status: 'unknown', reason: 'Access denied.' }];
+  const ready = makeLocalWorkspace('tools', async (file) => {
+    assert.equal(path.basename(file), 'Read-NorthPosture.ps1');
+    return { checks };
+  });
+  const payload = await (await ready(request)).json();
+  assert.equal(payload.state, 'ready');
+  assert.deepEqual(payload.checks, checks);
+
+  const invalid = makeLocalWorkspace('tools', async () => ({ checks: [{ ...checks[0], status: 'guessed' }] }));
+  assert.deepEqual(await (await invalid(request)).json(), {
+    checks: [], state: 'unavailable', updated_at: null,
+  });
+});

@@ -80,6 +80,14 @@ function activity(events) {
 
 function makeLocalWorkspace(scripts, read = readScript, history, observeListeners) {
   const states = new Set(['Listen', 'Established', 'SynSent', 'SynReceived', 'CloseWait']);
+  const posture = cachedReader(async () => {
+    const snapshot = await read(path.join(scripts, 'Read-NorthPosture.ps1'), []);
+    if (!Array.isArray(snapshot?.checks) || snapshot.checks.length > 32 || !snapshot.checks.every((check) =>
+      check && /^[a-z0-9-]{1,48}$/.test(check.id) && ['pass', 'fail', 'unknown'].includes(check.status) &&
+      typeof check.title === 'string' && check.title.length <= 128 &&
+      typeof check.reason === 'string' && check.reason.length <= 256)) throw new Error('Invalid posture response');
+    return { checks: snapshot.checks };
+  }, { checks: [] });
   const tcp = cachedReader(async () => {
     const sample = await read(path.join(scripts, 'Read-NorthTcp.ps1'), []);
     if (!sample || !Array.isArray(sample.rows) || sample.rows.length > 200 ||
@@ -160,6 +168,7 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
       return reviewed ? Response.json({ reviewed }) : Response.json({ detail: 'Device not found' }, { status: 404 });
     }
     if (request.method !== 'GET') return Response.json({ detail: 'Method unavailable' }, { status: 405 });
+    if (pathname === '/api/local/posture') return Response.json(await posture(), { headers: { 'Cache-Control': 'no-store' } });
     if (pathname === '/api/local/tcp') return Response.json(await tcp(), { headers: { 'Cache-Control': 'no-store' } });
     if (pathname === '/api/cases') return Response.json(scriptCases((await sysmon()).events));
     const reportId = /^\/api\/cases\/([a-f0-9]{24})\/report$/.exec(pathname)?.[1];

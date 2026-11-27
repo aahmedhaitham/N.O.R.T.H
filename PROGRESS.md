@@ -367,3 +367,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Detections has a Verified from recorded findings tier. A confirmed replay must link recent local events to the same finding previously saved by the detection pipeline. The rule must be enabled, the required sources currently observed, and the report less than a day old.
 - Verified: 193 backend tests, 2 subtests, 28 desktop tests, 3 cloud tests and the desktop UI build. The regression distinguishes replay alone, a stored finding, stale coverage, an expired report and a disabled rule.
 - Live Windows and desktop acceptance remain unverified. The original active persistence simulations are outside the delivered passive implementation.
+
+### M3 — read-only Windows posture foundation
+
+- Added a local-only Windows posture panel in Simple and Analyst views with 12 checks for firewall profiles, SMBv1, Remote Desktop, UAC, Secure Boot, TPM, Defender and logging settings. Windows values the collector cannot determine are reported as unknown.
+- Verified: 193 backend tests, 2 subtests, 29 desktop tests, 3 cloud tests, PowerShell syntax, and the desktop UI build.
+- A direct Windows PowerShell run returned an authorization error. The packaged Windows reader and desktop walkthrough remain unverified.
+- M3 remains open. Remaining scope includes the full catalog, Defender and update details, posture scoring, drift history, and audited confirmed fixes and undo.
