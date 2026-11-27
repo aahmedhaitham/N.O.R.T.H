@@ -42,11 +42,31 @@ export function Posture() {
     return () => { controller.abort(); stop(); };
   }, [enabled]);
 
+  const [scanPending, setScanPending] = useState(false);
+  const [scanMessage, setScanMessage] = useState('');
+  async function requestScan() {
+    setScanPending(true);
+    setScanMessage('');
+    try {
+      const result = await readJson<{ state: string }>('/api/local/posture/quick-scan', { method: 'POST' }, 180_000);
+      setScanMessage(result.state === 'accepted' ? 'Defender accepted the quick-scan request. Check Windows Security for results.'
+        : 'Quick-scan request canceled.');
+    } catch {
+      setScanMessage('NORTH could not confirm the scan request. Check Windows Security before retrying.');
+    } finally {
+      setScanPending(false);
+    }
+  }
+
   return <section className="panel">
     <h2>Windows posture</h2>
     <button type="button" onClick={() => { setRunning(false); setEnabled(!enabled); }}>
       {enabled ? 'Pause posture checks' : 'Start posture checks'}
     </button>
+    {' '}<button type="button" disabled={scanPending} onClick={() => void requestScan()}>
+      {scanPending ? 'Waiting for Defender…' : 'Request Defender quick scan'}
+    </button>
+    {scanMessage && <p role="status">{scanMessage}</p>}
     {running && <p role="status">Checking settings…</p>}
     {!snapshot && !failed && <p>Read firewall, Defender and other Windows settings on this PC.</p>}
     {failed && <p role="status">Windows posture could not be read. Try again.</p>}

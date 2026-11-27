@@ -395,3 +395,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added sourced Windows 11 Home and Pro lifecycle dates for known builds. Other editions and builds remain unknown.
 - Verified: 193 backend tests, 2 subtests, 31 desktop tests, 3 cloud tests and the desktop UI build. A local Windows run returned six structured fields. Individual Windows values and the packaged UI remain unverified.
 - M3 remains open for confirmed repairs, audit logging and undo, the Defender quick-scan action, and exclusion-level drift. No Windows settings were changed during verification.
+
+### M3 — confirmed Defender quick scan
+
+- Added a local-only Defender quick-scan request with a native confirmation dialog. The handler refuses requests from other origins and avoids duplicate requests while confirmation or launch is pending. The UI reports request acceptance or uncertainty, and directs the user to Windows Security for scan results.
+- Verified: 193 backend tests, 2 subtests, 32 desktop tests, 3 cloud tests, scan script syntax and desktop UI build. The desktop test uses a fake scan runner and proves cancellation leaves it untouched. A live scan and packaged desktop walkthrough were not run.
+- M3 remains open for Windows settings repairs with exact previews, UAC, audit records and undo, plus individual Defender exclusion change tracking.

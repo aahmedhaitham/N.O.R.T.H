@@ -43,7 +43,16 @@ const collectorInstall = makeCollectorInstall({
 const localWorkspace = makeLocalWorkspace(scripts, undefined,
   deviceHistory(path.join(app.getPath('userData'), 'device-history.json')),
   listenerHistory(path.join(app.getPath('userData'), 'listener-history.json')),
-  postureHistory(path.join(app.getPath('userData'), 'posture-history.json')));
+  postureHistory(path.join(app.getPath('userData'), 'posture-history.json')),
+  async () => {
+    if (!activeWindow || activeWindow.isDestroyed()) return false;
+    const { response } = await dialog.showMessageBox(activeWindow, {
+      type: 'question', title: 'Microsoft Defender quick scan', message: 'Request a Defender quick scan on this PC?',
+      detail: 'Microsoft Defender will scan using its current settings and may take action according to its own policy.',
+      buttons: ['Cancel', 'Request quick scan'], defaultId: 0, cancelId: 0,
+    });
+    return response === 1;
+  });
 const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData'),
   sourceChecks: localWorkspace.sourceChecks, packagedFirst: app.isPackaged });
 const packetCapture = makePacketCapture({});

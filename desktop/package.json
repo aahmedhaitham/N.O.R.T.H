@@ -96,6 +96,7 @@
           "Read-NorthTcp.ps1",
           "Read-NorthPosture.ps1",
           "Read-NorthPostureDetails.ps1",
+          "Start-NorthDefenderQuickScan.ps1",
           "SysmonFormat.ps1"
         ]
       }

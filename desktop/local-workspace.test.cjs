@@ -201,3 +201,28 @@ test('posture details validates counts, maps known servicing dates and isolates 
   assert.equal((await (await partial(request)).json()).state, 'unavailable');
   assert.equal((await (await partial(new Request('north://app/api/local/posture'))).json()).state, 'ready');
 });
+
+test('Defender scan requires the local UI and native confirmation', async () => {
+  let allow = false;
+  let prompts = 0;
+  let scans = 0;
+  const workspace = makeLocalWorkspace('tools', async (file, args) => {
+    assert.equal(path.basename(file), 'Start-NorthDefenderQuickScan.ps1');
+    assert.deepEqual(args, []);
+    scans++;
+    return { accepted: true };
+  }, undefined, undefined, undefined, async () => {
+    prompts++;
+    return allow;
+  });
+  const url = 'north://app/api/local/posture/quick-scan';
+  assert.equal((await workspace(new Request(url))).status, 405);
+  assert.equal((await workspace(new Request(url, { method: 'POST', headers: { origin: 'https://example.invalid' } }))).status, 403);
+  assert.equal(prompts, 0);
+  const request = () => new Request(url, { method: 'POST', headers: { origin: 'north://app' } });
+  assert.deepEqual(await (await workspace(request())).json(), { state: 'cancelled' });
+  assert.equal(scans, 0);
+  allow = true;
+  assert.deepEqual(await (await workspace(request())).json(), { state: 'accepted' });
+  assert.equal(scans, 1);
+});

@@ -9,12 +9,12 @@ const { promisify } = require('node:util');
 const execute = promisify(execFile);
 const host = hostname();
 
-async function readScript(file, args) {
+async function readScript(file, args, timeout = 12000) {
   if (process.platform !== 'win32') throw new Error('Windows telemetry is unavailable.');
   const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   const { stdout } = await execute(powershell, [
     '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file, ...args,
-  ], { timeout: 12000, windowsHide: true, maxBuffer: 2_000_000 });
+  ], { timeout, windowsHide: true, maxBuffer: 2_000_000 });
   return JSON.parse(stdout);
 }
 
@@ -79,7 +79,7 @@ function activity(events) {
   };
 }
 
-function makeLocalWorkspace(scripts, read = readScript, history, observeListeners, observePosture) {
+function makeLocalWorkspace(scripts, read = readScript, history, observeListeners, observePosture, confirmQuickScan) {
   const states = new Set(['Listen', 'Established', 'SynSent', 'SynReceived', 'CloseWait']);
   const postureWeights = {
     'firewall-domain': 3, 'firewall-private': 3, 'firewall-public': 3,
@@ -127,6 +127,24 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
       last_scan_at: date(details?.last_scan_at),
     };
   }, {});
+  let quickScanPending = false;
+  async function quickScan(request) {
+    if (request.method !== 'POST') return new Response(null, { status: 405 });
+    if (request.headers.get('origin') !== 'north://app') return new Response(null, { status: 403 });
+    if (!confirmQuickScan) return new Response(null, { status: 503 });
+    if (quickScanPending) return Response.json({ state: 'busy' }, { status: 409 });
+    quickScanPending = true;
+    try {
+      if (!await confirmQuickScan()) return Response.json({ state: 'cancelled' });
+      const result = await read(path.join(scripts, 'Start-NorthDefenderQuickScan.ps1'), [], 45_000);
+      if (result?.accepted !== true) throw new Error('Invalid scan response');
+      return Response.json({ state: 'accepted' });
+    } catch {
+      return Response.json({ state: 'unconfirmed' }, { status: 503 });
+    } finally {
+      quickScanPending = false;
+    }
+  }
   const tcp = cachedReader(async () => {
     const sample = await read(path.join(scripts, 'Read-NorthTcp.ps1'), []);
     if (!sample || !Array.isArray(sample.rows) || sample.rows.length > 200 ||
@@ -200,6 +218,7 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
 
   const handle = async (request) => {
     const { pathname, searchParams } = new URL(request.url);
+    if (pathname === '/api/local/posture/quick-scan') return quickScan(request);
     const reviewId = /^\/api\/network\/devices\/([a-f0-9]{24})\/review$/.exec(pathname)?.[1];
     if (request.method === 'POST' && reviewId && history) {
       const reviewed = await history.review(reviewId, new Date().toISOString()).catch(() => null);
