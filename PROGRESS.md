@@ -458,3 +458,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Added nine local intents and extended the existing source-gap intent. The Assistant reads the same verification, posture, sensor report, coverage, finding and CloudTrail summaries as the views. Citations take users to the existing evidence and action panels. The Assistant does not run checks or repairs.
 - Golden answer and citation tests and a separate 20-phrase development set passed. The frozen 120-question held-out set routed 87 correctly (72.5%), declined 25 and chose an incorrect intent for 8. Per-intent results and each miss are in docs/assistant-routing-results.json.
 - Verified: 232 backend tests, 2 subtests, 40 desktop tests, 3 cloud tests and the desktop UI build. The packaged desktop citation and Simple-mode walkthrough remain unverified.
+
+### M9 — roadmap, measured performance and release preparation
+
+- Replaced the planned weekly tracker with the actual milestone status. Added STATUS.md and refreshed the README, architecture, Assistant guide, notices and publication checklist.
+- Ran the benchmark orchestrator five times per mode on 20,000 synthetic events per run. The results include per-run values and observed ranges for indexed versus unindexed search, integrity-chain ingest cost, rule evaluation and Assistant routing performance.
+- Prepared repository metadata, reviewed the list of 11 open dependency PRs, and documented the public build attestation and SignPath handoff. GitHub reported the source public with no detected license. No repository or release settings were changed.
+- Verified: 232 backend tests, 2 subtests, 40 desktop tests, 3 cloud tests, desktop UI build, relative documentation links, benchmark statistics and the coverage claims checker. Packaged acceptance, a synthetic screenshot, live coverage and signing remain release work.

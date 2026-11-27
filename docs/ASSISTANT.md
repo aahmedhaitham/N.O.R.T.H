@@ -27,3 +27,6 @@ evaluation. The separate development set checks the routing rules. The frozen
 It scored 87 correct, 25 abstentions, and 8 wrong routes. See the
 [per-intent counts and every miss](assistant-routing-results.json). These
 numbers describe routing on this fixture set.
+
+Run the [repeatable benchmarks](PERFORMANCE.md) for matcher latency and memory.
+The held-out routing report and the latency benchmark measure different properties.

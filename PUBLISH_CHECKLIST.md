@@ -1,9 +1,10 @@
 # NORTH publication checklist
 
-The intended next release is **v0.3.0-preview**, an unsigned Windows preview.
+The public **v0.3.0-preview** is unsigned and predates the current milestones.
+See [release preparation](docs/RELEASE-PREPARATION.md) for the next candidate.
 The maintainer controls visibility, publishing, history decisions, and signing.
 
-## Review the source before changing access
+## Review release material
 
 - Review the redacted history scan below and repeat it after any changes.
 - Inspect sample telemetry, demo files, and tests flagged below for actual names,
@@ -11,11 +12,10 @@ The maintainer controls visibility, publishing, history decisions, and signing.
   workflow logs, release notes and attachments. A secret scan alone cannot
   establish that everything is synthetic.
 - If any real credential was committed, revoke or rotate it in the provider
-  before changing access. Decide privately how to clean any affected history
-  and clones. Keep repository visibility private until the review is complete.
-- Review repository licensing and third-party obligations before public access.
-  Confirm that the source visibility decision applies to the source repo.
-  The public NORTH-Releases repo can distribute a preview separately.
+  before sharing further. Decide privately how to clean any affected history
+  and clones.
+- Review repository licensing and third-party obligations before the next public build.
+  NORTH-Releases distributes previews separately from the source repo.
 
 ## Validate and publish the build
 
@@ -25,9 +25,8 @@ The maintainer controls visibility, publishing, history decisions, and signing.
 - Download matching installer, portable executable, SHA256SUMS.txt and
   BUILD-INFO.json from the successful candidate run. Follow the exact
   [verification commands](docs/RELEASE-PREVIEW.md#download-and-verify).
-- If the repository is eligible, enable the required Actions permissions and
-  use NORTH_ATTESTATIONS_ENABLED=true for an eligible private repo, then rerun
-  the build. Check the attestation result before distributing files.
+- The current public-source workflow already enables build attestations.
+  Check the attestation result for the candidate before distributing files.
 - Record a screenshot or short GIF with synthetic data and no personal
   usernames, Wi-Fi labels, live events, or browser tabs. Add it in the README
   media slot. Leave live coverage marked unverified until supported.

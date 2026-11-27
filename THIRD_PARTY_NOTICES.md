@@ -23,5 +23,13 @@
   JavaScript property tests use fast-check (MIT). These test tools are
   development dependencies.
 
+- **Offline EVTX dataset.** The development downloader supports a pinned file
+  from [EVTX-ATTACK-SAMPLES](https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES)
+  and verifies the repository's GPL-3.0 license text. Dataset files are
+  downloaded separately and are absent from the Windows package.
+- **Windows servicing reference.** A small table of published Windows 11 Home
+  and Pro servicing dates is sourced from [Microsoft Windows release information](https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information).
+  The table records its review date and leaves unlisted builds undetermined.
+
 Dependency packages retain their respective licenses. The lockfiles record the
 versions, and Electron distributions include their runtime dependency notices.

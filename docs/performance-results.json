@@ -1,0 +1,309 @@
+{
+  "runs_per_mode": 5,
+  "backend": {
+    "unindexed": {
+      "summary": {
+        "ingest_events_per_second": {
+          "median": 21923.5,
+          "min": 17575.9,
+          "max": 23175.7
+        },
+        "rare_iris_search_median_ms": {
+          "median": 38.35,
+          "min": 36.42,
+          "max": 46.77
+        },
+        "evaluation_events_per_second": {
+          "median": 14366.2,
+          "min": 4446.0,
+          "max": 15786.3
+        }
+      },
+      "runs": [
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": false,
+          "ingest_events_per_second": 23175.7,
+          "rare_iris_search_median_ms": 36.42,
+          "rules": 63,
+          "evaluation_events_per_second": 14431.3
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": false,
+          "ingest_events_per_second": 17575.9,
+          "rare_iris_search_median_ms": 46.77,
+          "rules": 63,
+          "evaluation_events_per_second": 4446.0
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": false,
+          "ingest_events_per_second": 22090.0,
+          "rare_iris_search_median_ms": 37.0,
+          "rules": 63,
+          "evaluation_events_per_second": 15786.3
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": false,
+          "ingest_events_per_second": 21923.5,
+          "rare_iris_search_median_ms": 45.48,
+          "rules": 63,
+          "evaluation_events_per_second": 12886.6
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": false,
+          "ingest_events_per_second": 21751.1,
+          "rare_iris_search_median_ms": 38.35,
+          "rules": 63,
+          "evaluation_events_per_second": 14366.2
+        }
+      ]
+    },
+    "indexed": {
+      "summary": {
+        "ingest_events_per_second": {
+          "median": 2595.6,
+          "min": 2115.9,
+          "max": 2649.1
+        },
+        "rare_iris_search_median_ms": {
+          "median": 4.76,
+          "min": 4.12,
+          "max": 5.64
+        },
+        "evaluation_events_per_second": {
+          "median": 9948.4,
+          "min": 6957.7,
+          "max": 10115.5
+        }
+      },
+      "runs": [
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": true,
+          "ingest_events_per_second": 2595.6,
+          "rare_iris_search_median_ms": 4.12,
+          "rules": 63,
+          "evaluation_events_per_second": 6957.7
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": true,
+          "ingest_events_per_second": 2649.1,
+          "rare_iris_search_median_ms": 5.64,
+          "rules": 63,
+          "evaluation_events_per_second": 9674.3
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": true,
+          "ingest_events_per_second": 2279.2,
+          "rare_iris_search_median_ms": 4.88,
+          "rules": 63,
+          "evaluation_events_per_second": 10097.4
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": true,
+          "ingest_events_per_second": 2647.3,
+          "rare_iris_search_median_ms": 4.28,
+          "rules": 63,
+          "evaluation_events_per_second": 10115.5
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": false,
+          "search_index": true,
+          "ingest_events_per_second": 2115.9,
+          "rare_iris_search_median_ms": 4.76,
+          "rules": 63,
+          "evaluation_events_per_second": 9948.4
+        }
+      ]
+    },
+    "indexed_with_integrity": {
+      "summary": {
+        "ingest_events_per_second": {
+          "median": 1832.9,
+          "min": 1623.6,
+          "max": 2062.7
+        },
+        "rare_iris_search_median_ms": {
+          "median": 4.74,
+          "min": 3.43,
+          "max": 5.21
+        },
+        "evaluation_events_per_second": {
+          "median": 8921.4,
+          "min": 8138.9,
+          "max": 10662.5
+        }
+      },
+      "runs": [
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": true,
+          "search_index": true,
+          "ingest_events_per_second": 2062.7,
+          "rare_iris_search_median_ms": 5.21,
+          "rules": 63,
+          "evaluation_events_per_second": 9907.9
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": true,
+          "search_index": true,
+          "ingest_events_per_second": 2043.9,
+          "rare_iris_search_median_ms": 3.43,
+          "rules": 63,
+          "evaluation_events_per_second": 10662.5
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": true,
+          "search_index": true,
+          "ingest_events_per_second": 1761.6,
+          "rare_iris_search_median_ms": 4.74,
+          "rules": 63,
+          "evaluation_events_per_second": 8921.4
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": true,
+          "search_index": true,
+          "ingest_events_per_second": 1623.6,
+          "rare_iris_search_median_ms": 4.39,
+          "rules": 63,
+          "evaluation_events_per_second": 8138.9
+        },
+        {
+          "platform": "Windows-11-10.0.26300-SP0",
+          "python": "3.14.10",
+          "events": 20000,
+          "integrity": true,
+          "search_index": true,
+          "ingest_events_per_second": 1832.9,
+          "rare_iris_search_median_ms": 4.79,
+          "rules": 63,
+          "evaluation_events_per_second": 8838.6
+        }
+      ]
+    }
+  },
+  "assistant": {
+    "summary": {
+      "medianMs": {
+        "median": 1.919,
+        "min": 1.709,
+        "max": 2.228
+      },
+      "p95Ms": {
+        "median": 3.626,
+        "min": 2.941,
+        "max": 5.35
+      },
+      "benchmarkProcessPeakRssMiB": {
+        "median": 73.2,
+        "min": 69.4,
+        "max": 73.4
+      }
+    },
+    "runs": [
+      {
+        "platform": "win32 10.0.26300",
+        "node": "v26.7.0",
+        "cpu": "AMD Ryzen 5 7235HS                             ",
+        "logicalProcessors": 8,
+        "ramGiB": 11.7,
+        "samples": 690,
+        "medianMs": 1.709,
+        "p95Ms": 2.941,
+        "benchmarkProcessPeakRssMiB": 73.4
+      },
+      {
+        "platform": "win32 10.0.26300",
+        "node": "v26.7.0",
+        "cpu": "AMD Ryzen 5 7235HS                             ",
+        "logicalProcessors": 8,
+        "ramGiB": 11.7,
+        "samples": 690,
+        "medianMs": 1.919,
+        "p95Ms": 5.35,
+        "benchmarkProcessPeakRssMiB": 73.2
+      },
+      {
+        "platform": "win32 10.0.26300",
+        "node": "v26.7.0",
+        "cpu": "AMD Ryzen 5 7235HS                             ",
+        "logicalProcessors": 8,
+        "ramGiB": 11.7,
+        "samples": 690,
+        "medianMs": 1.934,
+        "p95Ms": 3.626,
+        "benchmarkProcessPeakRssMiB": 73.2
+      },
+      {
+        "platform": "win32 10.0.26300",
+        "node": "v26.7.0",
+        "cpu": "AMD Ryzen 5 7235HS                             ",
+        "logicalProcessors": 8,
+        "ramGiB": 11.7,
+        "samples": 690,
+        "medianMs": 2.228,
+        "p95Ms": 4.35,
+        "benchmarkProcessPeakRssMiB": 73.2
+      },
+      {
+        "platform": "win32 10.0.26300",
+        "node": "v26.7.0",
+        "cpu": "AMD Ryzen 5 7235HS                             ",
+        "logicalProcessors": 8,
+        "ramGiB": 11.7,
+        "samples": 690,
+        "medianMs": 1.75,
+        "p95Ms": 2.965,
+        "benchmarkProcessPeakRssMiB": 69.4
+      }
+    ]
+  }
+}

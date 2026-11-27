@@ -1,6 +1,8 @@
 # NORTH documentation
 
 - [Windows preview, verification and clean VM checks](RELEASE-PREVIEW.md)
+- [Release preparation, PR triage, attestations and signing](RELEASE-PREPARATION.md)
+- [Project status](../STATUS.md) and [roadmap](../ROADMAP.md)
 - [Architecture](ARCHITECTURE.md) and [development setup](DEVELOPMENT.md)
 - [NORTH Assistant contributor guide](ASSISTANT.md)
 - [Passive Windows VM runbook](VM_RUNBOOK.md) and [recorded coverage](COVERAGE.md)

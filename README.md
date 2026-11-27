@@ -24,6 +24,14 @@ To run the synthetic developer demo, see [Development](docs/DEVELOPMENT.md). Sou
 | **Detections** | Review local findings and enabled rules, then inspect which event sources support each ATT&CK tactic. |
 | **NORTH Assistant** | Ask plain-language questions about loaded data and open cited evidence. It works offline. |
 
+## Current development build
+
+The current source adds **Verify my PC**, Windows posture and known-good
+comparisons, offline CloudTrail import, evidence-integrity checkpoints, and
+recorded detector validation. These features are available in source builds
+and are pending packaged release acceptance. See [status](STATUS.md) and
+[roadmap](ROADMAP.md) for the verification boundary.
+
 ## Try a short investigation
 
 1. Open **This computer** and check **Overview** to see which sources NORTH can read.
@@ -66,4 +74,4 @@ The desktop uses **Electron, React, and TypeScript**, with a bundled **Python** 
 
 Nearby devices come from observations available to the current collector or configured router. Source access and collector coverage affect what NORTH can show. A finding is a triage signal. Country attribution is approximate, and bytes per device require a source that measures them. The Windows preview is unsigned.
 
-[Privacy](PRIVACY.md) · [Security](SECURITY.md) · [Threat model](THREAT_MODEL.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Progress](PROGRESS.md)
+[Privacy](PRIVACY.md) · [Security](SECURITY.md) · [Threat model](THREAT_MODEL.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Progress](PROGRESS.md) · [Status](STATUS.md)
