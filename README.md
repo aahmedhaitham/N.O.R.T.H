@@ -12,6 +12,20 @@ NORTH is a Windows-first investigation console. **ATLAS** shows devices and obse
 2. Verify the SHA-256 checksum before running **NORTH-Setup-Windows-x64.exe**. This Windows preview is unsigned. [Preview release notes and verification](docs/RELEASE-PREVIEW.md)
 3. Open NORTH, finish or skip setup, and use **Ctrl+J** for NORTH Assistant. In **This computer**, NORTH uses local data and can offer monitoring when the account has access to Windows sources.
 
+### Download from Command Prompt
+
+Paste this single line into **Command Prompt**. It downloads the published
+Windows x64 preview and verifies the installer against that release's SHA-256
+file. It leaves the verified installer in Downloads for you to open.
+
+```cmd
+powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; $v='v0.3.0-preview'; $base='https://github.com/aahmedhaitham/NORTH-Releases/releases/download/'+$v; $dir=Join-Path $env:USERPROFILE ('Downloads\NORTH-'+$v); New-Item -ItemType Directory -Force -Path $dir | Out-Null; $name='NORTH-Setup-Windows-x64.exe'; $installer=Join-Path $dir $name; $sums=Join-Path $dir 'SHA256SUMS.txt'; $pending=$installer+'.download'; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/'+$name) -OutFile $pending; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/SHA256SUMS.txt') -OutFile $sums; $pattern='^([a-fA-F0-9]{64})  '+[regex]::Escape($name)+'$'; $lines=@(Select-String -LiteralPath $sums -Pattern $pattern); if($lines.Count -ne 1 -or (Get-FileHash -Algorithm SHA256 -LiteralPath $pending).Hash -ine $lines[0].Matches[0].Groups[1].Value){throw 'Installer checksum could not be verified. Discard the downloaded file.'}; Move-Item -LiteralPath $pending -Destination $installer -Force; Write-Output ('Verified installer: '+$installer)"
+```
+
+The installer is unsigned. Windows can still show a publisher or reputation
+warning. NORTH's built-in Assistant runs without Ollama. Ollama remains an
+optional integration for the separate FastAPI development workspace.
+
 To run the synthetic developer demo, see [Development](docs/DEVELOPMENT.md). Source builds and the optional hosted deployment have separate setup instructions.
 
 ## What you can do with NORTH
