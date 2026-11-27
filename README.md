@@ -4,7 +4,9 @@
 
 NORTH is a Windows-first investigation console. **ATLAS** shows devices and observed connections, **IRIS** searches evidence, and **ECHO** reconstructs investigations. Start in Simple mode for a plain-language overview, or switch to Analyst mode for rules, source coverage, and evidence details. NORTH Assistant answers from data already loaded in the app and works offline.
 
-<!-- Preview media slot for a screenshot or short GIF from a synthetic workspace. -->
+![NORTH Analyst overview with synthetic telemetry](docs/qa/north-sample-overview.png)
+
+_Analyst overview in the portfolio workspace with synthetic telemetry._
 
 ## Quick start
 
@@ -19,7 +21,7 @@ Windows x64 preview and verifies the installer against that release's SHA-256
 file. It leaves the verified installer in Downloads for you to open.
 
 ```cmd
-powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; $v='v0.3.0-preview'; $base='https://github.com/aahmedhaitham/NORTH-Releases/releases/download/'+$v; $dir=Join-Path $env:USERPROFILE ('Downloads\NORTH-'+$v); New-Item -ItemType Directory -Force -Path $dir | Out-Null; $name='NORTH-Setup-Windows-x64.exe'; $installer=Join-Path $dir $name; $sums=Join-Path $dir 'SHA256SUMS.txt'; $pending=$installer+'.download'; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/'+$name) -OutFile $pending; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/SHA256SUMS.txt') -OutFile $sums; $pattern='^([a-fA-F0-9]{64})  '+[regex]::Escape($name)+'$'; $lines=@(Select-String -LiteralPath $sums -Pattern $pattern); if($lines.Count -ne 1 -or (Get-FileHash -Algorithm SHA256 -LiteralPath $pending).Hash -ine $lines[0].Matches[0].Groups[1].Value){throw 'Installer checksum could not be verified. Discard the downloaded file.'}; Move-Item -LiteralPath $pending -Destination $installer -Force; Write-Output ('Verified installer: '+$installer)"
+powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; $v='v0.3.0-preview'; $base='https://github.com/aahmedhaitham/NORTH-Releases/releases/download/'+$v; $dir=Join-Path $env:USERPROFILE ('Downloads\NORTH-'+$v); New-Item -ItemType Directory -Force -Path $dir | Out-Null; $name='NORTH-Setup-Windows-x64.exe'; $installer=Join-Path $dir $name; $sums=Join-Path $dir 'SHA256SUMS.txt'; $pending=$installer+'.download'; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/'+$name) -OutFile $pending; Invoke-WebRequest -UseBasicParsing -Uri ($base+'/SHA256SUMS.txt') -OutFile $sums; $pattern='^([a-fA-F0-9]{64})  '+[regex]::Escape($name)+'$'; $lines=@(Select-String -LiteralPath $sums -Pattern $pattern); if($lines.Count -ne 1){throw 'Installer checksum entry could not be verified.'}; $sha=[Security.Cryptography.SHA256]::Create(); $stream=[IO.File]::OpenRead($pending); try{$actual=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','')}finally{$stream.Dispose();$sha.Dispose()}; if($actual -ine $lines[0].Matches[0].Groups[1].Value){throw 'Installer checksum could not be verified. Discard the downloaded file.'}; Move-Item -LiteralPath $pending -Destination $installer -Force; Write-Output ('Verified installer: '+$installer)"
 ```
 
 The installer is unsigned. Windows can still show a publisher or reputation
