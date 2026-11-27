@@ -445,3 +445,39 @@ def test_rule_finding_uses_learned_process_baseline(tmp_path):
     findings = [item for item in store.detection_findings() if item["rule_id"] == rule.id]
     assert [item["rarity"] for item in findings] == ["first seen", "previously observed"]
     assert all(item["confidence"] == "single observation" for item in findings)
+
+def test_recorded_sensor_check_requires_confirmation_and_does_not_write_findings(tmp_path):
+    store = Store(path=tmp_path / "sensor-check.sqlite3")
+    store.initialize()
+    event = records("detections_positive.json", "windows-service-installed")[0]
+    store.ingest_local_windows([event])
+    command = {"action": "verify-sensors"}
+    with pytest.raises(RuleError, match="Confirm"):
+        rule_workspace(store, command)
+    report = rule_workspace(store, {**command, "confirmed": True})
+    by_id = {row["id"]: row for row in report["results"]}
+    assert report["verified"] == 1
+    assert by_id["windows-service-installed"]["evidence_ids"] == (event["id"],)
+    assert by_id["scheduled-task-created"]["outcome"] == "source_unchecked"
+    assert store.detection_findings() == []
+    with store.connect() as db:
+        persisted, = db.execute("SELECT payload FROM local_sensor_verification").fetchone()
+    assert json.loads(persisted)["verified"] == 1
+    assert rule_workspace(store)["sensor_report"]["verified"] == 1
+
+@pytest.mark.parametrize(("source_state", "expected"), [
+    ("not_installed", "source_missing"),
+    ("access_denied", "access_denied"),
+    ("misconfigured", "logging_disabled"),
+    ("read_failed", "source_unavailable"),
+    ("unknown", "source_unchecked"),
+    ("collecting", "event_not_collected"),
+])
+def test_recorded_sensor_check_explains_missing_signal(source_state, expected):
+    from detection_rules import recorded_sensor_check
+
+    rule = next(candidate for candidate in bundled_rules() if candidate.id == "windows-service-installed")
+    result, = recorded_sensor_check([rule], set(), [], {"system": source_state})
+    assert result["outcome"] == expected
+    result, = recorded_sensor_check([rule], {rule.id}, [], {"system": source_state})
+    assert result["outcome"] == "rule_disabled"

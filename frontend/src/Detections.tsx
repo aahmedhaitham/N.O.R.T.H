@@ -14,7 +14,7 @@ type Rule = {
   id: string; title: string; severity: string; enabled: boolean; attack: string[];
   coverage: Coverage; requires: Requirement[];
 };
-type Catalog = { rules: Rule[]; techniques: Record<string, Coverage> };
+type Catalog = { rules: Rule[]; techniques: Record<string, Coverage>; sensor_report?: SensorReport | null };
 type TestResult = { evaluated_events: number; timed_out_rule_ids: string[]; matches: { evidence_ids: string[] }[];
   event_ids?: string[];
   trace?: { event_id: string; source_matches: boolean; selections: Record<string, boolean>; condition: boolean };
@@ -74,6 +74,63 @@ export function LocalCoverage({ open }: { open: () => void }) {
   </section>;
 }
 
+type SensorReport = { checked_at: string; sample_size: number; verified: number;
+  results: { id: string; title: string; reason: string; evidence_ids: string[] }[] };
+
+function SensorCheck({ saved }: { saved?: SensorReport | null }) {
+  const [preview, setPreview] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [current, setReport] = useState<SensorReport>();
+  const report = current ?? saved;
+  async function verify() {
+    setRunning(true);
+    setFailed(false);
+    try {
+      setReport(await readJson<SensorReport>('/api/local/rules', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify-sensors', confirmed: true }),
+      }));
+      setPreview(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setRunning(false);
+    }
+  }
+  function exportReport(result: SensorReport) {
+    const markdown = ['# NORTH recorded evidence check', '', result.checked_at,
+      '', `${result.verified} of ${result.results.length} rules matched ${result.sample_size} sampled local events.`,
+      '', ...result.results.map((item) => `- **${item.title}** · ${item.reason} ${item.evidence_ids.join(', ')}`),
+      '', 'Results apply to this stored sample.'].join('\n');
+    const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown' }));
+    const file = document.createElement('a');
+    file.href = url;
+    file.download = 'north-sensor-check.md';
+    file.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  return <section className="panel">
+    <h2>Sensor evidence check</h2>
+    <p>Check whether recent recorded Windows events satisfy five bundled rules.</p>
+    {!preview && <button type="button" onClick={() => setPreview(true)}>Preview check</button>}
+    {preview && <>
+      <p>NORTH will evaluate up to 500 stored Windows events and save a local report. This check reads existing evidence.</p>
+      <button type="button" disabled={running} onClick={() => void verify()}>Confirm and check</button>
+      <button type="button" disabled={running} onClick={() => setPreview(false)}>Cancel</button>
+    </>}
+    {running && <p role="status">Checking recorded evidence…</p>}
+    {failed && <p role="status">NORTH couldn’t check recorded evidence. Try again.</p>}
+    {report && <>
+      <p>{report.verified} of {report.results.length} rules matched · {report.sample_size} sampled events</p>
+      <ul>{report.results.map((item) => <li key={item.id}><strong>{item.title}</strong> · {item.reason}
+        {item.evidence_ids.map((id) => <FindingEvidence key={id} id={id} />)}
+      </li>)}</ul>
+      <button type="button" onClick={() => exportReport(report)}>Export Markdown</button>
+    </>}
+  </section>;
+}
+
 export function Detections() {
   const { catalog, failed, reload } = useCatalog();
   const [query, setQuery] = useState('');
@@ -126,6 +183,7 @@ export function Detections() {
   }
   return <main className="dashboard">
     <header className="dashboard-heading"><h1>{strings.detections}</h1></header>
+    <SensorCheck saved={catalog?.sensor_report} />
     <section className="panel">
       <h2>{strings.attCkCoverageMatrix}</h2>
       {catalog && <>

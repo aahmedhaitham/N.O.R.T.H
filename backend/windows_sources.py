@@ -67,7 +67,7 @@ def normalize_record(source, record):
 
 
 def collect_source(store, source):
-    state, count, _ = read_source_batch(store, source)
+    state, count, _, _ = read_source_batch(store, source)
     return state, count
 
 
@@ -99,7 +99,8 @@ def read_source_batch(store, source):
             raise ValueError("Invalid Windows source cursor ordering")
         store.ingest_local_windows(events, checkpoint=(offset, position))
         last_event_at = max((event["timestamp"] for event in events), default=None)
-    return state, len(records), last_event_at
+    service_state = batch.get("service_state")
+    return state, len(records), last_event_at, service_state if service_state in ("running", "stopped") else "unknown"
 
 
 def collect_tcp_sample(store):
@@ -158,12 +159,15 @@ SOURCE_FAILURES = {
 }
 
 
-def source_snapshot(previous, state, count, last_event_at, now, *, expect_activity=False):
+def source_snapshot(previous, state, count, last_event_at, now, *, expect_activity=False, service_state="unknown"):
     stamp = now.isoformat()
     last_event = max(filter(None, (last_event_at, previous.get("last_event_at"))), default=None)
     if state in SOURCE_FAILURES:
         health = "unavailable"
         reason = SOURCE_FAILURES[state]
+    elif service_state == "stopped":
+        health = "unavailable"
+        reason = "Windows reports that the Sysmon service is stopped."
     elif expect_activity and last_event and now - datetime.fromisoformat(last_event) >= timedelta(hours=1):
         health = "quiet"
         reason = "No new Sysmon event has been observed for an hour. Activity or logging may have changed."
@@ -172,7 +176,7 @@ def source_snapshot(previous, state, count, last_event_at, now, *, expect_activi
         reason = ""
     return {**previous, "state": state, "health": health, "reason": reason, "checked_at": stamp,
             "last_collected_at": stamp if count else previous.get("last_collected_at"),
-            "last_event_at": last_event}
+            "last_event_at": last_event, "service_state": service_state}
 
 
 class WindowsSources:
@@ -191,16 +195,17 @@ class WindowsSources:
         self.current[source] = {**self.current[source], **previous}
         while True:
             last_event_at = None
+            service_state = "unknown"
             try:
                 if source == "tcp":
                     state, count = await run_in_threadpool(collect_tcp_sample, self.store)
                 else:
-                    state, count, last_event_at = await run_in_threadpool(read_source_batch, self.store, source)
+                    state, count, last_event_at, service_state = await run_in_threadpool(read_source_batch, self.store, source)
             except (OSError, TypeError, ValueError, KeyError, AttributeError, sqlite3.Error, subprocess.SubprocessError):
                 state, count = "read_failed", 0
             previous = self.current[source]
             current = source_snapshot(previous, state, count, last_event_at, datetime.now(timezone.utc),
-                                      expect_activity=source == "sysmon")
+                                      expect_activity=source == "sysmon", service_state=service_state)
             self.current[source] = current
             try:
                 await run_in_threadpool(self.store.record_source_snapshot, source, current)

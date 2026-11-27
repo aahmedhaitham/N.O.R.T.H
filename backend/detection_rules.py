@@ -383,12 +383,61 @@ def active_rules(store):
     return tuple(rule for rule in rules if rule.id not in disabled)
 
 
+SENSOR_RULES = (
+    "discovery-utility-burst", "powershell-script-write", "scheduled-task-created",
+    "registry-run-value-set", "windows-service-installed",
+)
+SENSOR_LABELS = {
+    "verified": "A matching set of recorded events was found.",
+    "rule_disabled": "The rule is disabled.",
+    "source_missing": "A required event channel could not be found.",
+    "access_denied": "Windows denied access to a required event channel.",
+    "logging_disabled": "A required event channel is disabled.",
+    "source_unavailable": "The collector could not read a required channel.",
+    "source_unchecked": "A required channel has no recent source check.",
+    "event_not_collected": "A required event type is absent from the sample.",
+    "no_recorded_match": "The sampled events did not satisfy the rule.",
+    "evaluation_timeout": "Rule evaluation reached its time limit.",
+}
+
+
+def recorded_sensor_check(rules, disabled, events, health):
+    observed = {(event["source"], event["raw"]["event_type"]) for event in events}
+    results = []
+    for rule in rules:
+        evidence = ()
+        required = [value.split(":", 1) for value in rule.requires]
+        if rule.id in disabled:
+            outcome = "rule_disabled"
+        else:
+            try:
+                evidence = next(iter(rule.evidence(events)), ())
+            except TimeoutError:
+                outcome = "evaluation_timeout"
+            else:
+                if evidence:
+                    outcome = "verified"
+                else:
+                    states = {health.get(source, "unknown") for source, _ in required}
+                    failures = (("not_installed", "source_missing"), ("access_denied", "access_denied"),
+                                ("misconfigured", "logging_disabled"), ("read_failed", "source_unavailable"),
+                                ("unknown", "source_unchecked"))
+                    outcome = next((reason for state, reason in failures if state in states), None)
+                    if outcome is None:
+                        outcome = "event_not_collected" if any(
+                            (source, int(kind)) not in observed for source, kind in required
+                        ) else "no_recorded_match"
+        results.append({"id": rule.id, "title": rule.title, "outcome": outcome,
+                        "reason": SENSOR_LABELS[outcome], "evidence_ids": evidence})
+    return results
+
+
 def rule_workspace(store, command=None, *, now=None, source_checks=None):
     """Manage local rules and report coverage supported by observed event types."""
     now = now or datetime.now(timezone.utc)
     command = {} if command is None else command
     action = command.get("action") if isinstance(command, dict) else None
-    if action not in (None, "import", "toggle", "test") or (action is None and command != {}):
+    if action not in (None, "import", "toggle", "test", "verify-sensors") or (action is None and command != {}):
         raise RuleError("Unknown rule action")
     with store.connect() as db:
         if action in ("import", "toggle"):
@@ -428,6 +477,18 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
                   if now - datetime.fromisoformat(checked_at) <= timedelta(minutes=2)}
         observed = {f"{source}:{kind}" for source, kind in
                     db.execute("SELECT source, kind FROM local_observed_event_types")}
+    if action == "verify-sensors":
+        if command.get("confirmed") is not True:
+            raise RuleError("Confirm the recorded evidence check")
+        events = [event_contract(event) for event in store.local_windows_events(limit=500)]
+        results = recorded_sensor_check([known[identity] for identity in SENSOR_RULES], disabled, events, health)
+        report = {"checked_at": now.isoformat(), "sample_size": len(events), "results": results,
+                  "verified": sum(result["outcome"] == "verified" for result in results)}
+        with store.connect() as db:
+            db.execute("INSERT INTO local_sensor_verification (payload) VALUES (?)", (json.dumps(report),))
+            db.execute("DELETE FROM local_sensor_verification WHERE id NOT IN "
+                       "(SELECT id FROM local_sensor_verification ORDER BY id DESC LIMIT 20)")
+        return report
     if action == "test":
         rule = known[identity]
         events = recent_detection_events(store, 500)
@@ -496,7 +557,9 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
         entries.append({"id": rule.id, "title": rule.title, "severity": rule.severity, "enabled": enabled,
                         "attack": rule.tags, "coverage": ("blind", "unchecked", "partly", "covered")[coverage],
                         "requires": requirements})
-    return {"rules": entries,
+    with store.connect() as db:
+        latest_report = db.execute("SELECT payload FROM local_sensor_verification ORDER BY id DESC LIMIT 1").fetchone()
+    return {"rules": entries, "sensor_report": json.loads(latest_report[0]) if latest_report else None,
             "techniques": {tag: ("blind", "unchecked", "partly", "covered")[level] for tag, level in sorted(techniques.items())}}
 
 

@@ -344,3 +344,14 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 #### Needs manual verification
 
 - Check that the local Windows source monitor displays a finding for an observed source failure and records recovery when that source becomes readable again. Validate the quiet threshold on a real workstation before interpreting its frequency.
+
+### Feature completion M2 — recorded evidence check
+
+- Detections previews a read-only check and requires explicit confirmation. It tests five bundled rules against up to 500 locally recorded Windows events, explains missing evidence, links real stored event IDs, saves the last 20 reports and supports Markdown export. Reopening Detections shows the latest saved report. The check writes no detection findings.
+- The existing Windows watcher now observes the standard Sysmon service names. Stopped service state is reported separately from quiet event activity, and unknown service state does not imply missing Sysmon.
+- Verified: backend pytest (191 passed, 2 subtests), desktop test (28 passed), cloud Worker and GeoIP tests (3 passed), desktop UI build (passed), and Windows source reader PowerShell syntax.
+- Recorded matches establish rule behavior on the local sample. Active persistence simulations, live coverage promotion and general audit-policy drift remain open.
+
+#### Needs manual verification
+
+- In the desktop, confirm that preview, report reload, evidence links and Markdown export work with recorded Windows events. Confirm the Sysmon service-state display and finding behavior using existing Windows observations.

@@ -173,6 +173,11 @@ class Store:
                     )
                     """)
                 db.execute("""
+                    CREATE TABLE IF NOT EXISTS local_sensor_verification (
+                        id INTEGER PRIMARY KEY, payload TEXT NOT NULL
+                    )
+                    """)
+                db.execute("""
                     CREATE TABLE IF NOT EXISTS local_source_snapshots (
                         source TEXT PRIMARY KEY, payload TEXT NOT NULL
                     )

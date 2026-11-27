@@ -66,5 +66,13 @@ try {
         $state = 'not_installed'
     } else { throw }
 }
+$serviceState = 'unknown'
+if ($Source -eq 'sysmon') {
+    $services = @(Get-Service -Name 'Sysmon','Sysmon64' -ErrorAction SilentlyContinue)
+    if ($services.Status -contains 'Running') { $serviceState = 'running' }
+    elseif ($services.Count -and @($services | Where-Object Status -ne 'Stopped').Count -eq 0) {
+        $serviceState = 'stopped'
+    }
+}
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-ConvertTo-Json -InputObject @{ state = $state; position = $position; events = $events } -Depth 5 -Compress
+ConvertTo-Json -InputObject @{ state = $state; position = $position; events = $events; service_state = $serviceState } -Depth 5 -Compress
