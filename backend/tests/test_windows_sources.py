@@ -181,3 +181,19 @@ def test_passive_source_health_tracks_quiet_failure_and_recovery(tmp_path):
     assert store.source_snapshot("sysmon")["health"] == "observed"
     assert len(store.detection_findings()) == 2
     assert source_snapshot(observed, "no_data", 0, None, recovered_at)["health"] == "observed"
+
+def test_recorded_windows_audit_policy_change_links_evidence_once(tmp_path):
+    store = Store(path=tmp_path / "audit-policy.sqlite3")
+    store.initialize()
+    record = sample()
+    record.update(event_id=4719, fields={"AuditPolicyChanges": "synthetic change"})
+    from windows_sources import normalize_record
+
+    event = normalize_record("security", record)
+    store.ingest_local_windows([event])
+    assert consume_detection_queue(store, bundled_rules()) == 1
+    finding, = store.detection_findings()
+    assert finding["rule_id"] == "windows-audit-policy-change"
+    assert finding["evidence_ids"] == [event["id"]]
+    assert store.local_evidence(event["id"])["raw"]["AuditPolicyChanges"] == "synthetic change"
+    assert consume_detection_queue(store, bundled_rules()) == 0

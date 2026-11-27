@@ -355,3 +355,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 #### Needs manual verification
 
 - In the desktop, confirm that preview, report reload, evidence links and Markdown export work with recorded Windows events. Confirm the Sysmon service-state display and finding behavior using existing Windows observations.
+
+### M2 — audit-policy monitoring
+
+- The passive Windows Security collector records audit-policy change event 4719 and links it to a local review finding. The change is evidence of policy activity and does not establish which logging capabilities remain available.
+- Verified: 192 backend tests, 2 subtests, 28 desktop tests and 3 cloud tests passed. The UI built with the existing bundle-size warning.
+- M2 remains partially complete. The live simulation and verified-coverage tier are open. Desktop and live Windows observations remain unverified.

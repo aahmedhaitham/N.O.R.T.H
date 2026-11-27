@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $definition = switch ($Source) {
     'sysmon' { @{ Log = 'Microsoft-Windows-Sysmon/Operational'; Ids = @(1,3,7,8,10,11,13,22) } }
-    'security' { @{ Log = 'Security'; Ids = @(1102,4624,4625,4688,4698,4720,4732) } }
+    'security' { @{ Log = 'Security'; Ids = @(1102,4624,4625,4688,4698,4719,4720,4732) } }
     'system' { @{ Log = 'System'; Ids = @(104,7045) } }
     'powershell' { @{ Log = 'Microsoft-Windows-PowerShell/Operational'; Ids = @(4104) } }
     'defender' { @{ Log = 'Microsoft-Windows-Windows Defender/Operational'; Ids = @(1116,1117,1118,1119,5001,5007) } }
@@ -14,7 +14,7 @@ $definition = switch ($Source) {
 $allowedFields = @('Image','ImageLoaded','ProcessGuid','ProcessId','CommandLine','ParentProcessGuid',
     'ParentImage','ParentProcessName','GrantedAccess','ParentCommandLine','User','TargetImage','TargetFilename','TargetObject','QueryName','SourceImage',
     'NewProcessName','NewProcessId','TargetUserName','TargetDomainName','TargetUserSid','TargetSid','MemberSid','IpAddress','IpPort',
-    'TaskName','ServiceName','ImagePath','ScriptBlockId','Path','Threat Name','Detection ID',
+    'SubcategoryGuid','AuditPolicyChanges','TaskName','ServiceName','ImagePath','ScriptBlockId','Path','Threat Name','Detection ID',
     'Initiated','DestinationIp','DestinationPort','Protocol','LogonType')
 
 function Read-Records([string]$Query, [int]$Limit, [switch]$Oldest) {

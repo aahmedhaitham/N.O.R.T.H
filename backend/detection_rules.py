@@ -696,6 +696,15 @@ def consume_detection_queue(store, rules, *, now=None, learning_hours=24):
                       "falsepositives": ("A randomized MAC address or a different network can cause this.",)}
                      for event in projected if event["id"] in identities and event["source"] == "neighbor"]
         matches.extend(findings_from_matches(neighbors, projected))
+        policy_changes = [
+            {"rule_id": "windows-audit-policy-change", "title": "Windows audit policy changed",
+             "severity": "low", "attack": (), "evidence_ids": (event["id"],),
+             "plain_summary": "Windows recorded an audit-policy change. Check whether it affects the events NORTH can collect.",
+             "what_to_do": "Compare the event with approved policy changes."}
+            for event in projected if event["id"] in identities
+            and event["source"] == "security" and event["raw"]["event_type"] == 4719
+        ]
+        matches.extend(findings_from_matches(policy_changes, projected))
         if limited or result["timed_out_rule_ids"]:
             logging.getLogger(__name__).warning("Detection batch limits reached: context_limited=%s timed_out_rules=%d",
                                                 limited, len(result["timed_out_rule_ids"]))
