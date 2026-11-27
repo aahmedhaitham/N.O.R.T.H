@@ -39,7 +39,7 @@ def test_offline_cloudtrail_import_is_local_and_deduplicated(tmp_path, compresse
     assert event["cloudtrail"] == {
         "event_source": "signin.amazonaws.com", "event_name": "ConsoleLogin",
         "identity_type": "IAMUser", "identity_arn": "arn:aws:iam::111122223333:user/fixture",
-        "region": "us-east-1", "error_code": "AccessDenied",
+        "region": "us-east-1", "error_code": "AccessDenied", "outcome": "error",
     }
     assert event["network"]["src"]["ip"] == "192.0.2.10"
     assert "synthetic-" not in json.dumps(stored)
@@ -59,3 +59,28 @@ def test_cloudtrail_rejects_invalid_and_oversized_exports(tmp_path, monkeypatch)
     source.write_bytes(gzip.compress(b"x" * 129))
     with pytest.raises(ImportError, match="expanded"):
         read_export(source)
+
+def test_cloudtrail_import_runs_rules_and_keeps_baseline_within_imported_history(tmp_path):
+    from cloudtrail import coverage_summary
+
+    source = tmp_path / "fixture.json"
+    store = Store(path=tmp_path / "events.sqlite3")
+    store.initialize()
+    first = fixture()["Records"][0]
+    first.update(eventSource="iam.amazonaws.com", eventName="CreateAccessKey")
+    del first["errorCode"]
+    source.write_text(json.dumps({"Records": [first]}))
+    report = import_export(store, source)
+    assert report["findings"] == 1
+    assert store.detection_findings()[0]["rule_id"] == "cloudtrail-access-key-created"
+
+    second = dict(first, eventID="12345678-0000-4000-8000-123456789abd", eventName="ListRoles",
+                  sourceIPAddress="192.0.2.11", awsRegion="eu-west-1")
+    source.write_text(json.dumps({"Records": [second]}))
+    assert import_export(store, source)["findings"] == 2
+    assert import_export(store, source)["findings"] == 0
+    assert coverage_summary(store)["regions"] == ["eu-west-1", "us-east-1"]
+    assert coverage_summary(store)["records"] == 2
+    assert {row["rule_id"] for row in store.detection_findings()} == {
+        "cloudtrail-access-key-created", "cloudtrail-first-seen-region", "cloudtrail-first-seen-source-address",
+    }

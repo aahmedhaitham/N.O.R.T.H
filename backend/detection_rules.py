@@ -26,6 +26,12 @@ from windows_sources import FIXES
 
 
 FIELDS = {
+    "CloudService": "cloudtrail.event_source", "CloudAction": "cloudtrail.event_name",
+    "CloudIdentityType": "cloudtrail.identity_type", "CloudIdentityArn": "cloudtrail.identity_arn",
+    "CloudOutcome": "cloudtrail.outcome", "CloudLogin": "cloudtrail.login", "CloudMfa": "cloudtrail.mfa",
+    "CloudDefenseDisabled": "cloudtrail.defense_disabled",
+    "CloudAdminPolicy": "cloudtrail.admin_policy", "CloudWorldIngress": "cloudtrail.world_ingress",
+    "CloudPublicAccess": "cloudtrail.public_access",
     "Image": "process.path", "ProcessName": "process.name", "ParentImage": "process.parent_path",
     "CommandLine": "process.cmdline", "ParentCommandLine": "process.parent_cmdline",
     "TargetFilename": "file.path", "TargetObject": "registry.target", "QueryName": "dns.query",
@@ -454,7 +460,7 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
             if any(rule.id in known for rule in imported):
                 raise RuleError("A rule ID already exists")
             for rule in imported:
-                if not rule.requires or any(not re.fullmatch(r"(sysmon|security|system|powershell|defender|journalctl):[0-9]{1,6}", need)
+                if not rule.requires or any(not re.fullmatch(r"(sysmon|security|system|powershell|defender|journalctl|cloudtrail):[0-9]{1,6}", need)
                                             for need in rule.requires):
                     raise RuleError("Use supported source:event-id requirements")
             db.execute("INSERT INTO local_custom_rules VALUES (?, ?)", (hashlib.sha256(source.encode()).hexdigest(), source))
@@ -530,6 +536,10 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
                 check.get("problem"), "read_failed")
 
     def requirement(value):
+        if value.startswith("cloudtrail:"):
+            return {"id": value, "state": "Imported sample only" if value in observed else "No export observed",
+                    "source_state": "imported" if value in observed else "unknown",
+                    "fix": "Import a CloudTrail export for the relevant regions and time period."}
         source, _, _ = value.partition(":")
         state = health.get(source, "unknown")
         if state == "access_denied":
@@ -540,7 +550,8 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
             detail = {"not_installed": "Source not installed", "misconfigured": "Source misconfigured",
                       "read_failed": "Source read failed", "unknown": "No recent source check"}.get(state, "Source unavailable")
         return {"id": value, "state": detail, "source_state": state,
-                "fix": FIXES.get(source, "Check whether the collector can read OpenSSH journal events.")}
+                "fix": FIXES.get(source, "Import a CloudTrail export that covers the relevant time and region." if source == "cloudtrail" else
+                                 "Check whether the collector can read OpenSSH journal events.")}
 
     with store.connect() as db:
         latest_report = db.execute("SELECT payload FROM local_sensor_verification ORDER BY id DESC LIMIT 1").fetchone()
@@ -562,7 +573,7 @@ def rule_workspace(store, command=None, *, now=None, source_checks=None):
         if enabled:
             if requirements and confirmed == len(requirements):
                 coverage = 4 if rule.id in verified else 3
-            elif confirmed or any(need["state"] in ("Can’t determine (needs admin)", "Event type unconfirmed")
+            elif confirmed or any(need["state"] in ("Can’t determine (needs admin)", "Event type unconfirmed", "Imported sample only")
                                   for need in requirements):
                 coverage = 2
             elif any(need["source_state"] == "unknown" for need in requirements):

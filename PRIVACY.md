@@ -25,3 +25,7 @@ While posture checks are enabled in the visible local dashboard, NORTH reads sel
 The posture panel displays readable Defender exclusions locally. NORTH persists keyed digests for comparing exclusion changes. Confirmed repairs save a local audit journal and the setting values needed for undo.
 
 Verify my PC keeps the latest 20 local reports and the baseline selected by the user in desktop user data. Snapshot comparisons use hashes of bounded observations. Reports show category-level changes and do not include raw startup entries, account names, or setting values from the snapshot reader.
+
+## Offline CloudTrail imports
+
+Imported CloudTrail evidence stays in the local database. NORTH keeps selected event metadata, including allowlisted identity ARNs and source addresses, and limited detection flags. Credential fields, session tokens, and original request payloads are excluded. Reports describe only the files imported into that database.

@@ -107,6 +107,21 @@ async def main():
         await self_test()
     elif sys.argv[1:] == ["--local-monitor"] and sys.platform == "win32":
         await collect_local()
+    elif sys.argv[1:] == ["--cloudtrail-workspace"]:
+        from cloudtrail import ImportError as CloudTrailImportError, coverage_summary, import_export
+
+        try:
+            body = sys.stdin.buffer.read(32_769)
+            if len(body) > 32_768:
+                raise CloudTrailImportError("The CloudTrail request is too large.")
+            command = json.loads(body)
+            store = Store(path=os.environ["NORTH_DB_PATH"])
+            await run_in_threadpool(store.initialize)
+            imported = await run_in_threadpool(import_export, store, command["path"]) if "path" in command else None
+            report = await run_in_threadpool(coverage_summary, store)
+            print(json.dumps({"coverage": report, "imported": imported}))
+        except CloudTrailImportError as error:
+            print(json.dumps({"detail": str(error)}))
     elif sys.argv[1:] == ["--rule-workspace"]:
         try:
             body = sys.stdin.buffer.read(200_001)
@@ -128,7 +143,7 @@ async def main():
     elif not sys.argv[1:]:
         await collect()
     else:
-        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings | --local-monitor (Windows) | --rule-workspace]")
+        raise SystemExit("Usage: NORTH Collector [--self-test | --evaluate-findings | --local-monitor (Windows) | --rule-workspace | --cloudtrail-workspace]")
 
 
 if __name__ == "__main__":

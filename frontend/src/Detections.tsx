@@ -74,6 +74,56 @@ export function LocalCoverage({ open }: { open: () => void }) {
   </section>;
 }
 
+type CloudTrailCoverage = { records: number; start: string | null; end: string | null;
+  regions: string[]; event_sources: string[]; dimensions_limited: boolean };
+type CloudTrailResponse = { coverage?: CloudTrailCoverage; cancelled?: boolean;
+  imported?: { inserted: number; findings: number } | null };
+
+function CloudTrailImport({ onImported }: { onImported: () => void }) {
+  const [coverage, setCoverage] = useState<CloudTrailCoverage>();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    const controller = new AbortController();
+    void readJson<CloudTrailResponse>('/api/local/cloudtrail', { signal: controller.signal })
+      .then((response) => { if (!controller.signal.aborted) setCoverage(response.coverage); })
+      .catch(() => { if (!controller.signal.aborted) setMessage("CloudTrail coverage could not be loaded."); });
+    return () => controller.abort();
+  }, []);
+  async function chooseFile() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const response = await readJson<CloudTrailResponse>('/api/local/cloudtrail', { method: 'POST' }, 180_000);
+      if (response.cancelled) return;
+      setCoverage(response.coverage);
+      if (response.imported) {
+        setMessage(`${response.imported.inserted} new events imported · ${response.imported.findings} findings matched.`);
+        onImported();
+      }
+    } catch {
+      setMessage('CloudTrail import did not complete. Use a valid JSON or gzip CloudTrail export of up to 8 MiB.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return <section className="panel">
+    <h2>AWS CloudTrail</h2>
+    <p>Analyze CloudTrail files on this PC. Coverage applies to imported records. Activity outside those files is unknown.</p>
+    <button type="button" disabled={busy} onClick={() => void chooseFile()}>
+      {busy ? 'Waiting for import…' : 'Choose CloudTrail export'}
+    </button>
+    {message && <p role="status">{message}</p>}
+    {coverage?.records ? <ul>
+      <li>Stored CloudTrail records: {coverage.records}</li>
+      <li>Recorded time range: {coverage.start} to {coverage.end}</li>
+      <li>Regions: {coverage.regions.join(', ') || 'Unavailable'}</li>
+      <li>Event sources: {coverage.event_sources.join(', ') || 'Unavailable'}</li>
+      {coverage.dimensions_limited && <li>Region or source lists have been shortened.</li>}
+    </ul> : <p>No imported CloudTrail records are shown.</p>}
+  </section>;
+}
+
 type SensorReport = { checked_at: string; sample_size: number; verified: number;
   results: { id: string; title: string; reason: string; evidence_ids: string[] }[] };
 
@@ -183,6 +233,7 @@ export function Detections() {
   }
   return <main className="dashboard">
     <header className="dashboard-heading"><h1>{strings.detections}</h1></header>
+    <CloudTrailImport onImported={reload} />
     <SensorCheck saved={catalog?.sensor_report} />
     <section className="panel">
       <h2>{strings.attCkCoverageMatrix}</h2>

@@ -130,6 +130,10 @@ def event_contract(event):
             "identity_arn": _text(fields.get("identityArn"), 512),
             "region": _text(fields.get("awsRegion"), 128),
             "error_code": _text(fields.get("errorCode"), 128),
+            **{key: _text(fields.get(raw), 16) for key, raw in (
+                ("outcome", "outcome"), ("login", "login"), ("mfa", "mfa"),
+                ("defense_disabled", "defenseDisabled"), ("admin_policy", "adminPolicy"), ("world_ingress", "worldIngress"), ("public_access", "publicAccess"),
+            ) if fields.get(raw)},
         }} if local_source == "cloudtrail" else {}),
         "dns": {"query": _text(fields.get("queryName"), 253)},
         **({"neighbor": {"interface": _text(fields.get("interface"), 256),

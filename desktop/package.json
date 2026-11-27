@@ -65,6 +65,7 @@
           "event_contract.py",
           "windows_sources.py",
           "detection_rules.py",
+          "cloudtrail.py",
           "rules.yaml",
           "network.py",
           "router_usage.py",

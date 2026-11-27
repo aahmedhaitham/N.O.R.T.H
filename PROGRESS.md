@@ -422,3 +422,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - The importer allowlists normalized fields and omits original request payloads, access-key fields and session tokens. It bounds file and decompressed size and record count. The normalized event contract exposes the CloudTrail event and identity metadata.
 - Verified: 196 backend tests, 2 subtests, 38 desktop tests, 3 cloud tests and the desktop UI build. Tests cover JSON and gzip, malformed and oversized data, sensitive field omission, normalization, duplicates and the local storage boundary.
 - M5 remains open for the desktop import flow, narrowly allowlisted request parameters, detection rules and fixtures, and coverage presentation.
+
+### M5 — desktop CloudTrail import and offline findings
+
+- Added the Windows desktop file picker in Detections. The application selects the file through a native dialog and imports into the local SQLite database. One transaction stores new records, import findings, and learned regions and addresses. The source list and date range cover stored imports only.
+- Added 12 CloudTrail rules and first-seen region and source-address findings against previously imported evidence. Rules use conservative structured flags for recognized administrator policy, GuardDuty disablement, explicit public S3 grants and IPv4 world ingress. Effective access, other ACL or policy shapes, missing exports, and activity outside the imported time range remain unknown.
+- Verified: 221 backend tests, 2 subtests, 38 desktop tests, 3 cloud tests, desktop UI build, and the source collector command against a temporary synthetic export and database. Each rule has checked positive and negative fixtures. The source collector smoke imported 3 events and created 3 findings.
+- Packaged desktop acceptance remains open. The optional IAM graph was deferred. Live AWS APIs and credentials are outside this offline workflow.

@@ -124,12 +124,43 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'north', privileges: {
   standard: true, secure: true, supportFetchAPI: true,
 } }]);
 
+let cloudtrailImportPending = false;
+async function cloudtrailRequest(request) {
+  if (request.method !== 'GET' && request.method !== 'POST') return new Response(null, { status: 405 });
+  if (request.method === 'POST' && request.headers.get('origin') !== 'north://app') {
+    return new Response(null, { status: 403 });
+  }
+  if (request.method === 'POST' && (cloudtrailImportPending || !activeWindow || activeWindow.isDestroyed())) {
+    return new Response(null, { status: 409 });
+  }
+  let filename;
+  const importing = request.method === 'POST';
+  if (importing) cloudtrailImportPending = true;
+  try {
+    if (importing) {
+      const result = await dialog.showOpenDialog(activeWindow, {
+        title: 'Choose a local CloudTrail export', properties: ['openFile'],
+        filters: [{ name: 'CloudTrail export', extensions: ['json', 'gz'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) return Response.json({ cancelled: true });
+      filename = result.filePaths[0];
+    }
+    const response = await localFindings.cloudtrail(filename);
+    return Response.json(response, { status: response.detail ? 422 : 200 });
+  } catch {
+    return Response.json({ detail: 'NORTH could not open the local CloudTrail importer.' }, { status: 503 });
+  } finally {
+    if (importing) cloudtrailImportPending = false;
+  }
+}
+
 async function handleLocalRequest(request, api, origin) {
   const url = new URL(request.url);
   if (url.hostname !== 'app') return new Response(null, { status: 404 });
   if (url.pathname === '/api/desktop/remote-locations') return desktopLocations(request);
   if (url.pathname.startsWith('/api/desktop/capture/')) return packetCapture(request);
   if (url.pathname.startsWith('/api/desktop/collector/')) return collectorInstall(request, origin, api);
+  if (api === localWorkspace && url.pathname === '/api/local/cloudtrail') return cloudtrailRequest(request);
   if (api === localWorkspace && url.pathname === '/api/local/verify-pc') return verifyPc(request);
   const repair = /^\/api\/local\/posture\/repair\/([a-z-]+)\/(enable|undo)$/.exec(url.pathname);
   if (api === localWorkspace && repair) return loggingRepair(request, repair[1], repair[2] === 'undo');

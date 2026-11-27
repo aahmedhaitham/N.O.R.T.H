@@ -22,10 +22,10 @@ function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedF
 
   const env = { ...process.env, NORTH_DB_PATH: dbPath, PYTHONNOUSERSITE: '1', PYTHONPATH: '' };
 
-  async function ruleRequest(command) {
-    const target = runtime('--rule-workspace');
+  async function ruleRequest(command, argument = '--rule-workspace') {
+    const target = runtime(argument);
     if (!target) throw new Error('Collector unavailable');
-    const checks = command === '{}' && sourceChecks ? await sourceChecks() : {};
+    const checks = argument === '--rule-workspace' && command === '{}' && sourceChecks ? await sourceChecks() : {};
     return new Promise((resolve, reject) => {
       const [file, args] = target;
       const worker = execFile(file, args, {
@@ -165,7 +165,8 @@ function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedF
           const { timestamp, host, process, destination, target, source, kind, raw } = JSON.parse(row.payload);
           const addresses = source === 'neighbor' ? raw?.addresses : undefined;
           const listener = source === 'windows_tcp' ? { address: raw?.LocalAddress, port: raw?.LocalPort } : undefined;
-          return Response.json({ id, timestamp, host, process: process || raw?.Image, destination, target, source, kind, addresses, listener });
+          const cloud = source === 'cloudtrail' ? { action: raw?.EventName, region: raw?.AwsRegion } : undefined;
+          return Response.json({ id, timestamp, host, process: process || raw?.Image, destination, target, source, kind, addresses, listener, cloud });
         }
       }
     } catch {
@@ -182,7 +183,9 @@ function makeLocalFindings({ root, data, launch = spawn, sourceChecks, packagedF
       })) ?? [];
   }
 
-  return { handle, stop, sourceHealth };
+  return { handle, stop, sourceHealth,
+    cloudtrail: (filename) => ruleRequest(JSON.stringify(filename ? { path: filename } : {}), '--cloudtrail-workspace') };
+
 }
 
 module.exports = { makeLocalFindings };

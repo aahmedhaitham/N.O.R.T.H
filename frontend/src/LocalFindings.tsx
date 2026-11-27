@@ -23,6 +23,7 @@ const findingRow = (finding: Finding) => ({ id: finding.id, label: finding.title
 type Evidence = {
   host: string; timestamp?: string; ts?: string; source?: string;
   process?: string | { path?: string }; destination?: string; target?: string;
+  cloud?: { action?: string; region?: string };
   addresses?: string[]; listener?: { address?: string; port?: string };
 };
 
@@ -48,7 +49,7 @@ export function FindingEvidence({ id }: { id: string }) {
     const endpoint = evidence.listener?.address && evidence.listener.port ?
       evidence.listener.address + ' · port ' + evidence.listener.port : undefined;
     return <p><strong>{evidence.host}</strong> · <TimeDisplay value={evidence.ts ?? evidence.timestamp} />
-      {[evidence.source, process, evidence.destination, evidence.target, endpoint, ...(evidence.addresses ?? [])].filter(Boolean).map((value, index) =>
+      {[evidence.source, process, evidence.destination, evidence.target, evidence.cloud?.action, evidence.cloud?.region, endpoint, ...(evidence.addresses ?? [])].filter(Boolean).map((value, index) =>
         <span key={index}> · <code>{value}</code></span>)}</p>;
   }
   return <div><button type="button" disabled={loading} onClick={() => void open()}>

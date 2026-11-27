@@ -1,0 +1,541 @@
+{
+  "cloudtrail-root-use": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000004",
+      "eventTime": "2026-01-15T12:00:04+00:00",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "ListUsers",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000005",
+      "eventTime": "2026-01-15T12:00:05+00:00",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "ListUsers",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000006",
+      "eventTime": "2026-01-15T12:00:06+00:00",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "ListUsers",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    }
+  ],
+  "cloudtrail-console-no-mfa": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000010",
+      "eventTime": "2026-01-15T12:00:10+00:00",
+      "eventSource": "signin.amazonaws.com",
+      "eventName": "ConsoleLogin",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "responseElements": {
+        "ConsoleLogin": "Failure"
+      },
+      "additionalEventData": {
+        "MFAUsed": "No"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000011",
+      "eventTime": "2026-01-15T12:00:11+00:00",
+      "eventSource": "signin.amazonaws.com",
+      "eventName": "ConsoleLogin",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "responseElements": {
+        "ConsoleLogin": "Success"
+      },
+      "additionalEventData": {
+        "MFAUsed": "Yes"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000012",
+      "eventTime": "2026-01-15T12:00:12+00:00",
+      "eventSource": "signin.amazonaws.com",
+      "eventName": "ConsoleLogin",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "responseElements": {
+        "ConsoleLogin": "Success"
+      },
+      "additionalEventData": {
+        "MFAUsed": null
+      }
+    }
+  ],
+  "cloudtrail-console-failures": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000022",
+      "eventTime": "2026-01-15T12:00:22+00:00",
+      "eventSource": "signin.amazonaws.com",
+      "eventName": "ConsoleLogin",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.11",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "responseElements": {
+        "ConsoleLogin": "Failure"
+      },
+      "additionalEventData": {
+        "MFAUsed": "No"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000023",
+      "eventTime": "2026-01-15T12:00:23+00:00",
+      "eventSource": "signin.amazonaws.com",
+      "eventName": "ConsoleLogin",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.12",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "responseElements": {
+        "ConsoleLogin": "Failure"
+      },
+      "additionalEventData": {
+        "MFAUsed": "No"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000024",
+      "eventTime": "2026-01-15T12:00:24+00:00",
+      "eventSource": "signin.amazonaws.com",
+      "eventName": "ConsoleLogin",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.13",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "responseElements": {
+        "ConsoleLogin": "Failure"
+      },
+      "additionalEventData": {
+        "MFAUsed": "No"
+      }
+    }
+  ],
+  "cloudtrail-logging-stopped": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000028",
+      "eventTime": "2026-01-15T12:00:28+00:00",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "DescribeSynthetic",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000029",
+      "eventTime": "2026-01-15T12:00:29+00:00",
+      "eventSource": "fixture.amazonaws.com",
+      "eventName": "StopLogging",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000030",
+      "eventTime": "2026-01-15T12:00:00+00:00",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "StopLogging",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "AccessDenied"
+    }
+  ],
+  "cloudtrail-trail-deleted": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000034",
+      "eventTime": "2026-01-15T12:00:04+00:00",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "DescribeSynthetic",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000035",
+      "eventTime": "2026-01-15T12:00:05+00:00",
+      "eventSource": "fixture.amazonaws.com",
+      "eventName": "DeleteTrail",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000036",
+      "eventTime": "2026-01-15T12:00:06+00:00",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "DeleteTrail",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "AccessDenied"
+    }
+  ],
+  "cloudtrail-trail-changed": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000040",
+      "eventTime": "2026-01-15T12:00:10+00:00",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "DescribeSynthetic",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000041",
+      "eventTime": "2026-01-15T12:00:11+00:00",
+      "eventSource": "fixture.amazonaws.com",
+      "eventName": "UpdateTrail",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000042",
+      "eventTime": "2026-01-15T12:00:12+00:00",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "UpdateTrail",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "AccessDenied"
+    }
+  ],
+  "cloudtrail-guardduty-changed": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000046",
+      "eventTime": "2026-01-15T12:00:16+00:00",
+      "eventSource": "guardduty.amazonaws.com",
+      "eventName": "UpdateDetector",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "requestParameters": {
+        "enable": true
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000047",
+      "eventTime": "2026-01-15T12:00:17+00:00",
+      "eventSource": "guardduty.amazonaws.com",
+      "eventName": "UpdateDetector",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000048",
+      "eventTime": "2026-01-15T12:00:18+00:00",
+      "eventSource": "guardduty.amazonaws.com",
+      "eventName": "DeleteDetector",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "Denied"
+    }
+  ],
+  "cloudtrail-config-stopped": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000052",
+      "eventTime": "2026-01-15T12:00:22+00:00",
+      "eventSource": "config.amazonaws.com",
+      "eventName": "DescribeSynthetic",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000053",
+      "eventTime": "2026-01-15T12:00:23+00:00",
+      "eventSource": "fixture.amazonaws.com",
+      "eventName": "StopConfigurationRecorder",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000054",
+      "eventTime": "2026-01-15T12:00:24+00:00",
+      "eventSource": "config.amazonaws.com",
+      "eventName": "StopConfigurationRecorder",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "AccessDenied"
+    }
+  ],
+  "cloudtrail-access-key-created": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000058",
+      "eventTime": "2026-01-15T12:00:28+00:00",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "DescribeSynthetic",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000059",
+      "eventTime": "2026-01-15T12:00:29+00:00",
+      "eventSource": "fixture.amazonaws.com",
+      "eventName": "CreateAccessKey",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000060",
+      "eventTime": "2026-01-15T12:00:00+00:00",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateAccessKey",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "AccessDenied"
+    }
+  ],
+  "cloudtrail-admin-policy": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000064",
+      "eventTime": "2026-01-15T12:00:04+00:00",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "AttachUserPolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "requestParameters": {
+        "policyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000065",
+      "eventTime": "2026-01-15T12:00:05+00:00",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "AttachRolePolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "Denied",
+      "requestParameters": {
+        "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000066",
+      "eventTime": "2026-01-15T12:00:06+00:00",
+      "eventSource": "fixture.amazonaws.com",
+      "eventName": "AttachRolePolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      }
+    }
+  ],
+  "cloudtrail-public-bucket-policy": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000070",
+      "eventTime": "2026-01-15T12:00:10+00:00",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketAcl",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "requestParameters": {
+        "x-amz-acl": "private"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000071",
+      "eventTime": "2026-01-15T12:00:11+00:00",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketPolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "requestParameters": {
+        "bucketPolicy": {
+          "Statement": {
+            "Effect": "Deny",
+            "Principal": "*"
+          }
+        }
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000072",
+      "eventTime": "2026-01-15T12:00:12+00:00",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketPolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "Denied",
+      "requestParameters": {
+        "bucketPolicy": {
+          "Statement": {
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject"
+          }
+        }
+      }
+    }
+  ],
+  "cloudtrail-world-ingress": [
+    {
+      "eventID": "10000000-0000-4000-8000-000000000076",
+      "eventTime": "2026-01-15T12:00:16+00:00",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "AuthorizeSecurityGroupIngress",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "requestParameters": {
+        "cidrIp": "192.0.2.0/24"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000077",
+      "eventTime": "2026-01-15T12:00:17+00:00",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "RevokeSecurityGroupIngress",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "requestParameters": {
+        "cidrIp": "0.0.0.0/0"
+      }
+    },
+    {
+      "eventID": "10000000-0000-4000-8000-000000000078",
+      "eventTime": "2026-01-15T12:00:18+00:00",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "AuthorizeSecurityGroupIngress",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/fixture"
+      },
+      "errorCode": "Denied",
+      "requestParameters": {
+        "cidrIp": "0.0.0.0/0"
+      }
+    }
+  ]
+}

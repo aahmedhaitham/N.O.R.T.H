@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from cloud_sync import build_snapshot
+from cloudtrail import normalize as normalize_cloudtrail
 
 from detection_rules import (
     RuleError, active_rules, bundled_rules, condition_predicate, consume_detection_queue, evaluate_rules, field_predicate,
@@ -26,7 +27,7 @@ def records(name, rule_id=None):
     fixture = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
     if isinstance(fixture, dict):
         fixture = fixture[rule_id] if rule_id else [item for group in fixture.values() for item in group]
-    return [normalize_record(item["source"], item) if "event_id" in item else normalize(item) for item in fixture]
+    return [normalize_record(item["source"], item) if "event_id" in item else normalize_cloudtrail(item) if "eventID" in item else normalize(item) for item in fixture]
 
 
 @pytest.mark.parametrize("rule", bundled_rules(), ids=lambda rule: rule.id)
@@ -503,3 +504,13 @@ def test_sensor_coverage_needs_fresh_source_and_independent_finding(tmp_path):
     assert coverage(later) == "covered"
     rule_workspace(store, {"action": "toggle", "id": "windows-service-installed", "enabled": False}, now=now)
     assert coverage(now) != "verified"
+
+@pytest.mark.parametrize(
+    "rule", [rule for rule in bundled_rules() if rule.logsource.get("source") == "cloudtrail"], ids=lambda rule: rule.id,
+)
+def test_cloudtrail_fixture_scenarios(rule):
+    positives = [event_contract(item) for item in records(rule.fixtures["positive"], rule.id)]
+    negatives = [event_contract(item) for item in records(rule.fixtures["negative"], rule.id)]
+    assert len(negatives) >= 3
+    assert len(rule.evidence(positives)) == 3
+    assert not rule.evidence(negatives)
