@@ -388,3 +388,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - The posture panel polls every five minutes while enabled on the visible dashboard. It compares the new statuses with the previous local snapshot, including across app sessions. A change to unknown can indicate a change in access.
 - Verified: 193 backend tests, 2 subtests, 30 desktop tests, 3 cloud tests, and the desktop UI build. The Windows reader returned all 25 results (17 pass, 2 fail, 6 unknown).
 - M3 remains open. Pending update and OS support details, richer Defender evidence, confirmed repair actions with audit logging and undo, and the packaged Windows walkthrough are pending.
+
+### M3 — Windows Update and Defender details
+
+- Added a separate read-only posture details request with cached pending updates, recent successful update history, last Defender scan, and a bounded detection count. Windows Update is queried offline. An unavailable details reader leaves the main 25 posture checks usable.
+- Added sourced Windows 11 Home and Pro lifecycle dates for known builds. Other editions and builds remain unknown.
+- Verified: 193 backend tests, 2 subtests, 31 desktop tests, 3 cloud tests and the desktop UI build. A local Windows run returned six structured fields. Individual Windows values and the packaged UI remain unverified.
+- M3 remains open for confirmed repairs, audit logging and undo, the Defender quick-scan action, and exclusion-level drift. No Windows settings were changed during verification.

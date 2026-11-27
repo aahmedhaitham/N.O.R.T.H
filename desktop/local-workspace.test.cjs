@@ -179,3 +179,25 @@ test('posture history compares prior local results across instances', async (t) 
     at: second, states: { 'firewall-public': 'unknown' },
   });
 });
+
+test('posture details validates counts, maps known servicing dates and isolates reader failure', async () => {
+  const request = new Request('north://app/api/local/posture/details');
+  const workspace = makeLocalWorkspace('tools', async (file) => {
+    assert.equal(path.basename(file), 'Read-NorthPostureDetails.ps1');
+    return { pending_updates: 0, recent_defender_detections: 51, last_update_at: 'bad date',
+      last_scan_at: '2026-11-27T12:00:00Z', windows_edition: 'Professional', windows_build: '26200' };
+  });
+  const data = await (await workspace(request)).json();
+  assert.equal(data.pending_updates, 0);
+  assert.equal(data.recent_defender_detections, null);
+  assert.equal(data.last_update_at, null);
+  assert.equal(data.last_scan_at, '2026-11-27T12:00:00.000Z');
+  assert.equal(data.support_end, '2027-10-12');
+
+  const partial = makeLocalWorkspace('tools', async (file) => {
+    if (file.endsWith('Details.ps1')) throw new Error('Unavailable');
+    return { checks: [] };
+  });
+  assert.equal((await (await partial(request)).json()).state, 'unavailable');
+  assert.equal((await (await partial(new Request('north://app/api/local/posture'))).json()).state, 'ready');
+});

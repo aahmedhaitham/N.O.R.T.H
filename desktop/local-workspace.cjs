@@ -1,3 +1,4 @@
+const servicing = require('./windows-servicing.json');
 const { execFile } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const { hostname, networkInterfaces } = require('node:os');
@@ -110,6 +111,22 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
       : undefined;
     return { checks, score, drift };
   }, { checks: [] });
+  const postureDetails = cachedReader(async () => {
+    const details = await read(path.join(scripts, 'Read-NorthPostureDetails.ps1'), []);
+    const count = (value, limit) => Number.isInteger(value) && value >= 0 && value <= limit ? value : null;
+    const date = (value) => typeof value === 'string' && value.length <= 40 && Number.isFinite(Date.parse(value))
+      ? new Date(value).toISOString() : null;
+    const end = ['Core', 'Professional'].includes(details?.windows_edition) && /^\d{5}$/.test(details?.windows_build)
+      ? servicing.homeAndPro[details.windows_build] : null;
+    return {
+      support_end: end ?? null,
+      support_reviewed: end ? servicing.reviewed : null,
+      pending_updates: count(details?.pending_updates, 100_000),
+      recent_defender_detections: count(details?.recent_defender_detections, 50),
+      last_update_at: date(details?.last_update_at),
+      last_scan_at: date(details?.last_scan_at),
+    };
+  }, {});
   const tcp = cachedReader(async () => {
     const sample = await read(path.join(scripts, 'Read-NorthTcp.ps1'), []);
     if (!sample || !Array.isArray(sample.rows) || sample.rows.length > 200 ||
@@ -190,6 +207,7 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
       return reviewed ? Response.json({ reviewed }) : Response.json({ detail: 'Device not found' }, { status: 404 });
     }
     if (request.method !== 'GET') return Response.json({ detail: 'Method unavailable' }, { status: 405 });
+    if (pathname === '/api/local/posture/details') return Response.json(await postureDetails(), { headers: { 'Cache-Control': 'no-store' } });
     if (pathname === '/api/local/posture') return Response.json(await posture(), { headers: { 'Cache-Control': 'no-store' } });
     if (pathname === '/api/local/tcp') return Response.json(await tcp(), { headers: { 'Cache-Control': 'no-store' } });
     if (pathname === '/api/cases') return Response.json(scriptCases((await sysmon()).events));

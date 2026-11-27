@@ -1,0 +1,11 @@
+{
+  "source": "https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information",
+  "reviewed": "2026-11-27",
+  "homeAndPro": {
+    "22631": "2025-11-11",
+    "26100": "2026-10-13",
+    "26200": "2027-10-12",
+    "26300": "2028-10-10",
+    "28000": "2028-03-14"
+  }
+}

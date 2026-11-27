@@ -7,9 +7,13 @@ type Drift = { compared_at?: string | null; unavailable?: boolean;
   changes?: { id: string; title: string; before: Check['status']; after: Check['status'] }[] };
 type Snapshot = { state: string; checks: Check[]; updated_at: string | null; score: { earned: number; possible: number; unknown: number }; drift?: Drift };
 
+type Details = { state: string; pending_updates?: number | null; recent_defender_detections?: number | null;
+  support_end?: string | null; support_reviewed?: string | null; last_update_at?: string | null; last_scan_at?: string | null };
+
 const labels = { pass: 'Observed', fail: 'Needs a look', unknown: 'Could not check' };
 
 export function Posture() {
+  const [details, setDetails] = useState<Details>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [running, setRunning] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -21,6 +25,9 @@ export function Posture() {
     const stop = pollVisible(async () => {
       setRunning(true);
       setFailed(false);
+      const readDetails = readJson<Details>('/api/local/posture/details', { signal: controller.signal }, 15_000)
+        .then((value) => { if (!controller.signal.aborted) setDetails(value); })
+        .catch(() => { if (!controller.signal.aborted) setDetails({ state: 'unavailable' }); });
       try {
         const result = await readJson<Snapshot>('/api/local/posture', { signal: controller.signal }, 15_000);
         if (result.state !== 'ready' || !Array.isArray(result.checks)) throw new Error();
@@ -29,6 +36,7 @@ export function Posture() {
         if (!controller.signal.aborted) setFailed(true);
       } finally {
         if (!controller.signal.aborted) setRunning(false);
+        await readDetails;
       }
     }, 300_000);
     return () => { controller.abort(); stop(); };
@@ -52,6 +60,21 @@ export function Posture() {
       {snapshot.drift.changes?.length ? <ul>{snapshot.drift.changes.map((change) => <li key={change.id}>
         {change.title} · {labels[change.before]} → {labels[change.after]}
       </li>)}</ul> : <p>None of the check results changed.</p>}
+    </details>}
+    {details && <details>
+      <summary>Windows Update and Defender details</summary>
+      <ul>
+        <li>Windows servicing end date: {details.support_end
+          ? `${details.support_end} (reference checked ${details.support_reviewed})` : 'Could not check'}</li>
+        <li>Pending updates in the local cache: {details.pending_updates ?? 'Could not check'}</li>
+        <li>Last successful update in recent history: {details.last_update_at
+          ? new Date(details.last_update_at).toLocaleString() : 'Could not check'}</li>
+        <li>Last Defender scan: {details.last_scan_at
+          ? new Date(details.last_scan_at).toLocaleString() : 'Could not check'}</li>
+        <li>Defender detection events in the last week: {details.recent_defender_detections === 50
+          ? '50 or more' : details.recent_defender_detections ?? 'Could not check'}</li>
+      </ul>
+      <p>Cached update results depend on the most recent Windows Update scan.</p>
     </details>}
     {snapshot && <ul>{snapshot.checks.map((item) => <li key={item.id}>
       <strong>{item.title}</strong> · {labels[item.status]}. {item.reason}{item.status === 'fail' && ` · ${item.weight} points missed`}
