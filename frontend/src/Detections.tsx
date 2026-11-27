@@ -80,6 +80,7 @@ type CloudTrailResponse = { coverage?: CloudTrailCoverage; cancelled?: boolean;
   imported?: { inserted: number; findings: number } | null };
 
 function CloudTrailImport({ onImported }: { onImported: () => void }) {
+  const publish = useAssistant()?.publish;
   const [coverage, setCoverage] = useState<CloudTrailCoverage>();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -90,6 +91,12 @@ function CloudTrailImport({ onImported }: { onImported: () => void }) {
       .catch(() => { if (!controller.signal.aborted) setMessage("CloudTrail coverage could not be loaded."); });
     return () => controller.abort();
   }, []);
+  useEffect(() => {
+    if (!coverage) return;
+    publish?.('cloudtrail', [{ id: 'import', label: 'Local CloudTrail import coverage',
+      detail: coverage.records ? `${coverage.records} records · ${coverage.start} through ${coverage.end} · Regions: ${coverage.regions.join(', ') || 'unknown'}`.slice(0, 512)
+        : 'No CloudTrail records have been imported.' }]);
+  }, [coverage, publish]);
   async function chooseFile() {
     setBusy(true);
     setMessage('');
@@ -107,7 +114,7 @@ function CloudTrailImport({ onImported }: { onImported: () => void }) {
       setBusy(false);
     }
   }
-  return <section className="panel">
+  return <section className="panel" id="assistant-cloudtrail-import" tabIndex={-1}>
     <h2>AWS CloudTrail</h2>
     <p>Analyze CloudTrail files on this PC. Coverage applies to imported records. Activity outside those files is unknown.</p>
     <button type="button" disabled={busy} onClick={() => void chooseFile()}>
@@ -128,11 +135,16 @@ type SensorReport = { checked_at: string; sample_size: number; verified: number;
   results: { id: string; title: string; reason: string; evidence_ids: string[] }[] };
 
 function SensorCheck({ saved }: { saved?: SensorReport | null }) {
+  const publish = useAssistant()?.publish;
   const [preview, setPreview] = useState(false);
   const [running, setRunning] = useState(false);
   const [failed, setFailed] = useState(false);
   const [current, setReport] = useState<SensorReport>();
   const report = current ?? saved;
+  useEffect(() => {
+    if (report) publish?.('sensor', [{ id: 'check', label: 'Sensor evidence check', timestamp: report.checked_at,
+      detail: `${report.verified} of ${report.results.length} rules matched ${report.sample_size} sampled events.` }]);
+  }, [report, publish]);
   async function verify() {
     setRunning(true);
     setFailed(false);
@@ -160,7 +172,7 @@ function SensorCheck({ saved }: { saved?: SensorReport | null }) {
     file.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  return <section className="panel">
+  return <section className="panel" id="assistant-sensor-check" tabIndex={-1}>
     <h2>Sensor evidence check</h2>
     <p>Check whether recent recorded Windows events satisfy five bundled rules.</p>
     {!preview && <button type="button" onClick={() => setPreview(true)}>Preview check</button>}

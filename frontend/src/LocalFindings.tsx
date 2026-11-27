@@ -19,6 +19,7 @@ type Feed = {
 const isSevere = (finding: Finding) => finding.severity === 'critical' || finding.severity === 'high';
 const findingRow = (finding: Finding) => ({ id: finding.id, label: finding.title, detail: finding.plain_summary,
   timestamp: finding.last_seen, status: finding.status, guidance: finding.what_to_do,
+  score: `Severity: ${finding.severity} · Confidence: ${finding.confidence === "unrated" ? "unknown" : finding.confidence ?? "unknown"} · Baseline rarity: ${finding.rarity ?? "unknown"}`,
   alternative: finding.falsepositives?.[0], terms: [finding.severity, finding.rule_id ?? '', ...(finding.attack ?? [])] });
 type Evidence = {
   host: string; timestamp?: string; ts?: string; source?: string;

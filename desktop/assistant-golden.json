@@ -65,6 +65,58 @@
         "detail": "Event type unconfirmed",
         "guidance": "Check event collection."
       }
+    ],
+    "verification": {
+      "at": "2026-01-15T12:00:00Z",
+      "counts": [
+        1,
+        2,
+        3
+      ]
+    },
+    "verificationRows": [
+      {
+        "id": "report",
+        "label": "PC report"
+      },
+      {
+        "id": "changes",
+        "label": "Known-good comparison",
+        "detail": "Two snapshot observations changed."
+      }
+    ],
+    "posture": [
+      {
+        "id": "score",
+        "label": "Posture score",
+        "detail": "3 of 5 available points."
+      },
+      {
+        "id": "defender-realtime",
+        "label": "Real-time protection",
+        "status": "fail",
+        "detail": "Observed off.",
+        "guidance": "Review Windows Security."
+      },
+      {
+        "id": "updates",
+        "label": "Windows Update cache",
+        "detail": "Two updates pending."
+      }
+    ],
+    "sensor": [
+      {
+        "id": "check",
+        "label": "Sensor report",
+        "detail": "One stored rule match."
+      }
+    ],
+    "cloudtrail": [
+      {
+        "id": "import",
+        "label": "CloudTrail import",
+        "detail": "Three events imported."
+      }
     ]
   },
   "cases": [
@@ -75,7 +127,8 @@
       "area": "cases",
       "evidence": [
         "case-1"
-      ]
+      ],
+      "without_verification": true
     },
     {
       "id": "attention",
@@ -352,6 +405,88 @@
       "area": "cases",
       "evidence": [
         "case-1"
+      ]
+    },
+    {
+      "id": "verify-pc",
+      "question": "Verify my PC",
+      "text": "Latest Verify my PC report (2026-01-15T12:00:00Z): 1 checked and fine, 2 need a look, 3 could not be checked.",
+      "area": "verification",
+      "evidence": [
+        "report"
+      ]
+    },
+    {
+      "id": "sensor-self-test",
+      "question": "Run the sensor self-test",
+      "text": "Open Detections and confirm the recorded evidence check there.",
+      "area": "sensor",
+      "evidence": [
+        "check"
+      ]
+    },
+    {
+      "id": "known-good-changes",
+      "question": "What changed since known good?",
+      "text": "Recorded differences from the selected known-good snapshot.",
+      "area": "verification",
+      "evidence": [
+        "changes"
+      ]
+    },
+    {
+      "id": "posture-score",
+      "question": "What is my security score and why did it drop?",
+      "text": "The latest posture score counts only readable checks.",
+      "area": "posture",
+      "evidence": [
+        "score",
+        "defender-realtime"
+      ]
+    },
+    {
+      "id": "defender-state",
+      "question": "Is Defender on?",
+      "text": "Defender status from the latest local posture check.",
+      "area": "posture",
+      "evidence": [
+        "defender-realtime"
+      ]
+    },
+    {
+      "id": "updates-pending",
+      "question": "Are updates pending?",
+      "text": "Pending updates from the local Windows Update cache.",
+      "area": "posture",
+      "evidence": [
+        "updates"
+      ]
+    },
+    {
+      "id": "posture-fix",
+      "question": "How do I fix a failing check?",
+      "text": "Review the failed settings and use the posture panel to preview an available repair.",
+      "area": "posture",
+      "evidence": [
+        "defender-realtime"
+      ]
+    },
+    {
+      "id": "cloudtrail-summary",
+      "question": "Summarize my CloudTrail import",
+      "text": "Coverage of CloudTrail events imported on this PC.",
+      "area": "cloudtrail",
+      "evidence": [
+        "import"
+      ]
+    },
+    {
+      "id": "finding-score",
+      "question": "Explain a finding’s score",
+      "text": "Finding severity, evidence confidence and baseline rarity.",
+      "area": "findings",
+      "evidence": [
+        "finding-1"
       ]
     }
   ]

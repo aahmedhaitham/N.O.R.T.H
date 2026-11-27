@@ -4,7 +4,7 @@ import type { ChartEvent } from './OverviewCharts';
 
 type Selection = { area: Area; row: Row };
 type AssistantState = {
-  publishVerification: (summary?: VerificationSummary) => void;
+  publishVerification: (summary?: VerificationSummary, rows?: Row[]) => void;
   read: () => Snapshot; publish: (area: Area, rows: Row[]) => void;
   events: (rows: ChartEvent[]) => void; event: (id: string) => ChartEvent | undefined;
   locations: (rows: Record<string, string>) => void;
@@ -29,8 +29,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         return country ? { ...row, country, terms: [...(row.terms ?? []), country] } : row;
       }),
     }),
-    publishVerification: (summary?: VerificationSummary) => { data.current.verification = summary; },
-    publish: (area: Area, rows: Row[]) => { data.current[area] = rows.slice(0, 200); },
+    publishVerification: (summary?: VerificationSummary, rows?: Row[]) => {
+      data.current.verification = summary; data.current.verificationRows = rows;
+    },
+    publish: (area: Area, rows: Row[]) => {
+      if (area === 'verification') data.current.verificationRows = rows.slice(0, 200);
+      else data.current[area] = rows.slice(0, 200);
+    },
     events: (rows: ChartEvent[]) => {
       const incoming = new Map(rows.slice(0, 100).map((event) => [event.id, event]));
       const next = new Map([...incoming, ...[...evidence.current].filter(([id]) => !incoming.has(id))]);
@@ -66,7 +71,7 @@ export function Explain({ area, row, question }: Selection & { question: string 
 
 type Entry = { question: string; result: ReturnType<typeof answer> };
 const page: Record<Area, string> = {
-  devices: 'ATLAS', connections: 'ATLAS', cases: 'ECHO', events: 'IRIS', findings: 'Overview', coverage: 'Detections',
+  devices: 'ATLAS', connections: 'ATLAS', cases: 'ECHO', events: 'IRIS', findings: 'Overview', coverage: 'Detections', verification: 'Overview', posture: 'Overview', sensor: 'Detections', cloudtrail: 'Detections',
 };
 const shortened = (value: string) => value.length > 180 ? value.slice(0, 177) + '…' : value;
 export function AssistantPanel({ cite }: { cite: (area: Area, row: Row) => void }) {

@@ -39,7 +39,7 @@ test('structured slots and context preserve exact evidence and do not substitute
   assert.equal(answer('Could this finding be a false positive?', {}, context).rows[0].detail, rows.findings[0].alternative);
 });
 
-test('at least 150 distinct phrasings route to the exact expected intent', () => {
+test('canonical examples and normalization variants retain expected routing', () => {
   const cases = new Map();
   for (const { id, examples: [question] } of intents) {
     cases.set(question, id);
@@ -71,8 +71,9 @@ test('answers preserve bounded evidence as text and never call fetch', (t) => {
 
 test('every intent preserves its approved answer text and evidence IDs on the fixed snapshot', () => {
   assert.deepEqual(golden.cases.map(({ id }) => id).sort(), intents.map(({ id }) => id).sort());
-  for (const { id, question, text, area, evidence } of golden.cases) {
-    const result = answer(question, golden.snapshot, undefined, Date.parse(golden.now));
+  for (const { id, question, text, area, evidence, without_verification } of golden.cases) {
+    const snapshot = without_verification ? { ...golden.snapshot, verification: undefined } : golden.snapshot;
+    const result = answer(question, snapshot, undefined, Date.parse(golden.now));
     assert.equal(result.text, text, id);
     assert.equal(result.area ?? null, area, id);
     assert.deepEqual(result.rows.map((row) => row.id), evidence, id);
@@ -90,5 +91,14 @@ test('deterministic malformed question corpus always returns bounded results', (
     }
     const result = answer(query, rows);
     assert.ok(result.rows.length <= 8 && result.suggestions.length <= 3);
+  }
+});
+
+test('M8 development phrases route to their local evidence intents', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const phrases = JSON.parse(fs.readFileSync(path.join(__dirname, 'assistant-routing-dev.json'), 'utf8').replace(/^\uFEFF/, ''));
+  for (const [question, expected] of Object.entries(phrases)) {
+    assert.equal(matchIntent(question).intent?.id, expected, question);
   }
 });

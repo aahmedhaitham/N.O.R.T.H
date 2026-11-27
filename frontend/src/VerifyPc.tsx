@@ -27,8 +27,14 @@ export function VerifyPc({ openDetections }: { openDetections?: () => void }) {
     return () => controller.abort();
   }, []);
   useEffect(() => {
-    publish?.(latest ? { at: latest.at, counts: keys.map((key) => latest.verdict[key].length) } : undefined);
-    return () => publish?.(undefined);
+    const changes = latest?.verdict.review.filter((row) => row.id.startsWith('snapshot-')) ?? [];
+    publish?.(latest ? { at: latest.at, counts: keys.map((key) => latest.verdict[key].length) } : undefined, latest ? [
+      { id: 'report', label: 'Verify my PC report', timestamp: latest.at },
+      { id: 'changes', label: 'Known-good comparison', timestamp: latest.at,
+        detail: !latest.compared_at ? 'This report has no known-good comparison.'
+          : changes.length ? changes.map((row) => row.title + ' · ' + row.detail).join(' ').slice(0, 512)
+            : 'No changes were reported among the categories that could be compared.' },
+    ] : undefined);
   }, [latest, publish]);
 
   async function submit(baseline?: string) {
@@ -57,7 +63,7 @@ export function VerifyPc({ openDetections }: { openDetections?: () => void }) {
     file.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  return <section className="panel" id="north-verify-pc">
+  return <section className="panel" id="assistant-verification-report" tabIndex={-1}>
     <h2>Verify my PC</h2>
     <p>Check local sources, Windows settings, changes and findings.</p>
     <button type="button" disabled={!!busy} onClick={() => void submit()}>Run PC check</button>
@@ -67,7 +73,7 @@ export function VerifyPc({ openDetections }: { openDetections?: () => void }) {
       <label>Snapshot timeline <select value={report.id} onChange={(event) => { setSelected(event.target.value); setConfirm(false); }}>
         {history!.timeline.map((run) => <option key={run.id} value={run.id}>{when(run.at)}</option>)}
       </select></label>
-      <p>{history?.baseline ? 'Known-good snapshot: ' + when(history.baseline) : 'No known-good snapshot selected.'}</p>
+      <p id="assistant-verification-changes" tabIndex={-1}>{history?.baseline ? 'Known-good snapshot: ' + when(history.baseline) : 'No known-good snapshot selected.'}</p>
       <p>{report.readable} of 11 snapshot categories were readable. A baseline uses only readable categories.</p>
       {report.compared_at && <p>This report compared with {when(report.compared_at)}.</p>}
       {report.readable > 0 && <button type="button" disabled={!!busy} onClick={() => setConfirm(true)}>Mark this snapshot as known good</button>}

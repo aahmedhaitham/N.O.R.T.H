@@ -1,0 +1,224 @@
+{
+  "correct": 87,
+  "total": 120,
+  "accuracy": 0.725,
+  "perIntent": [
+    {
+      "intent": "verify-pc",
+      "matched": 9,
+      "total": 12
+    },
+    {
+      "intent": "sensor-self-test",
+      "matched": 7,
+      "total": 12
+    },
+    {
+      "intent": "known-good-changes",
+      "matched": 9,
+      "total": 12
+    },
+    {
+      "intent": "posture-score",
+      "matched": 9,
+      "total": 12
+    },
+    {
+      "intent": "defender-state",
+      "matched": 9,
+      "total": 12
+    },
+    {
+      "intent": "updates-pending",
+      "matched": 11,
+      "total": 12
+    },
+    {
+      "intent": "posture-fix",
+      "matched": 11,
+      "total": 12
+    },
+    {
+      "intent": "blind",
+      "matched": 8,
+      "total": 12
+    },
+    {
+      "intent": "cloudtrail-summary",
+      "matched": 7,
+      "total": 12
+    },
+    {
+      "intent": "finding-score",
+      "matched": 7,
+      "total": 12
+    }
+  ],
+  "misroutes": [
+    {
+      "expected": "verify-pc",
+      "actual": null,
+      "phrase": "Verify the host I'm working on"
+    },
+    {
+      "expected": "verify-pc",
+      "actual": "status",
+      "phrase": "Give my machine a health check"
+    },
+    {
+      "expected": "verify-pc",
+      "actual": null,
+      "phrase": "Gimme the verdict from that comptuer check"
+    },
+    {
+      "expected": "sensor-self-test",
+      "actual": null,
+      "phrase": "Validate log collection on this machine"
+    },
+    {
+      "expected": "sensor-self-test",
+      "actual": null,
+      "phrase": "Prove that NORTH has seen enough to match rules"
+    },
+    {
+      "expected": "sensor-self-test",
+      "actual": null,
+      "phrase": "Open the source evidence self-check"
+    },
+    {
+      "expected": "sensor-self-test",
+      "actual": null,
+      "phrase": "Can NORTH test itself with saved events?"
+    },
+    {
+      "expected": "sensor-self-test",
+      "actual": null,
+      "phrase": "Can I check the senosr signal real quick?"
+    },
+    {
+      "expected": "known-good-changes",
+      "actual": null,
+      "phrase": "Were any of the previously approved settings replaced?"
+    },
+    {
+      "expected": "known-good-changes",
+      "actual": "trust",
+      "phrase": "Can you compare today's settings to the trusted snapshot?"
+    },
+    {
+      "expected": "known-good-changes",
+      "actual": null,
+      "phrase": "Which basleine entries are off now?"
+    },
+    {
+      "expected": "posture-score",
+      "actual": null,
+      "phrase": "How much did failing Windows settings cost?"
+    },
+    {
+      "expected": "posture-score",
+      "actual": null,
+      "phrase": "Explain the weight of my posture failures"
+    },
+    {
+      "expected": "posture-score",
+      "actual": null,
+      "phrase": "Did that last check hit my postrue points?"
+    },
+    {
+      "expected": "defender-state",
+      "actual": null,
+      "phrase": "Show Defender's real-time setting"
+    },
+    {
+      "expected": "defender-state",
+      "actual": null,
+      "phrase": "Did Windows AV stop?"
+    },
+    {
+      "expected": "defender-state",
+      "actual": null,
+      "phrase": "Yo, is Defedner active in the saved results?"
+    },
+    {
+      "expected": "updates-pending",
+      "actual": null,
+      "phrase": "Any patch installs in the cahced queue?"
+    },
+    {
+      "expected": "posture-fix",
+      "actual": "next",
+      "phrase": "What's the next action for a Windows setting flagged failed?"
+    },
+    {
+      "expected": "blind",
+      "actual": null,
+      "phrase": "Any holes in the events the sensors can observe?"
+    },
+    {
+      "expected": "blind",
+      "actual": null,
+      "phrase": "Where are we missing detections because logs aren't read?"
+    },
+    {
+      "expected": "blind",
+      "actual": null,
+      "phrase": "Which Windows channels have no observed events?"
+    },
+    {
+      "expected": "blind",
+      "actual": null,
+      "phrase": "Got any bllind spots in the collector?"
+    },
+    {
+      "expected": "cloudtrail-summary",
+      "actual": "visibility",
+      "phrase": "Show the AWS audit export coverage on this computer"
+    },
+    {
+      "expected": "cloudtrail-summary",
+      "actual": "country",
+      "phrase": "Can I see the regions from the imported AWS logs?"
+    },
+    {
+      "expected": "cloudtrail-summary",
+      "actual": null,
+      "phrase": "What's the scope of the cloud audit records I imported?"
+    },
+    {
+      "expected": "cloudtrail-summary",
+      "actual": null,
+      "phrase": "Which portions of CloudTrail do I have locally?"
+    },
+    {
+      "expected": "cloudtrail-summary",
+      "actual": null,
+      "phrase": "How many days do these CluodTrail logs go back?"
+    },
+    {
+      "expected": "finding-score",
+      "actual": "explain-finding",
+      "phrase": "Explain the confidence attached to this finding"
+    },
+    {
+      "expected": "finding-score",
+      "actual": "attention",
+      "phrase": "How should I interpret this event's alert rating?"
+    },
+    {
+      "expected": "finding-score",
+      "actual": "attention",
+      "phrase": "Break down the grade on the alert"
+    },
+    {
+      "expected": "finding-score",
+      "actual": null,
+      "phrase": "What is the score on this observation telling me?"
+    },
+    {
+      "expected": "finding-score",
+      "actual": null,
+      "phrase": "How'd it decide the severtiy on this finding?"
+    }
+  ]
+}

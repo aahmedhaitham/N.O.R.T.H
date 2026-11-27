@@ -1,0 +1,22 @@
+{
+  "Verify the state of this desktop computer": "verify-pc",
+  "Local endpoint inspection report": "verify-pc",
+  "Test whether telemetry sensors detect activity": "sensor-self-test",
+  "Where can I validate the log collection pipeline?": "sensor-self-test",
+  "Compare my present snapshot with the saved baseline": "known-good-changes",
+  "Show differences since the reference configuration": "known-good-changes",
+  "Explain the posture grade for my Windows configuration": "posture-score",
+  "How many points did my settings lose?": "posture-score",
+  "Is Microsoft's antivirus protection enabled?": "defender-state",
+  "Did real-time protection get turned off?": "defender-state",
+  "Do I have any queued Windows patches?": "updates-pending",
+  "Is the update cache showing missing patches?": "updates-pending",
+  "How can I correct a failing posture setting?": "posture-fix",
+  "Where do I review Windows setting repairs?": "posture-fix",
+  "Which log sources can the collector not observe?": "blind",
+  "Show me where our monitoring visibility has gaps": "blind",
+  "Describe the scope of the imported AWS audit file": "cloudtrail-summary",
+  "How many events are in my CloudTrail export?": "cloudtrail-summary",
+  "How much confidence does this finding have?": "finding-score",
+  "What is this alert's rarity and severity?": "finding-score"
+}

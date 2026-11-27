@@ -452,3 +452,9 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - Offline dataset smoke: the downloaded 69,632-byte GPL-3.0 EVTX from dataset commit 4ceed2f4706daf601c212a8f91c113dd85349a2c produced 19 supported records, 4 skipped records, and a registry-run-value-set match under T1547.001. No rules timed out. The dataset and its provenance sidecar stayed in the ignored local folder.
 - Verified: 232 backend tests, 2 subtests, 39 desktop tests, 3 cloud tests, the UI build, PowerShell reader syntax, and the coverage claims checker. Unit tests exercised provenance, offline replay, and recorded-window evidence matching and removal.
 - Live detection validation remains not yet run. The tools consume recorded activity only. Exercise execution and attack automation are outside this implementation.
+
+### M8 — Assistant integration and held-out evaluation
+
+- Added nine local intents and extended the existing source-gap intent. The Assistant reads the same verification, posture, sensor report, coverage, finding and CloudTrail summaries as the views. Citations take users to the existing evidence and action panels. The Assistant does not run checks or repairs.
+- Golden answer and citation tests and a separate 20-phrase development set passed. The frozen 120-question held-out set routed 87 correctly (72.5%), declined 25 and chose an incorrect intent for 8. Per-intent results and each miss are in docs/assistant-routing-results.json.
+- Verified: 232 backend tests, 2 subtests, 40 desktop tests, 3 cloud tests and the desktop UI build. The packaged desktop citation and Simple-mode walkthrough remain unverified.

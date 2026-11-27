@@ -1,3 +1,4 @@
+import { useAssistant } from './Assistant';
 import { useEffect, useState } from 'react';
 import { pollVisible } from './pollVisible';
 import { readJson } from './readJson';
@@ -13,6 +14,7 @@ type Details = { state: string; pending_updates?: number | null; recent_defender
 const labels = { pass: 'Observed', fail: 'Needs a look', unknown: 'Could not check' };
 
 export function Posture() {
+  const publish = useAssistant()?.publish;
   const [details, setDetails] = useState<Details>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [running, setRunning] = useState(false);
@@ -41,6 +43,27 @@ export function Posture() {
     }, 300_000);
     return () => { controller.abort(); stop(); };
   }, [enabled]);
+
+  useEffect(() => {
+    if (!snapshot && !details) return;
+    const score = snapshot?.score;
+    const regressions = snapshot?.drift?.changes?.filter((change) => change.before === 'pass' && change.after === 'fail') ?? [];
+    const recentLoss = regressions.length ? ' Newly failed: ' + regressions.map((change) => change.title).join(', ') + '.' : '';
+    const rows = snapshot?.checks.map((item) => ({ id: item.id, label: item.title, status: item.status,
+      detail: item.reason, guidance: item.reason + ' Open Windows posture to review the setting.',
+      terms: [item.id], timestamp: snapshot.updated_at ?? undefined,
+    })) ?? [];
+    publish?.('posture', [
+      ...(score ? [{ id: 'score', label: 'Windows posture score', detail: score.possible
+        ? `${score.earned} of ${score.possible} available points · ${score.unknown} could not be scored.${recentLoss}`
+        : 'No readable settings were scored.', timestamp: snapshot?.updated_at ?? undefined }] : []),
+      ...(details ? [{ id: 'updates', label: 'Windows Update cache',
+        detail: details.pending_updates == null ? 'The local cache could not be checked.'
+          : `${details.pending_updates} pending updates in the local cache.` }] : []),
+      ...rows.map((row) => ({ ...row, detail: row.status === 'fail'
+        ? row.detail + ' · ' + snapshot?.checks.find((item) => item.id === row.id)?.weight + ' points missed' : row.detail })),
+    ]);
+  }, [snapshot, details, publish]);
 
   const [scanPending, setScanPending] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
@@ -75,7 +98,7 @@ export function Posture() {
     }
   }
 
-  return <section className="panel">
+  return <section className="panel" id="assistant-posture-panel" tabIndex={-1}>
     <h2>Windows posture</h2>
     <button type="button" onClick={() => { setRunning(false); setEnabled(!enabled); }}>
       {enabled ? 'Pause posture checks' : 'Start posture checks'}
@@ -87,7 +110,7 @@ export function Posture() {
     {running && <p role="status">Checking settingsâ€¦</p>}
     {!snapshot && !failed && <p>Read firewall, Defender and other Windows settings on this PC.</p>}
     {failed && <p role="status">Windows posture could not be read. Try again.</p>}
-    {snapshot && <p role="status">
+    {snapshot && <p role="status" id="assistant-posture-score" tabIndex={-1}>
       {snapshot.score.possible ? `Posture score: ${snapshot.score.earned} of ${snapshot.score.possible} available points.` : 'No score available yet.'}
       {' '}{snapshot.score.unknown} checks could not be scored.
     </p>}
@@ -98,7 +121,7 @@ export function Posture() {
         {change.title} Â· {labels[change.before]} â†’ {labels[change.after]}
       </li>)}</ul> : <p>None of the check results changed.</p>}
     </details>}
-    {details && <details>
+    {details && <details id="assistant-posture-updates" tabIndex={-1}>
       <summary>Windows Update and Defender details</summary>
       <ul>
         <li>Windows servicing end date: {details.support_end
@@ -124,7 +147,7 @@ export function Posture() {
         : <p>Defender returned no exclusions.</p>}
     </details>}
     {repairMessage && <p role="status">{repairMessage}</p>}
-    {snapshot && <ul>{snapshot.checks.map((item) => <li key={item.id}>
+    {snapshot && <ul>{snapshot.checks.map((item) => <li key={item.id} id={'assistant-posture-' + item.id} tabIndex={-1}>
       <strong>{item.title}</strong> Â· {labels[item.status]}. {item.reason}{item.status === 'fail' && ` Â· ${item.weight} points missed`}
       {['process-command-line', 'script-block', 'smbv1', 'firewall-domain', 'firewall-private', 'firewall-public', 'autorun-policy'].includes(item.id) && <>
         {' '}<button type="button" disabled={repairPending} onClick={() => void repair(item.id, 'enable')}>Preview repair</button>

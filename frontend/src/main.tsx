@@ -243,9 +243,11 @@ function Workspace({ source = null, openCollectors, controls, fleet, panel }: {
       setEvidenceTarget('iris-evidence-title');
       return;
     }
-    setView(area === 'findings' ? 'dashboard' : area === 'coverage' ? 'detections' : 'network');
+    setView(['findings', 'verification', 'posture'].includes(area) ? 'dashboard' :
+      ['coverage', 'sensor', 'cloudtrail'].includes(area) ? 'detections' : 'network');
     if (area === 'devices') setNetworkTarget(row.id.startsWith('new:') ? 'atlas-new-devices' : 'atlas-local-devices');
-    setEvidenceTarget('assistant-' + area + '-' + row.id);
+    const target = 'assistant-' + area + '-' + row.id;
+    setEvidenceTarget(area === 'posture' && !document.getElementById(target) ? 'assistant-posture-panel' : target);
   }
 
   useEffect(() => {
