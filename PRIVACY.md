@@ -17,3 +17,7 @@ When you connect the desktop to a cloud workspace, it contacts the HTTPS address
 ## Optional AI
 
 The local Ollama feature sends evidence-derived observations to the Ollama service you configure. If the workspace operator enables Workers AI, the cloud service sends generic event descriptions to Cloudflare to prioritize observations. This feature keeps raw logs, device addresses, hostnames, and evidence IDs out of the model input.
+
+## Windows posture
+
+While posture checks are enabled in the visible local dashboard, NORTH reads selected Windows settings and saves the timestamp and outcome of each check in the desktop user data folder. The latest snapshot supports comparison on the next check. Defender exclusion paths and local account details are omitted from this posture snapshot.

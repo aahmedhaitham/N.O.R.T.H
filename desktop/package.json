@@ -34,6 +34,7 @@
       "local-findings.cjs",
       "device-history.cjs",
       "listener-history.cjs",
+      "posture-history.cjs",
       "packet-capture.cjs",
       "collector-install.cjs",
       "preload.cjs",

@@ -81,6 +81,30 @@ $checks = @(
         !(Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
     }
 
+    Read-Check 'lsa-protection-policy' 'LSA protection explicitly configured' {
+        (Get-ItemPropertyValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa' 'RunAsPPL') -in @(1,2)
+    }
+    Read-Check 'credential-guard' 'Credential Guard running' {
+        $guard = Get-CimInstance -Namespace 'root\Microsoft\Windows\DeviceGuard' -ClassName Win32_DeviceGuard
+        if ($null -ne $guard.SecurityServicesRunning) { $guard.SecurityServicesRunning -contains 1 }
+    }
+    Read-Check 'autorun-policy' 'Computer AutoRun policy blocks all drive types' {
+        $flags = Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' 'NoDriveTypeAutoRun'
+        ($flags -band 255) -eq 255
+    }
+    Read-Check 'wsh-policy' 'Computer Windows Script Host disabled' {
+        (Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Windows Script Host\Settings' 'Enabled') -eq 0
+    }
+    Read-Check 'defender-behavior' 'Defender behavior monitoring enabled' { $defender.BehaviorMonitorEnabled }
+    Read-Check 'defender-on-access' 'Defender on-access protection enabled' { $defender.OnAccessProtectionEnabled }
+    Read-Check 'defender-exclusions' 'No exclusions returned by Defender preferences' {
+        $preferences = Get-MpPreference
+        if ($null -ne $preferences) {
+            $entries = @($preferences.ExclusionPath) + @($preferences.ExclusionProcess) + @($preferences.ExclusionExtension)
+            @($entries | Where-Object { $_ }).Count -eq 0
+        }
+    }
+
 )
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 ConvertTo-Json -InputObject @{checks=$checks} -Depth 4 -Compress

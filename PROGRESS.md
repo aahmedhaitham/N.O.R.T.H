@@ -381,3 +381,10 @@ The project owner confirmed live Google sign-in in the staging browser app and s
 - The local desktop API computes earned and available points using fixed weights. Unknown checks are excluded, duplicate IDs are rejected, and each failed check displays its point cost. The score summarizes checked settings.
 - Verified: 193 backend tests, 2 subtests, 29 desktop tests, 3 cloud tests and the desktop UI build. A direct local Windows reader run returned 18 results (14 pass, 4 unknown). The packaged desktop walkthrough remains unverified.
 - M3 remains open for the rest of the posture catalog, deeper Defender and Windows Update details, drift history, and confirmed fixes and undo.
+
+### M3 — expanded catalog and posture drift
+
+- Expanded to 25 read-only checks, including configured LSA protection, running Credential Guard, AutoRun and Script Host policies, and additional Defender checks. Defender exclusion checks summarize whether preferences returned exclusions without displaying their contents.
+- The posture panel polls every five minutes while enabled on the visible dashboard. It compares the new statuses with the previous local snapshot, including across app sessions. A change to unknown can indicate a change in access.
+- Verified: 193 backend tests, 2 subtests, 30 desktop tests, 3 cloud tests, and the desktop UI build. The Windows reader returned all 25 results (17 pass, 2 fail, 6 unknown).
+- M3 remains open. Pending update and OS support details, richer Defender evidence, confirmed repair actions with audit logging and undo, and the packaged Windows walkthrough are pending.

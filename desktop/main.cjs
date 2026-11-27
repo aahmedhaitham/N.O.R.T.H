@@ -8,6 +8,7 @@ const { makeCloudProxy } = require('./cloud-proxy.cjs');
 const { makeLocalWorkspace } = require('./local-workspace.cjs');
 const { makeLocalFindings } = require('./local-findings.cjs');
 const { deviceHistory } = require('./device-history.cjs');
+const { postureHistory } = require('./posture-history.cjs');
 const { listenerHistory } = require('./listener-history.cjs');
 const { makePacketCapture } = require('./packet-capture.cjs');
 const { makeCollectorInstall } = require('./collector-install.cjs');
@@ -41,7 +42,8 @@ const collectorInstall = makeCollectorInstall({
 });
 const localWorkspace = makeLocalWorkspace(scripts, undefined,
   deviceHistory(path.join(app.getPath('userData'), 'device-history.json')),
-  listenerHistory(path.join(app.getPath('userData'), 'listener-history.json')));
+  listenerHistory(path.join(app.getPath('userData'), 'listener-history.json')),
+  postureHistory(path.join(app.getPath('userData'), 'posture-history.json')));
 const localFindings = makeLocalFindings({ root: collectorRoot, data: app.getPath('userData'),
   sourceChecks: localWorkspace.sourceChecks, packagedFirst: app.isPackaged });
 const packetCapture = makePacketCapture({});

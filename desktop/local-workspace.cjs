@@ -78,7 +78,7 @@ function activity(events) {
   };
 }
 
-function makeLocalWorkspace(scripts, read = readScript, history, observeListeners) {
+function makeLocalWorkspace(scripts, read = readScript, history, observeListeners, observePosture) {
   const states = new Set(['Listen', 'Established', 'SynSent', 'SynReceived', 'CloseWait']);
   const postureWeights = {
     'firewall-domain': 3, 'firewall-private': 3, 'firewall-public': 3,
@@ -105,7 +105,10 @@ function makeLocalWorkspace(scripts, read = readScript, history, observeListener
         if (check.status === 'pass') score.earned += check.weight;
       }
     }
-    return { checks, score };
+    const drift = observePosture
+      ? await observePosture(checks, new Date().toISOString()).catch(() => ({ unavailable: true }))
+      : undefined;
+    return { checks, score, drift };
   }, { checks: [] });
   const tcp = cachedReader(async () => {
     const sample = await read(path.join(scripts, 'Read-NorthTcp.ps1'), []);

@@ -161,3 +161,21 @@ test('local posture preserves unknown checks and rejects malformed snapshots', a
     checks: [], state: 'unavailable', updated_at: null,
   });
 });
+
+test('posture history compares prior local results across instances', async (t) => {
+  const { postureHistory } = require('./posture-history.cjs');
+  const folder = await fs.mkdtemp(path.join(tmpdir(), 'north-posture-'));
+  t.after(() => fs.rm(folder, { recursive: true, force: true }));
+  const file = path.join(folder, 'posture.json');
+  const first = '2026-01-15T10:00:00Z';
+  const second = '2026-01-15T10:05:00Z';
+  const row = { id: 'firewall-public', title: 'Public firewall', status: 'pass' };
+  assert.deepEqual(await postureHistory(file)([row], first), { compared_at: null, changes: [] });
+  assert.deepEqual(await postureHistory(file)([{ ...row, status: 'unknown' }], second), {
+    compared_at: first,
+    changes: [{ id: row.id, title: row.title, before: 'pass', after: 'unknown' }],
+  });
+  assert.deepEqual(JSON.parse(await fs.readFile(file, 'utf8')), {
+    at: second, states: { 'firewall-public': 'unknown' },
+  });
+});
